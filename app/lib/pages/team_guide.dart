@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,6 +6,7 @@ import '../lab_icons.dart';
 import '../api.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../i18n.dart';
 
 /// 팀 화면 아래쪽 탭: 전략 가이드 / 약점·상성 분석
 final teamTabProvider = StateProvider<String>((ref) => 'guide');

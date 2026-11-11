@@ -1,8 +1,9 @@
 import 'dart:convert';
 
 import '../lab_icons.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../settings.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -13,6 +14,7 @@ import '../widgets.dart';
 import 'battle_preview.dart';
 import 'match_journal.dart';
 import 'team_switcher.dart';
+import '../i18n.dart';
 
 /// 상대 6마리 (포켓몬 목록의 항목 그대로 보관)
 class EnemyNotifier extends StateNotifier<List<Json>> {
@@ -61,6 +63,7 @@ final _confirmedLeadProvider = StateProvider<List<String>>((ref) => const []);
 final _lockedBringProvider = StateProvider<List<String>>((ref) => const []);
 
 final enemyAnalysisProvider = FutureProvider<Json?>((ref) async {
+  ref.watch(apiContextProvider);
   final enemy = ref.watch(enemyProvider);
   final team = ref.watch(teamProvider);
   final fmt = ref.watch(formatProvider);
@@ -79,6 +82,7 @@ final enemyAnalysisProvider = FutureProvider<Json?>((ref) async {
 
 /// 저장된 팀 각각을 이 상대에 붙였을 때의 선출 점수 (팀이 둘 이상일 때)
 final enemyCompareProvider = FutureProvider<List<Json>?>((ref) async {
+  ref.watch(apiContextProvider);
   final enemy = ref.watch(enemyProvider);
   final teams = ref.watch(teamListProvider);
   final fmt = ref.watch(formatProvider);

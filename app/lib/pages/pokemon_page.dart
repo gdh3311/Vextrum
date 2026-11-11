@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import '../lab_icons.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -13,6 +13,7 @@ import '../widgets.dart';
 import 'duel_dialog.dart';
 import 'pokemon_overview.dart';
 import 'team_page.dart';
+import '../i18n.dart';
 
 /// 포켓몬 연구실: 세트를 고르고 → 상대별 우열, 추천 파트너, 운용법, 채용 통계를 본다.
 class PokemonPage extends ConsumerStatefulWidget {
@@ -97,7 +98,7 @@ class _PokemonPageState extends ConsumerState<PokemonPage> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                                   content: Text('${d['ko'] ?? d['name']} — 팀에 추가했습니다'),
-                                  action: SnackBarAction(label: '팀 보기', onPressed: () => context.go('/team'))));
+                                  action: SnackBarAction(label: tr('팀 보기'), onPressed: () => context.go('/team'))));
                             }
                           },
                   )

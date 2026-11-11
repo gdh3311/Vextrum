@@ -1,7 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 
 import '../api.dart';
 import '../widgets.dart';
+import 'sim_insights.dart';
+import '../i18n.dart';
 
 class PartyEvaluationSummary extends StatelessWidget {
   final Json evaluation;
@@ -20,19 +22,20 @@ class PartyEvaluationSummary extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(
           stable
-              ? '팀마다 같은 상대 로스터를 만납니다. 하이퍼볼 CPU 기준으로 가장 어려웠던 전략의 승률이 높은 팀을 먼저 표시합니다.'
-              : '팀마다 같은 상대 로스터를 만납니다. 하이퍼볼 CPU 기준 최종 검증 승률이 높은 팀을 먼저 표시합니다.',
+              ? tr('팀마다 같은 상대 로스터를 만납니다. {} CPU 기준으로 가장 어려웠던 전략의 승률이 높은 팀을 먼저 표시합니다.')
+                  .replaceFirst('{}', tr(cpuLabels[evaluation['cpu']] ?? '하이퍼볼'))
+              : tr('팀마다 같은 상대 로스터를 만납니다. {} CPU 기준 최종 검증 승률이 높은 팀을 먼저 표시합니다.')
+                  .replaceFirst('{}', tr(cpuLabels[evaluation['cpu']] ?? '하이퍼볼')),
           style: Theme.of(context).textTheme.bodySmall,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
+        CandidateComparison(candidates),
+        const SizedBox(height: 6),
         for (final (i, team) in candidates.indexed)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: Wrap(spacing: 8, runSpacing: 3, children: [
-              Text("${i + 1}위 · ${team['name']}",
-                  style: Theme.of(context).textTheme.titleSmall),
-              Text(_comparison(team['simulation'] as Json)),
-            ]),
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Text("${i + 1}위 · ${team['name']} · ${_comparison(team['simulation'] as Json)}",
+                style: Theme.of(context).textTheme.bodySmall),
           ),
       ]),
     );
@@ -98,6 +101,14 @@ class PartySimulationResult extends StatelessWidget {
               '내 전략 전개 · ${strategyUse.map((s) => "${s['label']} ${s['runs']}/$runs판").join(' · ')}'),
         Text(
             "최저 승률 · ${weakest['label']} ${_winRate(weakest)} (${weakest['runs']}판)"),
+        if (result['memberStats'] != null)
+          LabExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            expandedCrossAxisAlignment: CrossAxisAlignment.start,
+            expandedAlignment: Alignment.centerLeft,
+            title: const Text('상세 통계 · 포켓몬별 활약, 선봉 조합, 위협'),
+            children: [SimulationInsights(result), const SizedBox(height: 10)],
+          ),
         LabExpansionTile(
           tilePadding: EdgeInsets.zero,
           expandedCrossAxisAlignment: CrossAxisAlignment.start,

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,9 +8,11 @@ import '../api.dart';
 import '../main.dart';
 import '../team_state.dart';
 import '../widgets.dart';
+import 'sim_insights.dart';
 import 'battle_console.dart';
 import 'party_simulation.dart';
 import 'team_switcher.dart';
+import '../i18n.dart';
 
 List<Json> partySets(Json party) =>
     [for (final m in (party['members'] as List).cast<Json>()) m['set'] as Json];
@@ -146,7 +148,7 @@ class _PartyCardState extends ConsumerState<PartyCard> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: const Text('새 팀으로 저장했습니다'),
         action:
-            SnackBarAction(label: '팀 빌더', onPressed: () => context.go('/team')),
+            SnackBarAction(label: tr('팀 빌더'), onPressed: () => context.go('/team')),
       ));
     } catch (_) {
       if (mounted) {
@@ -176,6 +178,14 @@ class _PartyCardState extends ConsumerState<PartyCard> {
         if (p['note'] != null) Text(p['note'] as String),
         if (p['simulation'] case final Json simulation)
           PartySimulationResult(simulation, members: members),
+        if (p['analysis'] != null)
+          LabExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            expandedCrossAxisAlignment: CrossAxisAlignment.start,
+            expandedAlignment: Alignment.centerLeft,
+            title: const Text('팀 분석 · 역할, 약점, 운영법'),
+            children: [CandidateAnalysis(p), const SizedBox(height: 10)],
+          ),
         if (p['profile'] case final Json profile)
           Padding(
             padding: const EdgeInsets.only(top: 8),

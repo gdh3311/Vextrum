@@ -93,9 +93,26 @@ class Engine:
         self.d = dataset
         self.P: dict = dataset["pokemon"]
         self.M: dict = dataset["moves"]
+        from .mechanics import patch_moves
+
+        patch_moves(self.M)  # 챔피언스에서 바뀐 위력·명중·타입
+        self._repair_stones()
         self._default: dict = {}
         self._matchups: dict = {}
         self._pct: dict = {}
+
+    def _repair_stones(self):
+        """예전에 모은 데이터는 메가스톤이 다른 포켓몬 것으로 잘못 붙은 경우가 있어 사용 기록으로 바로잡는다."""
+        from .collector import match_stone
+
+        for p in self.P.values():
+            if not p.get("megas"):
+                continue
+            held = {i["name"] for u in p["usage"].values() for i in u.get("items", []) if i["name"].endswith(
+                ("ite", "ite X", "ite Y", "ite Z"))} | {m["stone"] for m in p["megas"] if m.get("stone")}
+            for m in p["megas"]:
+                suffix = (m.get("kind") or "Mega")[4:].strip()
+                m["stone"] = match_stone(p["name"], suffix, held) or m.get("stone")
 
     # ---------- 기본 조회 ----------
     def ranked(self, fmt: str) -> list[dict]:
@@ -170,7 +187,8 @@ class Engine:
     # ---------- 데미지 ----------
     def damage(self, a: dict, move: str, b: dict, fmt: str, *,
                spread: bool | None = None, full_hp: bool = True, recharge_discount: bool = True,
-               weather: str | None = None, psychic_terrain: bool = False) -> dict | None:
+               weather: str | None = None, psychic_terrain: bool = False,
+               estimate_intimidate: bool = True) -> dict | None:
         """평균 데미지를 상대 HP 대비 %로 추정한다 (급소/랭크 변화/날씨 지속 등은 무시한 근사치)."""
         m = self.M.get(move)
         if not m or m["category"] == "Status" or not m["power"] or m.get("selfdestruct"):
@@ -211,7 +229,7 @@ class Engine:
             atk *= 2
         if a["item"] == "Choice Band" and phys or a["item"] == "Choice Specs" and not phys:
             atk *= 1.5
-        if phys and b["ability"] == "Intimidate" and aa not in NO_INTIMIDATE and move != "Foul Play":
+        if estimate_intimidate and phys and b["ability"] == "Intimidate" and aa not in NO_INTIMIDATE and move != "Foul Play":
             atk *= 2 / 3
         if not phys and b["item"] == "Assault Vest":
             dfn *= 1.5

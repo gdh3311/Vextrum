@@ -50,6 +50,21 @@ KO_FORM = {
 }
 
 
+
+def match_stone(species: str, suffix: str, stones) -> str | None:
+    """메가스톤 고르기: 이름이 종 이름과 가장 많이 겹치는 돌. 다른 포켓몬의 돌을 잠깐 지닌 기록에 속지 않는다."""
+    stem = re.sub(r"[^a-z]", "", species.lower().split("-")[0])
+
+    def overlap(stone):
+        name = re.sub(r"[^a-z]", "", stone.lower())
+        n = 0
+        while n < min(len(stem), len(name)) and stem[n] == name[n]:
+            n += 1
+        return n
+
+    fits = [st for st in sorted(stones) if (st.endswith(" " + suffix) if suffix else not re.search(r" [XYZ]$", st))]
+    return max(fits, key=overlap, default=None)
+
 def tid(s: str) -> str:
     return re.sub(r"[^a-z0-9]", "", s.lower())
 
@@ -221,8 +236,7 @@ def collect(force: bool = False) -> dict:
                 if not kind.startswith("Mega"):
                     continue
                 suffix = kind[4:].strip()  # "", "X", "Y", "Z"
-                stone = next((st for st in sorted(stones)
-                              if (st.endswith(" " + suffix) if suffix else not re.search(r" [XYZ]$", st))), None)
+                stone = match_stone(base_species, suffix, stones)
                 megas.append({"name": f["form_name"], "ko": ko_pokemon_name(base_ko, f, False), "kind": kind,
                               "types": f["types"], "abilities": split_abilities(f), "stats": form_stats(f),
                               "sprite": f["saved_name"], "stone": stone})

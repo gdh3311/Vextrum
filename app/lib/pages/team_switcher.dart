@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +6,7 @@ import '../lab_icons.dart';
 import '../api.dart';
 import '../team_state.dart';
 import '../widgets.dart';
+import '../i18n.dart';
 
 /// 저장된 팀 목록: 눌러서 전환, + 로 새 팀, ⋯ 로 이름·복제·내보내기·삭제
 class TeamSwitcher extends ConsumerWidget {
@@ -59,7 +60,7 @@ class TeamSwitcher extends ConsumerWidget {
         ),
         const SizedBox(width: 8),
         PopupMenuButton<String>(
-          tooltip: '팀 관리',
+          tooltip: tr('팀 관리'),
           position: PopupMenuPosition.under,
           color: cs.surfaceContainerHighest,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -140,13 +141,25 @@ class TeamSwitcher extends ConsumerWidget {
                 ));
       case 'import':
         final text = await _textDialog(context, '텍스트에서 가져오기',
-            hint: 'Showdown 형식의 팀 텍스트를 붙여 넣으세요.\n현재 팀("$name")의 포켓몬이 이 내용으로 바뀝니다.',
+            hint: 'Showdown 형식의 팀 텍스트나 pokepast.es 링크를 붙여 넣으세요.\n현재 팀("$name")의 포켓몬이 이 내용으로 바뀝니다.',
             action: '가져오기',
             lines: 14);
         if (text == null) return;
+        var source = text.trim();
+        if (RegExp(r'^https?://(www\.)?pokepast\.es/', caseSensitive: false).hasMatch(source)) {
+          try {
+            source = ((await dio.post('/api/pokepaste', data: {'url': source})).data as Json)['text'] as String;
+          } catch (_) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('PokePaste 팀을 불러오지 못했습니다')));
+            }
+            return;
+          }
+        }
         final all = await ref.read(pokemonListProvider.future);
         final unknown = <String>[];
-        final sets = importTeamText(text, all, unknown);
+        final sets = importTeamText(source, all, unknown);
         if (sets.isNotEmpty) await notifier.replaceWith(sets);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -229,7 +242,7 @@ class TeamPickerButton extends ConsumerWidget {
     final teams = ref.watch(teamListProvider);
     final active = ref.watch(activeTeamIndexProvider).clamp(0, teams.length - 1);
     return PopupMenuButton<int>(
-      tooltip: '사용할 팀 선택',
+      tooltip: tr('사용할 팀 선택'),
       position: PopupMenuPosition.under,
       color: cs.surfaceContainerHighest,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

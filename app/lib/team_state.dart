@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api.dart';
@@ -50,6 +51,7 @@ class TeamNotifier extends StateNotifier<List<TeamSlot>> {
   TeamNotifier(this.ref) : super(const []) {
     _initialLoad = _load();
     ref.listen(formatProvider, (_, __) => _reloadDetails());
+    ref.listen(apiContextProvider, (_, __) => _reloadDetails());
   }
 
   static const _key = 'teams_v2';
@@ -251,6 +253,7 @@ final teamProvider = StateNotifierProvider<TeamNotifier, List<TeamSlot>>((ref) =
 
 /// 팀이 바뀌면 자동으로 다시 분석한다.
 final analysisProvider = FutureProvider<Json?>((ref) async {
+  ref.watch(apiContextProvider);
   final team = ref.watch(teamProvider);
   final fmt = ref.watch(formatProvider);
   final topN = ref.watch(analysisTopNProvider);

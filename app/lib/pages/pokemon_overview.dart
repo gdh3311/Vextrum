@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../api.dart';
 import '../widgets.dart';
+import '../i18n.dart';
 
 /// 채용 통계 탭: 능력치, 메가 폼, 기술·도구·특성·성격·분배 채용률, 동료, 시즌별 순위
 class PokemonOverview extends ConsumerWidget {

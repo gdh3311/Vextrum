@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,6 +7,7 @@ import '../api.dart';
 import '../main.dart';
 import '../team_state.dart';
 import '../widgets.dart';
+import '../i18n.dart';
 
 const _roleFilters = {
   'intimidate': '위협', 'fakeout': '속이다', 'speedcontrol': '스피드 컨트롤', 'redirect': '유도',
@@ -168,7 +169,7 @@ class _JokerCard extends ConsumerWidget {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                               content: Text('${p['ko'] ?? p['name']} — 추천 세트로 추가했습니다'),
-                              action: SnackBarAction(label: '팀 보기', onPressed: () => context.go('/team'))));
+                              action: SnackBarAction(label: tr('팀 보기'), onPressed: () => context.go('/team'))));
                         }
                       },
               ),

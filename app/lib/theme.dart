@@ -54,7 +54,9 @@ ColorScheme _scheme(Brightness b) {
 
 ThemeData buildTheme(Brightness b) {
   final cs = _scheme(b);
-  final base = ThemeData(colorScheme: cs, useMaterial3: true, brightness: b, fontFamily: 'Pretendard');
+  // Pretendard 에 없는 일본어 글자는 시스템 글꼴로 그린다.
+  final base = ThemeData(colorScheme: cs, useMaterial3: true, brightness: b, fontFamily: 'Pretendard',
+      fontFamilyFallback: const ['Yu Gothic UI', 'Meiryo', 'Hiragino Sans', 'Noto Sans JP', 'Noto Sans CJK JP', 'Malgun Gothic']);
   const none = BorderSide.none;
   return base.copyWith(
     scaffoldBackgroundColor: cs.surface,

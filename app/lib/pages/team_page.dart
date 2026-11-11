@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,6 +9,7 @@ import '../team_state.dart';
 import 'team_guide.dart';
 import 'team_switcher.dart';
 import '../widgets.dart';
+import '../i18n.dart';
 
 const _pointCap = 66; // 능력 포인트 총합 상한
 const _pointMax = 32; // 한 능력치 상한
@@ -171,13 +172,13 @@ class _SlotCard extends ConsumerWidget {
                 ),
                 IconButton(
                     visualDensity: VisualDensity.compact,
-                    tooltip: '상세 통계',
+                    tooltip: tr('상세 통계'),
                     color: cs.onSurfaceVariant,
                     onPressed: () => context.push('/pokemon/${d['id']}'),
                     icon: const LabIcon(LabGlyph.meta, size: 20)),
                 IconButton(
                     visualDensity: VisualDensity.compact,
-                    tooltip: '팀에서 빼기',
+                    tooltip: tr('팀에서 빼기'),
                     color: cs.onSurfaceVariant,
                     onPressed: () => ref.read(teamProvider.notifier).removeAt(index),
                     icon: const LabIcon(LabGlyph.cross, size: 20)),

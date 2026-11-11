@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import '../lab_icons.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../api.dart';
 import '../widgets.dart';
 import 'battle_preview.dart';
+import '../i18n.dart';
 
 const _key = 'personal_match_journal_v1';
 const _outcomes = {'win': '승리', 'loss': '패배', 'draw': '무승부'};
@@ -271,7 +272,7 @@ class _RecordDialogState extends State<_RecordDialog> {
                   controller: note,
                   maxLength: 200,
                   decoration:
-                      const InputDecoration(hintText: '예: 순풍을 먼저 막았어야 했음'),
+                      InputDecoration(hintText: tr('예: 순풍을 먼저 막았어야 했음')),
                 ),
               ]),
         ),

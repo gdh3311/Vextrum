@@ -1,10 +1,11 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 
 import '../api.dart';
 import '../lab_icons.dart';
 import '../widgets.dart';
+import '../i18n.dart';
 
 class BattleReveal extends StatelessWidget {
   final Widget child;
@@ -370,6 +371,8 @@ class _BattleCommandMenuState extends State<BattleCommandMenu> {
 
   String _label(Json option, {bool withTarget = true}) => [
         option['label'],
+        if ((option['priority'] as int? ?? 0) > 0) '· 우선도 +${option['priority']}',
+        if (option['pivot'] == true) '· 기술 후 교체',
         if (option['scope'] == 'all') '· 아군 포함',
         if (option['scope'] == 'foes') '· 상대 전체',
         if (withTarget &&

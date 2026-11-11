@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'lab_icons.dart';
 import 'api.dart';
+import 'app_updates.dart';
 import 'arena_ui.dart';
 import 'pages/auto_team_page.dart';
 import 'pages/battle_page.dart';
@@ -14,8 +15,12 @@ import 'pages/meta_page.dart';
 import 'pages/parties_page.dart';
 import 'pages/pokemon_page.dart';
 import 'pages/pokemon_overview.dart';
+import 'pages/settings_page.dart';
+import 'pages/speed_page.dart';
 import 'pages/team_page.dart';
+import 'settings.dart';
 import 'theme.dart';
+import 'i18n.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,24 +30,35 @@ Future<void> main() async {
   } catch (_) {}
   final fmt = prefs?.getString('format');
   final dark = prefs?.getBool('dark');
+  final themeName = prefs?.getString('themeMode');
+  final theme = switch (themeName) {
+    'system' => ThemeMode.system,
+    'light' => ThemeMode.light,
+    'dark' => ThemeMode.dark,
+    _ => dark == null ? null : (dark ? ThemeMode.dark : ThemeMode.light),
+  };
+  final arenaScene = prefs?.getInt('arenaScene');
   runApp(ProviderScope(
     overrides: [
       if (fmt == 'Singles' || fmt == 'Doubles') formatProvider.overrideWith((ref) => fmt!),
-      if (dark != null) themeModeProvider.overrideWith((ref) => dark ? ThemeMode.dark : ThemeMode.light),
+      if (theme != null) themeModeProvider.overrideWith((ref) => theme),
+      settingsProvider.overrideWith((ref) => AppSettings.load(prefs)),
+      if (arenaScene != null) arenaSceneProvider.overrideWith((ref) => arenaScene),
     ],
     observers: [_SettingsSaver(prefs)],
     child: const MetaLabApp(),
   ));
 }
 
-/// 배틀 형식과 화면 밝기를 바꿀 때마다 저장한다.
+/// 배틀 형식, 화면 밝기, 경기장 선택을 저장한다.
 class _SettingsSaver extends ProviderObserver {
   final SharedPreferences? prefs;
   _SettingsSaver(this.prefs);
   @override
   void didUpdateProvider(ProviderBase provider, Object? previousValue, Object? newValue, ProviderContainer container) {
     if (provider == formatProvider && newValue is String) prefs?.setString('format', newValue);
-    if (provider == themeModeProvider && newValue is ThemeMode) prefs?.setBool('dark', newValue == ThemeMode.dark);
+    if (provider == themeModeProvider && newValue is ThemeMode) prefs?.setString('themeMode', newValue.name);
+    if (provider == arenaSceneProvider && newValue is int) prefs?.setInt('arenaScene', newValue);
   }
 }
 
@@ -75,6 +91,8 @@ final _router = GoRouter(routes: [
       GoRoute(path: '/jokers', pageBuilder: (c, s) => _routePage(s, const JokerPage())),
       GoRoute(path: '/parties', pageBuilder: (c, s) => _routePage(s, const PartiesPage())),
       GoRoute(path: '/battle', pageBuilder: (c, s) => _routePage(s, const BattlePage())),
+      GoRoute(path: '/speed', pageBuilder: (c, s) => _routePage(s, const SpeedPage())),
+      GoRoute(path: '/settings', pageBuilder: (c, s) => _routePage(s, const SettingsPage())),
       GoRoute(
           path: '/pokemon/:id',
           pageBuilder: (c, s) {
@@ -93,14 +111,28 @@ final _router = GoRouter(routes: [
 class MetaLabApp extends ConsumerWidget {
   const MetaLabApp({super.key});
   @override
-  Widget build(BuildContext context, WidgetRef ref) => MaterialApp.router(
-        title: 'Champions Meta Lab',
-        debugShowCheckedModeBanner: false,
-        theme: buildTheme(Brightness.light),
-        darkTheme: buildTheme(Brightness.dark),
-        themeMode: ref.watch(themeModeProvider),
-        routerConfig: _router,
-      );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(settingsNotifierProvider);
+    // 언어·이름 표시가 바뀌면 SettingsNotifier 가 화면 전체를 다시 그린다 (문구는 그릴 때 번역된다).
+    return MaterialApp.router(
+      title: 'Champions Meta Lab',
+      debugShowCheckedModeBanner: false,
+      theme: buildTheme(Brightness.light),
+      darkTheme: buildTheme(Brightness.dark),
+      themeMode: ref.watch(themeModeProvider),
+      routerConfig: _router,
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(
+            textScaler: TextScaler.linear(s.textScale),
+            disableAnimations: mq.disableAnimations || s.reduceMotion,
+          ),
+          child: child!,
+        );
+      },
+    );
+  }
 }
 
 const _tabs = [
@@ -108,6 +140,7 @@ const _tabs = [
   ('/team', LabGlyph.team, '팀 빌더', '팀', Color(0xFF83B9FF)),
   ('/enemy', LabGlyph.versus, '상대 분석', '상대', Color(0xFFFF9C92)),
   ('/jokers', LabGlyph.crystal, '조커 파인더', '조커', Color(0xFFC3A6FF)),
+  ('/speed', LabGlyph.bolt, '스피드 티어', '스피드', Color(0xFF9FD8FF)),
   ('/parties', LabGlyph.archive, '파티 탐색', '파티', Color(0xFFFFCB6D)),
   ('/battle', LabGlyph.controller, '가상 배틀', '배틀', Color(0xFFA8DF98)),
 ];
@@ -178,14 +211,20 @@ class Shell extends ConsumerWidget {
         appBar: AppBar(
           automaticallyImplyLeading: false,
           leading: isDetail || isTeamDraft
-              ? IconButton(tooltip: '뒤로', icon: const LabIcon(LabGlyph.back), onPressed: back)
+              ? IconButton(tooltip: tr('뒤로'), icon: const LabIcon(LabGlyph.back), onPressed: back)
               : null,
           titleSpacing: isDetail || isTeamDraft ? 0 : 16,
           title: const _Logo(),
         actions: [
           const _FormatToggle(),
+          const UpdatesButton(compact: true),
           IconButton(
-            tooltip: dark ? '밝은 화면' : '어두운 화면',
+            tooltip: tr('설정'),
+            onPressed: () => context.go('/settings'),
+            icon: Icon(Icons.settings_outlined, size: 20, color: location == '/settings' ? cs.primary : null),
+          ),
+          IconButton(
+            tooltip: tr(dark ? '밝은 화면' : '어두운 화면'),
             onPressed: toggleTheme,
             icon: LabIcon(dark ? LabGlyph.sun : LabGlyph.moon, size: 19),
           ),
@@ -198,7 +237,7 @@ class Shell extends ConsumerWidget {
           destinations: [
             for (final t in _tabs)
               NavigationDestination(icon: LabIcon(t.$2, size: 22),
-                  selectedIcon: LabIcon(t.$2, size: 22, color: cs.primary), label: t.$4),
+                  selectedIcon: LabIcon(t.$2, size: 22, color: cs.primary), label: tr(t.$4)),
           ],
         ),
       );
@@ -226,6 +265,8 @@ class Shell extends ConsumerWidget {
                   onTap: () => context.go(_tabs[i].$1),
                 ),
             ])),
+            const UpdatesButton(),
+            const SizedBox(height: 12),
             const Divider(),
             const SizedBox(height: 12),
             Padding(
@@ -234,6 +275,12 @@ class Shell extends ConsumerWidget {
             ),
             const _FormatToggle(expand: true),
             const SizedBox(height: 10),
+            _NavItem(
+                icon: LabGlyph.spark,
+                accent: cs.primary,
+                label: '설정',
+                selected: location == '/settings',
+                onTap: () => context.go('/settings')),
             _NavItem(
                 icon: dark ? LabGlyph.sun : LabGlyph.moon,
                 accent: cs.primary,

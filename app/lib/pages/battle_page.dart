@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import '../lab_icons.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,11 +11,13 @@ import '../api.dart';
 import '../main.dart';
 import '../team_state.dart';
 import '../widgets.dart';
+import 'sim_insights.dart';
 import 'battle_console.dart';
 import 'battle_report.dart';
-import 'battle_stage.dart';
+import 'battle_arena.dart';
 import 'parties_page.dart';
 import 'team_switcher.dart';
+import '../i18n.dart';
 
 const _historyKey = 'battle_history_v1';
 const _results = {'win': '승리', 'loss': '패배', 'draw': '무승부'};
@@ -28,8 +30,8 @@ enum _Rank {
   poke('몬스터볼', '기본 공격 위주로 행동합니다.'),
   great('슈퍼볼', '유리한 기술을 고르고 기회가 나면 전개합니다.'),
   ultra('하이퍼볼', '전략의 핵심 기술과 KO 기회를 노립니다.'),
-  master('마스터볼', '두 포켓몬의 공격을 조율하고 유리한 교체를 찾습니다.'),
-  champion('챔피언', '공격 조율과 교체에 더해 위험한 턴에는 방어를 노립니다.');
+  master('마스터볼', '상대의 예상 행동에 맞춰 두 포켓몬의 공격·방어·교체를 함께 고릅니다.'),
+  champion('챔피언', '실전 플레이어 수준: 내 행동을 예측하고 2턴 앞까지 진행해 보며, 막혔을 때의 최악의 경우까지 따져 수를 고릅니다. 같은 상황에서도 수가 읽히지 않게 바꿉니다.');
 
   const _Rank(this.label, this.description);
   final String label;
@@ -105,6 +107,22 @@ class _BattlePracticeState extends State<_BattlePractice> {
   List<Json> history = [];
   final choices = <int, Json>{};
   final replacements = <int, int>{};
+
+  /// 화면이 재생할 새 배틀 이벤트와 재생 상태
+  List<Json> playEvents = const [];
+  int playId = 0;
+  int seenLog = 0;
+  bool playing = false;
+
+  void _queuePlayback(Json result, {bool fresh = false}) {
+    final logs = (result['log'] as List).cast<Json>();
+    final total = (result['logCount'] as int?) ?? logs.length;
+    final count = fresh ? logs.length : (total - seenLog).clamp(0, logs.length);
+    playEvents = logs.sublist(logs.length - count);
+    seenLog = total;
+    playId++;
+    playing = playEvents.isNotEmpty;
+  }
   String? activity;
   bool get busy => activity != null;
   _BattleMode mode = _BattleMode.manual;
@@ -233,6 +251,7 @@ class _BattlePracticeState extends State<_BattlePractice> {
         choices.clear();
         replacements.clear();
         battle = batch ? null : result;
+        if (!batch) _queuePlayback(result, fresh: true);
         if (batch) report = result;
         if (batch) scouting = null;
         setup = {...body, 'seed': result['seed']};
@@ -244,8 +263,10 @@ class _BattlePracticeState extends State<_BattlePractice> {
   Future<void> _turn({required bool replace}) async {
     final current = battle!;
     final endpoint = replace ? 'replace' : 'turn';
+    final phase = (current['replacement'] as Json?)?['phase'];
     await _request('/api/battle/${current['id']}/$endpoint', {
       'turn': current['turn'],
+      if (replace && phase != null) 'phase': phase,
       if (replace)
         'choices': {
           for (final entry in replacements.entries) '${entry.key}': entry.value
@@ -257,6 +278,7 @@ class _BattlePracticeState extends State<_BattlePractice> {
         battle = result;
         choices.clear();
         replacements.clear();
+        _queuePlayback(result);
       });
       if (result['winner'] != null) await _record(result, 'manual');
     }, loading: replace ? '교체 포켓몬이 등장하는 중…' : '양쪽의 명령을 처리하는 중…');
@@ -438,7 +460,9 @@ class _BattlePracticeState extends State<_BattlePractice> {
           Section('반복 배틀 결과',
               subtitle:
                   '$teamName · ${_Rank.fromKey(report!['difficulty'])?.label ?? rank.label}',
-              child: BattleReport(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (report!['memberStats'] != null) ...[SimulationInsights(report!), const SizedBox(height: 18)],
+                BattleReport(
                 key: ValueKey(report!['seed']),
                 result: report!,
                 onPractice: !canStart
@@ -446,11 +470,11 @@ class _BattlePracticeState extends State<_BattlePractice> {
                     : (seed) => _scout(team,
                         seed: seed,
                         replayRank: _Rank.fromKey(report!['difficulty'])),
-              )),
+              )])),
         Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Text(
-            '가상 배틀 수치는 앱의 근사 엔진과 CPU 행동 기준입니다. 명중·난수·우선도·교체, 날씨와 일부 필드·보조기를 반영합니다. '
+            '가상 배틀은 명중·난수·우선도·교체와 날씨·순풍·날따름·와이드가드 등을 반영합니다. '
             '선출 순서의 첫 메가 후보에 메가 상태를 적용하며, 장판·상태이상과 기술의 세부 효과는 제한됩니다.',
             style: theme.textTheme.bodySmall,
           ),
@@ -464,15 +488,106 @@ class _BattlePracticeState extends State<_BattlePractice> {
     final threat = preview['threat'] as Json;
     final opponents = (foe['members'] as List).cast<Json>();
     final suggested = (preview['selection'] as List).cast<String>();
+    final mine = {
+      for (final m in (preview['player'] as List? ?? const []).cast<Json>()) m['id'] as String: m,
+    };
     final count = team.sets.length < limit ? team.sets.length : limit;
     final width = widget.format == 'Doubles' ? 2 : 1;
+    final cs = Theme.of(context).colorScheme;
+
+    Widget mineCard(String id) {
+      final index = order.indexOf(id);
+      final picked = index >= 0;
+      final lead = picked && index < width;
+      final full = order.length >= count;
+      final mon = mine[id];
+      final name = mon == null ? (widget.names[id] ?? id) : _monName(mon);
+      final color = lead ? const Color(0xFFFFC857) : cs.primary;
+      return _PreviewCard(
+        sprite: mon?['sprite'] as String?,
+        name: name,
+        types: (mon?['types'] as List?)?.cast<String>() ?? const [],
+        badge: !picked ? null : lead ? '선봉 ${index + 1}' : '후발 ${index - width + 1}',
+        badgeColor: color,
+        selected: picked,
+        dimmed: !picked && full,
+        onTap: busy || (!picked && full)
+            ? null
+            : () => setState(() => order = picked ? order.where((n) => n != id).toList() : [...order, id]),
+      );
+    }
+
+    Widget foeCard(Json mon) => _PreviewCard(
+          sprite: mon['sprite'] as String?,
+          name: _monName(mon),
+          types: (mon['types'] as List?)?.cast<String>() ?? const [],
+          caption: _role(mon),
+          badgeColor: const Color(0xFFFF9E95),
+          foe: true,
+        );
+
+    final board = LayoutBuilder(builder: (context, c) {
+      final wide = c.maxWidth >= 760;
+      Widget column(String title, String sub, List<Widget> cards, Color tone) => Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [tone.withOpacity(.14), tone.withOpacity(.03)]),
+              border: Border.all(color: tone.withOpacity(.35)),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: tone)),
+              Text(sub, style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant)),
+              const SizedBox(height: 10),
+              LayoutBuilder(builder: (context, cc) {
+                final cols = cc.maxWidth >= 330 ? 3 : 2;
+                final w = (cc.maxWidth - (cols - 1) * 8) / cols;
+                return Wrap(spacing: 8, runSpacing: 8, children: [
+                  for (final card in cards) SizedBox(width: w, child: card),
+                ]);
+              }),
+            ]),
+          );
+      final left = column('내 팀', '내 선출 · ${order.length}/$count', [for (final s in team.sets) mineCard(s['id'] as String)],
+          const Color(0xFF7FE6DA));
+      final right = column('상대 팀', foe['label'] as String, [for (final m in opponents) foeCard(m)], const Color(0xFFFF9E95));
+      if (!wide) return Column(children: [left, const SizedBox(height: 10), right]);
+      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: left),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(10, 90, 10, 0),
+          child: Text('VS',
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Color(0xFFFFD27A), letterSpacing: 1)),
+        ),
+        Expanded(child: right),
+      ]);
+    });
+
     return Section(
       '상대 파티 · ${foe['label']}',
       subtitle: foe['plan'] as String,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final mon in opponents) MonPill(mon, caption: _role(mon)),
-        ]),
+        board,
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: cs.surfaceContainer, borderRadius: BorderRadius.circular(12)),
+          child: Row(children: [
+            Sprite((threat['foe'] as Json)['sprite'] as String, size: 40),
+            const SizedBox(width: 6),
+            const Icon(Icons.arrow_back_rounded, size: 18, color: Color(0xFFFF9E95)),
+            Sprite((threat['counter'] as Json)['sprite'] as String, size: 40),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                  '경계 대상 ${_monName(threat['foe'] as Json)} · 추천 대응 ${_monName(threat['counter'] as Json)} (상성 점수 ${threat['score']}/100)',
+                  style: const TextStyle(fontSize: 13.5)),
+            ),
+          ]),
+        ),
         LabExpansionTile(
           tilePadding: EdgeInsets.zero,
           title: const Text('상대 세트 상세'),
@@ -480,61 +595,32 @@ class _BattlePracticeState extends State<_BattlePractice> {
             for (final mon in opponents)
               ListTile(
                 contentPadding: EdgeInsets.zero,
+                leading: Sprite(mon['sprite'] as String, size: 36),
                 title: Text(_monName(mon)),
                 subtitle: Text([
                   mon['itemKo'] ?? (mon['set'] as Json)['item'],
                   mon['abilityKo'] ?? (mon['set'] as Json)['ability'],
-                  for (final m in (mon['moveInfo'] as List).cast<Json>())
-                    m['ko'] ?? m['name'],
+                  for (final m in (mon['moveInfo'] as List).cast<Json>()) m['ko'] ?? m['name'],
                 ].whereType<String>().join(' · ')),
               ),
           ],
         ),
-        const SizedBox(height: 12),
-        Text(
-            '경계 대상 ${_monName(threat['foe'] as Json)} · 추천 대응 ${_monName(threat['counter'] as Json)} (상성 점수 ${threat['score']}/100)'),
-        const SizedBox(height: 12),
-        Text('내 선출 · ${order.length}/$count',
-            style: Theme.of(context).textTheme.titleSmall),
-        Text('처음 $width마리가 선봉입니다. 바꾸려면 선출을 해제하고 원하는 순서로 다시 고르세요.'),
-        Wrap(spacing: 6, runSpacing: 4, children: [
-          for (final s in team.sets)
-            _selectionChip(s['id'] as String, width, count),
-        ]),
-        const SizedBox(height: 8),
+        Text('처음 $width마리가 선봉입니다. 바꾸려면 선출을 해제하고 원하는 순서로 다시 고르세요.',
+            style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant)),
+        const SizedBox(height: 10),
         Wrap(spacing: 8, runSpacing: 8, children: [
           FilledButton.icon(
-            onPressed: busy || order.length != count
-                ? null
-                : () => _start(team, batch: false),
+            style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16)),
+            onPressed: busy || order.length != count ? null : () => _start(team, batch: false),
             icon: const LabIcon(LabGlyph.play),
             label: const Text('이 선출로 시작'),
           ),
           TextButton(
-            onPressed:
-                busy ? null : () => setState(() => order = suggested.toList()),
+            onPressed: busy ? null : () => setState(() => order = suggested.toList()),
             child: const Text('추천 선출 적용'),
           ),
         ]),
       ]),
-    );
-  }
-
-  Widget _selectionChip(String id, int width, int count) {
-    final index = order.indexOf(id);
-    final position = index < 0
-        ? ''
-        : index < width
-            ? '선봉 ${index + 1} · '
-            : '후발 ${index - width + 1} · ';
-    return FilterChip(
-      selected: index >= 0,
-      showCheckmark: false,
-      label: Text('$position${widget.names[id] ?? id}'),
-      onSelected: busy || (index < 0 && order.length >= count)
-          ? null
-          : (add) => setState(() => order =
-              add ? [...order, id] : order.where((n) => n != id).toList()),
     );
   }
 
@@ -548,11 +634,9 @@ class _BattlePracticeState extends State<_BattlePractice> {
     final options = (current['options'] as List).cast<Json>();
     final winner = current['winner'] as String?;
     final logs = (current['log'] as List).cast<Json>();
-    final recent = logs.isEmpty
-        ? const <Json>[]
-        : logs.where((event) => event['turn'] == logs.last['turn']).toList();
     final field = (current['field'] as List).cast<String>();
     final replacement = current['replacement'] as Json?;
+    final pivot = replacement?['kind'] == 'pivot';
     final vacancies = (replacement?['slots'] as List? ?? []).cast<int>();
     final reserves = (replacement?['bench'] as List? ?? []).cast<int>();
     final need =
@@ -564,136 +648,144 @@ class _BattlePracticeState extends State<_BattlePractice> {
     final foe = current['opponent'] as Json;
     final shown = teams[1].whereType<Json>().map((mon) => mon['id']).toSet();
     final turn = current['turn'] as int;
-    final targets = {
-      for (final (slot, index) in active[1].indexed)
-        if (index != null) slot: _monName(teams[1][index]!),
-    };
     final playedRank = _Rank.fromKey(current['difficulty']) ?? rank;
+    final prompt = replacement != null
+        ? (pivot ? '교체할 포켓몬을 고르세요.' : '다음 포켓몬을 고르세요.')
+        : winner != null
+            ? null
+            : options.isEmpty
+                ? null
+                : '${_monName(teams[0][active[0][options.first['slot'] as int]!]!)}${josa(_monName(teams[0][active[0][options.first['slot'] as int]!]!), '은', '는')} 무엇을 할까?';
+    final foes = <int, Json>{
+      for (final (slot, index) in active[1].indexed)
+        if (index != null && teams[1][index] != null) slot: teams[1][index]!,
+    };
+    final locked = busy || playing;
     return Section(
       winner != null
           ? _results[winner]!
           : replacement != null
-              ? '교체 포켓몬 선택'
+              ? (pivot ? '$turn턴 · 기술 후 교체' : '교체 포켓몬 선택')
               : '$turn턴 · 명령 선택',
       subtitle: '$teamName vs $foeName · CPU ${playedRank.label}',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         BattleReveal(
           key: ValueKey(current['id']),
-          child: BattleStage(teams: teams, active: active),
-        ),
-        const SizedBox(height: 8),
-        if (field.isNotEmpty)
-          Wrap(spacing: 6, runSpacing: 4, children: [
-            for (final condition in field)
-              Chip(
-                avatar: const LabIcon(LabGlyph.spark, size: 15),
-                label: Text(condition),
-                visualDensity: VisualDensity.compact,
-              ),
-          ]),
-        if (recent.isNotEmpty)
-          AnimatedSwitcher(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 200),
-            layoutBuilder: (current, previous) =>
-                current ?? const SizedBox.shrink(),
-            child: BattleMessages(
-              recent,
-              key: ValueKey((turn, logs.length, replacement != null)),
-            ),
+          child: BattleArena(
+            teams: teams,
+            active: active,
+            field: field,
+            events: playEvents,
+            playKey: playId,
+            turn: turn,
+            prompt: prompt,
+            weather: current['weather'] as String? ?? '',
+            terrain: current['terrain'] as String? ?? '',
+            onPlayback: (on) {
+              if (mounted && playing != on) setState(() => playing = on);
+            },
           ),
-        const SizedBox(height: 12),
-        if (replacement != null) ...[
-          Text(need == 1 ? '대기 포켓몬 한 마리를 내보내세요.' : '빈 자리마다 다른 대기 포켓몬을 골라 주세요.'),
-          for (final slot in vacancies)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text('${slot + 1}번 자리'),
-                    for (final index in reserves)
-                      ChoiceChip(
-                        label: Text(_monName(teams[0][index]!)),
-                        selected: replacements[slot] == index,
-                        onSelected: busy
+        ),
+        const SizedBox(height: 14),
+        if (winner != null && !playing)
+          BattleResultBanner(
+            winner: winner,
+            turns: turn - 1,
+            members: teams[0].whereType<Json>().toList(),
+          ),
+        AnimatedOpacity(
+          duration: const Duration(milliseconds: 200),
+          opacity: playing ? .45 : 1,
+          child: IgnorePointer(
+            ignoring: playing,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (replacement != null) ...[
+                Text(pivot
+                    ? '교체할 포켓몬을 고르면 이번 턴의 남은 행동이 이어집니다.'
+                    : need == 1
+                        ? '대기 포켓몬 한 마리를 내보내세요.'
+                        : '빈 자리마다 다른 대기 포켓몬을 골라 주세요.'),
+                for (final slot in vacancies)
+                  ReplacementPicker(
+                    slot: slot,
+                    bench: reserves,
+                    team: teams[0],
+                    chosen: replacements[slot],
+                    taken: replacements.values.toSet(),
+                    onPick: locked
+                        ? null
+                        : (index) => setState(() {
+                              if (index == null) {
+                                replacements.remove(slot);
+                              } else {
+                                replacements.removeWhere((key, value) => value == index);
+                                replacements[slot] = index;
+                              }
+                            }),
+                  ),
+                const SizedBox(height: 10),
+              ] else if (winner == null)
+                for (final group in options)
+                  GameCommandPanel(
+                    key: ValueKey((turn, group['slot'])),
+                    mon: teams[0][active[0][group['slot'] as int]!]!,
+                    options: (group['options'] as List).cast<Json>(),
+                    selected: choices[group['slot']],
+                    foes: foes,
+                    team: teams[0],
+                    reserved: {
+                      for (final entry in choices.entries)
+                        if (entry.key != group['slot'] && entry.value['kind'] == 'switch')
+                          entry.value['target'] as int,
+                    },
+                    onSelected: locked
+                        ? null
+                        : (action) => setState(() {
+                              final slot = group['slot'] as int;
+                              if (action == null) {
+                                choices.remove(slot);
+                              } else {
+                                choices[slot] = action;
+                              }
+                            }),
+                  ),
+              if (winner == null)
+                Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16)),
+                        icon: LabIcon(replacement == null ? LabGlyph.play : LabGlyph.swap),
+                        onPressed: locked ||
+                                (replacement != null
+                                    ? replacements.length != need
+                                    : choices.length != options.length ||
+                                        swaps.length !=
+                                            choices.values.where((action) => action['kind'] == 'switch').length)
                             ? null
-                            : (selected) => setState(() {
-                                  if (selected) {
-                                    replacements.removeWhere(
-                                        (key, value) => value == index);
-                                    replacements[slot] = index;
-                                  } else {
-                                    replacements.remove(slot);
-                                  }
-                                }),
+                            : () => _turn(replace: replacement != null),
+                        label: Text(replacement == null ? '명령 확정' : '교체 확정'),
                       ),
-                  ]),
-            ),
-        ] else
-          for (final group in options)
-            BattleCommandMenu(
-              key: ValueKey((turn, group['slot'])),
-              name: _monName(teams[0][active[0][group['slot'] as int]!]!),
-              options: (group['options'] as List).cast<Json>(),
-              selected: choices[group['slot']],
-              targets: targets,
-              reserved: {
-                for (final entry in choices.entries)
-                  if (entry.key != group['slot'] &&
-                      entry.value['kind'] == 'switch')
-                    entry.value['target'] as int,
-              },
-              onSelected: busy
-                  ? null
-                  : (action) => setState(() {
-                        final slot = group['slot'] as int;
-                        if (action == null) {
-                          choices.remove(slot);
-                        } else {
-                          choices[slot] = action;
-                        }
-                      }),
-            ),
-        if (winner == null)
-          Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                FilledButton.icon(
-                  icon: LabIcon(
-                      replacement == null ? LabGlyph.play : LabGlyph.swap),
-                  onPressed: busy ||
-                          (replacement != null
-                              ? replacements.length != need
-                              : choices.length != options.length ||
-                                  swaps.length !=
-                                      choices.values
-                                          .where((action) =>
-                                              action['kind'] == 'switch')
-                                          .length)
-                      ? null
-                      : () => _turn(replace: replacement != null),
-                  label: Text(replacement == null ? '명령 확정' : '교체 확정'),
-                ),
-                TextButton(
-                  onPressed: busy
-                      ? null
-                      : () => setState(() {
-                            battle = null;
-                            choices.clear();
-                            replacements.clear();
-                          }),
-                  child: const Text('배틀 종료'),
-                ),
-                if (activity != null) BattleLoading(activity!),
-              ])
-        else
-          _Result(current),
+                      TextButton(
+                        onPressed: locked
+                            ? null
+                            : () => setState(() {
+                                  battle = null;
+                                  choices.clear();
+                                  replacements.clear();
+                                }),
+                        child: const Text('배틀 종료'),
+                      ),
+                      if (activity != null) BattleLoading(activity!),
+                    ])
+              else if (!playing)
+                _Result(current),
+            ]),
+          ),
+        ),
         LabExpansionTile(
           title: Text('상대 로스터 · ${foe['label']}'),
           tilePadding: EdgeInsets.zero,
@@ -744,5 +836,90 @@ class _Result extends StatelessWidget {
         Text(
             "${m['ko'] ?? m['name']} · 준 피해 ${m['dealt']} · 받은 피해 ${m['taken']} · KO ${m['kos']}"),
     ]);
+  }
+}
+
+/// 선출 화면의 포켓몬 카드
+class _PreviewCard extends StatelessWidget {
+  const _PreviewCard({
+    required this.sprite,
+    required this.name,
+    required this.types,
+    required this.badgeColor,
+    this.badge,
+    this.caption,
+    this.selected = false,
+    this.dimmed = false,
+    this.foe = false,
+    this.onTap,
+  });
+  final String? sprite;
+  final String name;
+  final List<String> types;
+  final String? badge;
+  final Color badgeColor;
+  final String? caption;
+  final bool selected;
+  final bool dimmed;
+  final bool foe;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 150),
+      opacity: dimmed ? .45 : 1,
+      child: Material(
+        color: selected ? badgeColor.withOpacity(.16) : cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: selected ? badgeColor : cs.outlineVariant, width: selected ? 2 : 1),
+            ),
+            child: Column(children: [
+              Stack(clipBehavior: Clip.none, children: [
+                Center(
+                  child: sprite == null
+                      ? const SizedBox(height: 64)
+                      : (foe ? Sprite(sprite!, size: 64) : Transform.flip(flipX: true, child: Sprite(sprite!, size: 64))),
+                ),
+                if (badge != null)
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(8)),
+                      child: Text(badge!,
+                          style: const TextStyle(color: Color(0xFF0A1424), fontSize: 11.5, fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+              ]),
+              const SizedBox(height: 4),
+              Text(name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 3),
+              TypeRow(types, dense: true),
+              if (caption != null) ...[
+                const SizedBox(height: 4),
+                Text(caption!,
+                    maxLines: 2,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant, height: 1.3)),
+              ],
+            ]),
+          ),
+        ),
+      ),
+    );
   }
 }

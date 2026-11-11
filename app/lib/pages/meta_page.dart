@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,6 +10,7 @@ import '../team_state.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'team_switcher.dart';
+import '../i18n.dart';
 
 class MetaPage extends ConsumerStatefulWidget {
   const MetaPage({super.key});
@@ -48,7 +49,7 @@ class _MetaPageState extends ConsumerState<MetaPage> {
       final visible = filtered.take(filtering ? 300 : shown).toList();
       final seasonPicker = FilterDropdown(
         value: season,
-        allLabel: '최신 시즌',
+        allLabel: '최신 수집 시즌',
         labels: {for (final s in seasons.skip(1)) s: '시즌 $s'},
         onChanged: (value) {
           ref.read(metaSeasonProvider.notifier).state = value;
@@ -76,8 +77,8 @@ class _MetaPageState extends ConsumerState<MetaPage> {
                   width: 200,
                   child: TextField(
                     style: const TextStyle(fontSize: 14),
-                    decoration: const InputDecoration(
-                        prefixIcon: LabIcon(LabGlyph.search, size: 20), hintText: '이름 검색', isDense: true),
+                    decoration: InputDecoration(
+                        prefixIcon: LabIcon(LabGlyph.search, size: 20), hintText: tr('이름 검색'), isDense: true),
                     onChanged: (v) => setState(() => q = v.trim().toLowerCase()),
                   ),
                 ),
@@ -135,10 +136,13 @@ class _MetaPageState extends ConsumerState<MetaPage> {
       return PageBody(children: [
         ArenaHero(title: '$fmtKo 메타',
             subtitle: [
-              '시즌 ${m['season']}',
+              '랭킹 시즌 ${m['season']}',
               if (date != null) '$date 기준',
               '${m['total']}마리',
             ].join(' · ')),
+        if (!historical)
+          if (m['officialSeason'] case final Json official)
+            _OfficialSeason(official, rankingSeason: m['season'] as String?),
         LayoutBuilder(builder: (context, c) {
           if (c.maxWidth >= 850) {
             return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -156,6 +160,49 @@ class _MetaPageState extends ConsumerState<MetaPage> {
         ),
       ]);
     }, onRetry: () => ref.invalidate(request));
+  }
+}
+
+class _OfficialSeason extends StatelessWidget {
+  final Json data;
+  final String? rankingSeason;
+  const _OfficialSeason(this.data, {required this.rankingSeason});
+
+  @override
+  Widget build(BuildContext context) {
+    final season = data['season'] as String;
+    final rule = data['regulation'] as String;
+    final theme = Theme.of(context);
+    return Section(
+      '공식 랭크배틀 $season · $rule',
+      subtitle: rankingSeason == season
+          ? '랭킹과 채용 통계도 $season 기준입니다.'
+          : '$season 랭킹이 공개 데이터에 올라오기 전까지 ${rankingSeason ?? '기존'} 통계를 표시합니다.',
+      child: LabExpansionTile(
+        title: Text('$rule에서 추가된 포켓몬과 메가진화'),
+        tilePadding: EdgeInsets.zero,
+        expandedAlignment: Alignment.centerLeft,
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('M-C부터 사용 가능한 메가진화', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 5),
+          Wrap(spacing: 6, runSpacing: 5, children: [
+            for (final mon in (data['addedMegas'] as List).cast<Json>())
+              MonPill(mon, onTap: () => context.push(pokemonPath(mon['id'] as String))),
+          ]),
+          const SizedBox(height: 10),
+          Text('M-C 영입 라인업에 추가된 포켓몬', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 5),
+          Wrap(spacing: 6, runSpacing: 5, children: [
+            for (final mon in (data['roster'] as List).cast<Json>())
+              if (mon['id'] case final String id)
+                MonPill(mon, onTap: () => context.push(pokemonPath(id)))
+              else
+                Chip(label: Text(mon['ko'] as String)),
+          ]),
+        ],
+      ),
+    );
   }
 }
 
@@ -373,7 +420,7 @@ class _RankDetail extends ConsumerWidget {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                                 content: Text('${d['ko'] ?? d['name']} — 팀에 추가했습니다'),
-                                action: SnackBarAction(label: '팀 보기', onPressed: () => context.go('/team'))));
+                                action: SnackBarAction(label: tr('팀 보기'), onPressed: () => context.go('/team'))));
                           }
                         },
                   icon: const LabIcon(LabGlyph.plus, size: 18),

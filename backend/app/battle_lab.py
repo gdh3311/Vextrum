@@ -178,7 +178,8 @@ def matchup(e: Engine, fmt: str, team: list[dict], seed: int) -> Matchup:
 def _match_against(e, fmt, player, style, roster, rng):
     opponents = [c.resolved for c in roster]
     ours, matrix = _choose(e, fmt, player, opponents, rng)
-    their, _ = _choose(e, fmt, opponents, player, rng, style=style, core=(0, 1))
+    preview = [e.default_resolved(p["id"], fmt) for p in player]
+    their, _ = _choose(e, fmt, opponents, preview, rng, style=style, core=(0, 1))
     return Matchup(style, roster, player, ours, their, matrix, rng.randrange(2 ** 31))
 
 
@@ -205,6 +206,7 @@ def scout(e, fmt, team, seed):
     counter_index = max(match.ours, key=lambda i: match.scores[i][threat_index])
     return {"seed": seed, "opponent": _opponent(e, fmt, match.style, match.roster),
             "selection": [match.player[i]["id"] for i in match.ours],
+            "player": [_brief(m) for m in match.player],
             "threat": {"foe": _brief(match.roster[threat_index].resolved), "counter": _brief(match.player[counter_index]),
                        "score": match.scores[counter_index][threat_index]}}
 
@@ -225,6 +227,75 @@ def start(e, fmt, team, seed, selection, difficulty: simulation.Difficulty = "ul
 
 def _results():
     return dict.fromkeys(("win", "loss", "draw"), 0)
+
+
+def wilson(wins: float, runs: int, z: float = 1.96) -> list[float]:
+    """승률의 95% 신뢰 구간 (Wilson). 판 수가 적을수록 범위가 넓다."""
+    if not runs:
+        return [0., 0.]
+    phat = wins / runs
+    denom = 1 + z * z / runs
+    center = (phat + z * z / (2 * runs)) / denom
+    margin = z * ((phat * (1 - phat) + z * z / (4 * runs)) / runs) ** .5 / denom
+    return [round(100 * max(0., center - margin), 1), round(100 * min(1., center + margin), 1)]
+
+
+class _Detail:
+    """한 팀의 반복 배틀 상세 집계: 포켓몬별 기여, 위협적인 상대, 선봉 조합별 승률, 턴 분포."""
+
+    def __init__(self, width):
+        self.width = width
+        self.members, self.foes, self.leads = {}, {}, {}
+        self.turns = Counter()
+        self.games = 0
+
+    def add(self, battle, result):
+        self.games += 1
+        turns = battle.turn - 1
+        self.turns[min(12, max(1, turns))] += 1
+        for i, f in enumerate(battle.teams[0]):
+            row = self.members.setdefault(f.mon["id"], {
+                **_brief(f.mon), "picked": 0, "leads": 0, "survived": 0, "wins": 0,
+                "dealt": 0, "taken": 0, "kos": 0, "hpLeft": 0.})
+            row["picked"] += 1
+            row["leads"] += i < self.width
+            row["survived"] += f.hp > 0
+            row["wins"] += result == "win"
+            row["dealt"] += f.dealt
+            row["taken"] += f.taken
+            row["kos"] += f.kos
+            row["hpLeft"] += f.hp / f.max_hp
+        for f in battle.teams[1]:
+            row = self.foes.setdefault(f.mon["id"], {**_brief(f.mon), "faced": 0, "kos": 0, "dealt": 0,
+                                                     "losses": 0})
+            row["faced"] += 1
+            row["kos"] += f.kos
+            row["dealt"] += f.dealt
+            row["losses"] += result == "loss"
+        lead = tuple(sorted(f.mon["id"] for f in battle.teams[0][:self.width]))
+        line = self.leads.setdefault(lead, {"ids": list(lead), "runs": 0, **_results()})
+        line["runs"] += 1
+        line[result] += 1
+
+    def report(self):
+        members = []
+        for row in self.members.values():
+            n = row["picked"]
+            members.append({**row, "pickRate": round(100 * n / self.games, 1),
+                            "surviveRate": round(100 * row["survived"] / n, 1),
+                            "winRate": round(100 * row["wins"] / n, 1),
+                            "avgDealt": round(row["dealt"] / n), "avgTaken": round(row["taken"] / n),
+                            "koPerGame": round(row["kos"] / n, 2), "hpLeft": round(100 * row["hpLeft"] / n)})
+        members.sort(key=lambda r: -r["picked"])
+        foes = [{**r, "koPerGame": round(r["kos"] / r["faced"], 2), "avgDealt": round(r["dealt"] / r["faced"])}
+                for r in self.foes.values() if r["faced"] >= max(2, self.games // 20)]
+        foes.sort(key=lambda r: (-r["koPerGame"], -r["avgDealt"]))
+        leads = sorted(self.leads.values(), key=lambda r: -r["runs"])[:5]
+        for r in leads:
+            r["winRate"] = round(100 * r["win"] / r["runs"], 1)
+            r["ci"] = wilson(r["win"], r["runs"])
+        return {"memberStats": members, "threats": foes[:6], "leadStats": leads,
+                "turnHistogram": [{"turns": t, "games": self.turns[t]} for t in sorted(self.turns)]}
 
 
 def _member_stats(mon):
@@ -280,18 +351,21 @@ def _play(e, fmt, team, match, difficulty):
 def compare_teams(e, fmt, teams, runs, seed, difficulty: simulation.Difficulty = "ultra"):
     """Use the same six opponents and RNG for every team; each still gets its own preview."""
     standings = [{**_results(), "runs": runs, "strategies": {}, "leads": Counter(),
-                  "activations": Counter()} for _ in teams]
+                  "activations": Counter(), "turns": 0} for _ in teams]
+    details = [_Detail(2 if fmt == "Doubles" else 1) for _ in teams]
     resolved = [_resolve(e, fmt, team) for team in teams]
     width = 2 if fmt == "Doubles" else 1
     for match_seed in _match_seeds(e, fmt, runs, seed):
         rng = Random(match_seed)
         style, roster = _draft(e, fmt, match_seed, rng)
         state = rng.getstate()
-        for team, player, row in zip(teams, resolved, standings):
+        for team, player, row, detail in zip(teams, resolved, standings, details):
             rng.setstate(state)
             match = _match_against(e, fmt, player, style, roster, rng)
             battle = _play(e, fmt, team, match, difficulty)
             row[battle.winner] += 1
+            row["turns"] += battle.turn - 1
+            detail.add(battle, battle.winner)
             row["activations"].update(sorted(battle.activated[0]))
             strategy = row["strategies"].setdefault(style, {
                 "style": style, "label": auto_team.STYLES[style].label,
@@ -301,7 +375,13 @@ def compare_teams(e, fmt, teams, runs, seed, difficulty: simulation.Difficulty =
             strategy[battle.winner] += 1
             lead = tuple(sorted(f.mon["id"] for f in battle.teams[0][:width]))
             row["leads"][lead] += 1
-    for row in standings:
+    for row, detail in zip(standings, details):
+        row["avgTurns"] = round(row.pop("turns") / max(1, runs), 1)
+        row["ci"] = wilson(row["win"], runs)
+        row["difficulty"] = difficulty
+        row.update(detail.report())
+        for block in row["strategies"].values():
+            block["ci"] = wilson(block["win"], block["runs"])
         row["strategies"] = sorted(row["strategies"].values(), key=lambda block: (
             block["win"] / block["runs"], -block["loss"], block["style"]))
         lead, appearances = row.pop("leads").most_common(1)[0]
@@ -314,12 +394,14 @@ def batch(e, fmt, team, runs, seed, difficulty: simulation.Difficulty = "ultra")
     totals = _results()
     breakdown, overall = {}, {}
     turns = 0
+    detail = _Detail(width)
     for match_seed in _match_seeds(e, fmt, runs, seed):
         match = matchup(e, fmt, team, match_seed)
         battle = _play(e, fmt, team, match, difficulty)
         result, turn_count = battle.winner, battle.turn - 1
         totals[result] += 1
         turns += turn_count
+        detail.add(battle, result)
         block = breakdown.setdefault(match.style, _style_stats(match.style))
         block["runs"] += 1
         block[result] += 1
@@ -338,11 +420,13 @@ def batch(e, fmt, team, runs, seed, difficulty: simulation.Difficulty = "ultra")
             block["example"] = {"seed": match_seed, "result": result, "turns": turn_count, "leadSize": width,
                                 "mine": mine, "foe": foe, "opponent": [_brief(c.resolved) for c in match.roster]}
     for block in breakdown.values():
+        block["ci"] = wilson(block["win"], block["runs"])
         block["avgTurns"] = round(block.pop("turns") / block["runs"], 1)
         block["members"] = list(block["members"].values())
         block["foes"] = sorted(block["foes"].values(), key=lambda row: (-row["loss"], -row["picked"], row["id"]))
         block["lineups"] = sorted(block["lineups"].values(), key=lambda row: -row["runs"])[:5]
     return {"runs": runs, **totals, "avgTurns": round(turns / runs, 1), "seed": seed, "difficulty": difficulty,
+            "ci": wilson(totals["win"], runs), **detail.report(),
             "dataset": {"season": next((s for s in e.d["seasons"] if s != "Current"), None),
                         "generatedAt": e.d["generatedAt"]},
             "members": list(overall.values()), "strategies": sorted(breakdown.values(), key=lambda b: b["win"] / b["runs"])}

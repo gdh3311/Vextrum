@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../lab_icons.dart';
 import '../api.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../i18n.dart';
 
 const verdictKo = {'WIN': '유리', 'EVEN': '호각', 'LOSE': '불리'};
 const verdictColor = {'WIN': good, 'EVEN': even, 'LOSE': bad};
@@ -215,7 +216,7 @@ class _DuelDialogState extends ConsumerState<DuelDialog> {
                           width: w,
                           child: _Side(foe, '상대',
                               extra: PopupMenuButton<String>(
-                                tooltip: '상대 도구 바꿔 보기',
+                                tooltip: tr('상대 도구 바꿔 보기'),
                                 position: PopupMenuPosition.under,
                                 color: cs.surfaceContainerHighest,
                                 onSelected: (it) => setState(() {

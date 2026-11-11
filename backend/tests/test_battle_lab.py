@@ -1,8 +1,9 @@
 import json
 import unittest
+from datetime import datetime, timezone
 from unittest.mock import patch
 
-from app import auto_team, battle_lab, collector, simulation
+from app import auto_team, battle_lab, collector, season_notice, simulation
 from app.engine import Engine
 
 
@@ -116,6 +117,177 @@ class BattleLabTest(unittest.TestCase):
         report = battle_lab.batch(self.engine, fmt, team, 10, 42, "champion")
         self.assertEqual(report["difficulty"], "champion")
         self.assertEqual(sum(report[result] for result in ("win", "loss", "draw")), 10)
+
+    def test_m8_official_roster_is_available_without_m8_rankings(self):
+        at_start = datetime(2026, 11, 4, 2, tzinfo=timezone.utc)
+        notice = season_notice.active_notice(self.engine, at_start)
+        self.assertEqual((notice["season"], notice["regulation"]), ("M8", "M-C"))
+        self.assertEqual(len(notice["roster"]), 29)
+        self.assertEqual(len(notice["addedMegas"]), 6)
+        self.assertIn("inteleon", {p["id"] for p in notice["roster"]})
+        end = datetime(2026, 12, 2, 2, tzinfo=timezone.utc)
+        self.assertIsNone(season_notice.active_notice(self.engine, end))
+
+    def test_champion_plans_without_unrevealed_sets_or_reserves(self):
+        lead = [{"id": "garchomp", "moves": ["Earthquake"], "mega": None}, {"id": "rillaboom"}]
+        foe = [{"id": "pelipper"}, {"id": "baxcalibur"}, {"id": "incineroar"}, {"id": "sneasler"}]
+        a = simulation.Battle(self.engine, "Doubles", lead + [{"id": "kingambit"}], foe, 19,
+                              difficulty="champion")
+        lead[0] = {**lead[0], "moves": ["Dragon Claw", "Protect"]}
+        b = simulation.Battle(self.engine, "Doubles", lead + [{"id": "dragapult"}], foe, 19,
+                              difficulty="champion")
+        a.teams[0][0].known_moves.add("Rock Tomb")
+        b.teams[0][0].known_moves.add("Rock Tomb")
+        self.assertEqual(a._auto(1), b._auto(1))
+        self.assertEqual(a.teams[0][0].known_moves, {"Rock Tomb"})
+
+    def test_wide_guard_protects_both_slots_for_one_turn(self):
+        a = [{"id": "garchomp", "moves": ["Rock Slide"], "item": None, "mega": None}]
+        b = [{"id": "pelipper", "moves": ["Wide Guard"], "item": None},
+             {"id": "charizard", "moves": ["Protect"], "item": None, "mega": None}]
+        battle = simulation.Battle(self.engine, "Doubles", a, b, 29)
+        hp = [f.hp for f in battle.teams[1]]
+        attack = [{"slot": 0, "kind": "move", "move": "Rock Slide", "target": None}]
+        guard = [{"slot": 0, "kind": "move", "move": "Wide Guard", "target": None}]
+        battle._resolve_actions(attack, guard)
+        self.assertEqual([f.hp for f in battle.teams[1]], hp)
+        self.assertEqual(sum("와이드가드에 막혔다" in event["text"] for event in battle.log), 2)
+        battle._end_turn()
+        self.assertFalse(battle.wide_guard[1])
+
+    def test_two_manual_pivots_pause_the_same_turn_and_retarget_remaining_actions(self):
+        mine = [
+            {"id": "dragapult", "moves": ["U-turn"], "item": None},
+            {"id": "rillaboom", "moves": ["U-turn"], "item": None, "ability": "Overgrow"},
+            {"id": "incineroar", "ability": "Intimidate", "item": None},
+            {"id": "garchomp", "item": None, "mega": None},
+        ]
+        foe = [{"id": "kingambit", "moves": ["Iron Head"], "ability": "Defiant", "item": None},
+               {"id": "slowbro", "moves": ["Psychic"], "item": None}]
+        battle = simulation.Battle(self.engine, "Doubles", mine, foe, 19, manual=True)
+        for f, speed in zip(battle.teams[0][:2] + battle.teams[1], (160, 140, 60, 50)):
+            f.mon["speed"] = speed
+        sessions = simulation.Sessions()
+        key = sessions.start(battle)["id"]
+        actions = [{"slot": slot, "kind": "move", "move": "U-turn", "target": slot} for slot in range(2)]
+        replies = [{"slot": slot, "kind": "move", "move": move, "target": 0}
+                   for slot, move in enumerate(("Iron Head", "Psychic"))]
+        with patch.object(battle, "_auto", return_value=replies):
+            first = sessions.advance(key, 1, actions)
+            self.assertEqual(first["turn"], 1)
+            self.assertEqual(first["replacement"]["kind"], "pivot")
+            self.assertEqual(sessions.advance(key, 1, actions), first)
+        phase = first["replacement"]["phase"]
+        second = sessions.replace(key, 1, {0: 2}, phase)
+        self.assertEqual(second["replacement"]["slots"], [1])
+        self.assertEqual(second["turn"], 1)
+        self.assertEqual(battle.teams[1][0].stages["atk"], 1)
+        self.assertEqual(sessions.replace(key, 1, {0: 2}, phase), second)
+        result = sessions.replace(key, 1, {1: 3}, second["replacement"]["phase"])
+        self.assertEqual(result["turn"], 2)
+        self.assertEqual(result["active"][0], [2, 3])
+        self.assertIn("Fake Out", {a.get("move") for a in result["options"][0]["options"]})
+        self.assertEqual(result["teams"][0][0]["taken"], 0)
+        self.assertGreater(result["teams"][0][2]["taken"], 0)
+
+    def test_pivot_does_not_trigger_through_protect_or_electric_immunity(self):
+        for move, target, response in (
+            ("U-turn", "kingambit", "Protect"),
+            ("Volt Switch", "garchomp", "Dragon Claw"),
+        ):
+            with self.subTest(move=move):
+                battle = simulation.Battle(
+                    self.engine, "Singles", [{"id": "rotomwash", "moves": [move], "item": None}, {"id": "incineroar"}],
+                    [{"id": target, "moves": [response], "item": None, "mega": None}], 19, manual=True,
+                )
+                with patch.object(battle, "_auto", return_value=[
+                    {"slot": 0, "kind": "move", "move": response, "target": None if response == "Protect" else 0}
+                ]):
+                    battle.advance([{"slot": 0, "kind": "move", "move": move, "target": 0}])
+                self.assertEqual(battle.turn, 2)
+                self.assertIsNone(battle.view("test")["replacement"])
+                self.assertEqual(battle.active[0], [0])
+
+    def test_cpu_parting_shot_debuffs_then_switches_to_an_advantageous_reserve(self):
+        mine = [{"id": "rotomwash", "moves": ["Hydro Pump"], "item": None}]
+        foe = [{"id": "incineroar", "moves": ["Parting Shot"], "ability": "Blaze", "item": None},
+               {"id": "charizard", "item": None, "mega": None},
+               {"id": "rillaboom", "item": None, "ability": "Grassy Surge"}]
+        battle = simulation.Battle(self.engine, "Singles", mine, foe, 17, difficulty="champion")
+        actor = battle.teams[0][0]
+        actor.known_moves.add("Hydro Pump")
+        battle.teams[1][0].mon["speed"] = 999
+        turn = [{"slot": 0, "kind": "move", "move": "Hydro Pump", "target": 0}]
+        self.assertEqual(battle._auto(1)[0].get("move"), "Parting Shot")
+        battle.advance(turn)
+        self.assertEqual(actor.stages, {"atk": -1, "spa": -1})
+        self.assertEqual(battle.active[1], [2])
+        self.assertEqual(battle.terrain, "grassy")
+
+    def test_champion_can_hard_switch_to_an_immunity_and_protect_its_partner(self):
+        mine = [{"id": "raichu", "moves": ["Thunderbolt"], "item": None, "mega": None}]
+        foe = [{"id": "pelipper", "moves": ["Hurricane"], "item": None},
+               {"id": "charizard", "moves": ["Protect"], "item": None, "mega": None},
+               {"id": "garchomp", "moves": ["Earthquake"], "item": None, "mega": None}]
+        battle = simulation.Battle(self.engine, "Doubles", mine, foe, 19, difficulty="champion")
+        battle.teams[0][0].known_moves.add("Thunderbolt")
+        self.assertEqual([(a["kind"], a.get("move"), a["target"]) for a in battle._auto(1)],
+                         [("switch", None, 2), ("move", "Protect", None)])
+        battle.advance([{"slot": 0, "kind": "move", "move": "Thunderbolt", "target": 0}])
+        self.assertEqual(battle.active[1], [2, 1])
+        self.assertEqual(battle.teams[1][2].taken, 0)
+
+    def test_sucker_punch_requires_a_pending_attack(self):
+        mine = [{"id": "kingambit", "moves": ["Sucker Punch"], "item": None}]
+        for response, hits in (("Protect", False), ("Quick Attack", False), ("Dragon Claw", True)):
+            with self.subTest(response=response):
+                foe = [{"id": "garchomp", "moves": [response], "item": None, "mega": None}]
+                battle = simulation.Battle(self.engine, "Singles", mine, foe, 31)
+                battle._resolve_actions([{"slot": 0, "kind": "move", "move": "Sucker Punch", "target": 0}],
+                                        [{"slot": 0, "kind": "move", "move": response, "target": 0}])
+                self.assertEqual(battle.teams[1][0].taken > 0, hits)
+
+    def test_terrain_and_armor_tail_change_priority_and_damage(self):
+        for ability, blocked in (("Armor Tail", True), ("Sap Sipper", False)):
+            with self.subTest(ability=ability):
+                mine = [{"id": "rillaboom", "moves": ["Grassy Glide"], "ability": "Grassy Surge", "item": None}]
+                foe = [{"id": "rotomwash", "moves": ["Thunderbolt"], "item": None},
+                       {"id": "farigiraf", "ability": ability, "item": None}]
+                battle = simulation.Battle(self.engine, "Doubles", mine, foe, 29)
+                self.assertEqual(battle._options(0, 0, battle.teams[0][0])[0]["priority"], 1)
+                battle._resolve_actions([{"slot": 0, "kind": "move", "move": "Grassy Glide", "target": 0}], [])
+                self.assertEqual(battle.teams[1][0].taken == 0, blocked)
+
+    def test_regenerator_restores_health_and_lightning_rod_redirects_volt_switch(self):
+        mine = [{"id": "slowbro", "ability": "Regenerator", "item": None, "mega": None},
+                {"id": "rotomwash", "moves": ["Volt Switch"], "item": None},
+                {"id": "rillaboom", "ability": "Overgrow", "item": None}]
+        foe = [{"id": "pelipper", "ability": "Keen Eye", "item": None},
+               {"id": "raichu", "ability": "Lightning Rod", "item": None, "mega": None}]
+        battle = simulation.Battle(self.engine, "Doubles", mine, foe, 19)
+        slowbro = battle.teams[0][0]
+        slowbro.hp = slowbro.max_hp // 2
+        before = slowbro.hp
+        battle._resolve_actions([{"slot": 0, "kind": "switch", "target": 2},
+                                 {"slot": 1, "kind": "move", "move": "Volt Switch", "target": 0}], [])
+        self.assertEqual(slowbro.hp - before, slowbro.max_hp // 3)
+        self.assertEqual(battle.teams[1][1].stages.get("spa"), 1)
+        self.assertEqual(battle.teams[1][0].taken, 0)
+        self.assertEqual(battle.active[0], [2, 1])
+
+    def test_tailwind_changes_order_for_moves_that_have_not_executed(self):
+        a = [{"id": "garchomp", "moves": ["Tailwind"], "item": None, "mega": None},
+             {"id": "baxcalibur", "moves": ["Icicle Crash"], "item": None, "mega": None}]
+        b = [{"id": "rillaboom", "moves": ["Wood Hammer"], "item": None}]
+        battle = simulation.Battle(self.engine, "Doubles", a, b, 29)
+        for f, speed in zip(battle.teams[0] + battle.teams[1], (160, 80, 120)):
+            f.mon["speed"] = speed
+        battle._resolve_actions([
+            {"slot": 0, "kind": "move", "move": "Tailwind"},
+            {"slot": 1, "kind": "move", "move": "Icicle Crash", "target": 0},
+        ], [{"slot": 0, "kind": "move", "move": "Wood Hammer", "target": 1}])
+        moves = [event["side"] for event in battle.log if event["kind"] == "move"]
+        self.assertEqual(moves[:2], [0, 0])
 
     def test_team_comparison_matches_batch_and_reuses_the_same_opponents(self):
         fmt, runs, seed = "Doubles", 14, 94

@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 
 import '../lab_icons.dart';
 import '../api.dart';
 import '../widgets.dart';
+import '../i18n.dart';
 
 String monName(Json mon) => (mon['ko'] ?? mon['name']) as String;
 
@@ -153,9 +154,9 @@ class _OpponentPickerState extends State<_OpponentPicker> {
             autofocus: true,
             controller: search,
             focusNode: focus,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
                 prefixIcon: LabIcon(LabGlyph.search),
-                hintText: '한글·영문 이름 · Enter로 첫 결과 추가'),
+                hintText: tr('한글·영문 이름 · Enter로 첫 결과 추가')),
             onChanged: (_) => setState(() => message = null),
             onSubmitted: (_) {
               if (search.text.trim().isNotEmpty && results.isNotEmpty) {
@@ -244,7 +245,7 @@ class _NamesDialogState extends State<_NamesDialog> {
           controller: text,
           minLines: 4,
           maxLines: 6,
-          decoration: const InputDecoration(hintText: '이름을 줄바꿈 또는 쉼표로 구분하세요'),
+          decoration: InputDecoration(hintText: tr('이름을 줄바꿈 또는 쉼표로 구분하세요')),
         ),
         actions: [
           TextButton(

@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'lab_icons.dart';
 import 'api.dart';
+import 'i18n.dart';
 
 const typeKo = {
   'Normal': '노말', 'Fire': '불꽃', 'Water': '물', 'Electric': '전기', 'Grass': '풀', 'Ice': '얼음',
@@ -34,8 +35,9 @@ const natureEffects = <String, List<String?>>{
 
 String natureLabel(String name, String? ko) {
   final e = natureEffects[name];
-  final fx = e == null || e[0] == null ? '보정 없음' : '${statKo[e[0]]}↑ ${statKo[e[1]]}↓';
-  return '${ko ?? name} ($name) · $fx';
+  final fx = e == null || e[0] == null ? tr('보정 없음') : '${tr(statKo[e[0]]!)}↑ ${tr(statKo[e[1]]!)}↓';
+  final local = ko ?? name;
+  return local == name || !showEnglishNames ? '$local · $fx' : '$local ($name) · $fx';
 }
 
 String fmtPct(num? v) => v == null ? '' : '${v.toStringAsFixed(v >= 10 || v == v.roundToDouble() ? 0 : 1)}%';
@@ -153,7 +155,7 @@ class NameBlock extends StatelessWidget {
           style: TextStyle(fontSize: size, fontWeight: FontWeight.w600, height: 1.25),
           maxLines: 1,
           overflow: TextOverflow.ellipsis),
-      if (ko != null)
+      if (ko != null && ko != name && showEnglishNames)
         Text(name,
             style: TextStyle(fontSize: size < 14 ? 12 : size * .82, color: muted, height: 1.3),
             maxLines: 1,
@@ -392,8 +394,8 @@ Future<T?> showPicker<T>(BuildContext context, String title, List<PickItem<T>> i
             child: Column(children: [
               TextField(
                 autofocus: true,
-                decoration: const InputDecoration(
-                    prefixIcon: LabIcon(LabGlyph.search), hintText: '이름으로 검색 (한글/영문)', isDense: true),
+                decoration: InputDecoration(
+                    prefixIcon: LabIcon(LabGlyph.search), hintText: tr('이름으로 검색 (한글/영문)'), isDense: true),
                 onChanged: (v) => setState(() => q = v.trim().toLowerCase()),
               ),
               const SizedBox(height: 8),
@@ -458,8 +460,8 @@ Future<Json?> showPokemonPicker(BuildContext context, List<Json> all, String fmt
             child: Column(children: [
               TextField(
                 autofocus: true,
-                decoration: const InputDecoration(
-                    prefixIcon: LabIcon(LabGlyph.search), hintText: '이름으로 검색 (한글/영문)', isDense: true),
+                decoration: InputDecoration(
+                    prefixIcon: LabIcon(LabGlyph.search), hintText: tr('이름으로 검색 (한글/영문)'), isDense: true),
                 onChanged: (v) => setState(() => q = v.trim().toLowerCase()),
               ),
               const SizedBox(height: 8),

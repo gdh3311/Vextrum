@@ -56,6 +56,8 @@ WEATHER_STYLES = {"rain", "sun", "sand", "snow"}
 DISCOVERY_STYLES = ("balance", "speed", "physical", "special", "bulky", "rain", "sun", "tailwind", "trickroom")
 SCREEN_RUNS = 21
 FINAL_RUNS = 56
+# 평가 깊이: (1차 선별 판 수, 최종 검증 판 수)
+DEPTHS = {"quick": (12, 30), "standard": (SCREEN_RUNS, FINAL_RUNS), "deep": (36, 120)}
 DRAFT_LIMIT = 12
 FINAL_LIMIT = 5
 
@@ -341,7 +343,7 @@ def _keep_weather_options(rows, limit, split_weather):
 
 
 def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: list[dict], *,
-          exclude: Sequence[str] = (), objective: str = "win"):
+          exclude: Sequence[str] = (), objective: str = "win", depth: str = "standard", cpu: str = "ultra"):
     from . import battle_lab
 
     goals = tuple(dict.fromkeys(styles))
@@ -417,14 +419,18 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
             distinct.setdefault(key, (group, roster))
         picks = list(distinct.values())
 
-    def assess(picks, runs, seed):
-        results = battle_lab.compare_teams(e, fmt, [[c.set for c in roster] for _, roster in picks], runs, seed)
+    screen_runs, final_runs = DEPTHS.get(depth, DEPTHS["standard"])
+
+    def assess(picks, runs, seed, difficulty="ultra"):
+        results = battle_lab.compare_teams(e, fmt, [[c.set for c in roster] for _, roster in picks], runs, seed,
+                                           difficulty)
         rows = [(group, roster, report) for (group, roster), report in zip(picks, results)]
         return sorted(rows, key=lambda row: _rank_key(row[2], objective), reverse=True)
 
-    screened = assess(picks, SCREEN_RUNS, seed=821239)
+    # 1차 선별은 빠른 표준 CPU로, 최종 검증은 고른 CPU 수준으로 한다.
+    screened = assess(picks, screen_runs, seed=821239)
     finalists = _keep_weather_options(screened, FINAL_LIMIT, split_weather)
-    assessed = assess([(group, roster) for group, roster, _ in finalists], FINAL_RUNS, seed=3146781)
+    assessed = assess([(group, roster) for group, roster, _ in finalists], final_runs, seed=3146781, difficulty=cpu)
     shown = _keep_weather_options(assessed, max(3, len(weather)), split_weather)
     candidates = []
     names_seen = set()
@@ -455,14 +461,33 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
         ]
         profile = {key: sum(key in c.features for c in roster)
                    for key in ("fast_attacker", "physical", "special", "bulky")}
+        from .guide import team_guide
+
+        guide = team_guide(e, sets, fmt) or {}
+        weak = sorted((r for r in analysis["typeRows"] if r["weak"] >= 2), key=lambda r: (r["resist"] - r["weak"]))
+        members = [_member(e, s, fmt) for s in sets]
+        for m, c in zip(members, roster):
+            m["speed"] = round(c.resolved["speed"])
+            m["fixed"] = c.id in ids
+            m["features"] = [FEATURE_NAMES[f] for f in sorted(c.features) if f in FEATURE_NAMES][:4]
         candidates.append({"id": f"auto-{index}", "name": name, "format": fmt, "complete": True,
-                           "members": [_member(e, s, fmt) for s in sets], "metaScore": analysis["metaScore"],
-                           "warnings": analysis["warnings"][:3], "fit": fit, "fixedIds": ids,
-                           "simulation": report, "profile": profile})
+                           "members": members, "metaScore": analysis["metaScore"],
+                           "warnings": analysis["warnings"][:4], "fit": fit, "fixedIds": ids,
+                           "simulation": report, "profile": profile,
+                           "analysis": {
+                               "damageSplit": analysis["damageSplit"],
+                               "weakTypes": [{"type": r["type"], "weak": r["weak"], "resist": r["resist"]}
+                                             for r in weak[:4]],
+                               "roles": [{"label": r["label"], "stars": r["stars"]} for r in analysis["roleCoverage"]],
+                               "matchups": {k: sum(1 for m in analysis["matchups"] if m["label"] == k)
+                                            for k in ("GOOD", "EVEN", "BAD")},
+                               "axes": [{"label": a["label"], "play": a["play"]} for a in guide.get("axes", [])][:4],
+                               "lead": guide.get("lead"),
+                           }})
     return {"candidates": candidates, "splitWeather": split_weather,
             "evaluation": {"screened": len(picks), "finalists": len(finalists),
-                           "screenRuns": SCREEN_RUNS, "finalRuns": FINAL_RUNS,
-                           "objective": objective}}
+                           "screenRuns": screen_runs, "finalRuns": final_runs,
+                           "objective": objective, "depth": depth, "cpu": cpu}}
 
 
 @lru_cache(maxsize=6)

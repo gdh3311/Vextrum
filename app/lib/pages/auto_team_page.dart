@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,6 +11,7 @@ import '../widgets.dart';
 import 'battle_console.dart';
 import 'party_simulation.dart';
 import 'parties_page.dart';
+import '../i18n.dart';
 
 const _focuses = <(String, String, String, LabGlyph)>[
   ('', '알아서 추천', '여러 운영을 비교해 시뮬레이션 성적이 좋은 팀을 찾습니다.', LabGlyph.spark),
@@ -71,6 +72,8 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
   final exclude = <String, Json>{};
   final locked = <String>{};
   String objective = 'win';
+  String depth = 'standard';
+  String cpu = 'ultra';
   Json? result;
   String? error;
   bool building = false;
@@ -113,6 +116,8 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
         'exclude': exclude.keys.toList(),
         'locked': sets,
         'objective': objective,
+        'depth': depth,
+        'cpu': cpu,
       });
       if (mounted) {
         setState(() => result = response.data as Json);
@@ -244,6 +249,46 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
               onSelected:
                   building ? null : (_) => _change(() => objective = value),
             ),
+        ]),
+      ),
+      Section(
+        '평가 방법',
+        subtitle: '판 수가 많을수록 결과가 정확하지만 오래 걸립니다. 최종 후보는 고른 수준의 CPU와 다시 싸웁니다.',
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Wrap(spacing: 10, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+            SizedBox(width: 92, child: Text('평가 깊이', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant))),
+            SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: 'quick', label: Text('빠르게')),
+                ButtonSegment(value: 'standard', label: Text('표준')),
+                ButtonSegment(value: 'deep', label: Text('정밀')),
+              ],
+              selected: {depth},
+              onSelectionChanged: building ? null : (v) => _change(() => depth = v.first),
+            ),
+            Text(switch (depth) {
+              'quick' => '후보당 12판 → 최종 30판',
+              'deep' => '후보당 36판 → 최종 120판',
+              _ => '후보당 21판 → 최종 56판',
+            }, style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant)),
+          ]),
+          const SizedBox(height: 10),
+          Wrap(spacing: 10, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+            SizedBox(width: 92, child: Text('검증 CPU', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant))),
+            SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: 'ultra', label: Text('하이퍼볼')),
+                ButtonSegment(value: 'master', label: Text('마스터볼')),
+                ButtonSegment(value: 'champion', label: Text('챔피언')),
+              ],
+              selected: {cpu},
+              onSelectionChanged: building ? null : (v) => _change(() => cpu = v.first),
+            ),
+            Text(cpu == 'champion' ? '실전 플레이어 수준 · 시간이 더 걸립니다' : cpu == 'master' ? '상대 행동을 예측하는 CPU' : '표준 CPU',
+                style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant)),
+          ]),
         ]),
       ),
       Section(

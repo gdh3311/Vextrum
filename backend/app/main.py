@@ -18,13 +18,38 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from . import archive, battle_lab, collector, parties, simulation
+from . import archive, battle_lab, collector, parties, season_notice, simulation
 from .engine import ROLE_LABELS, Engine, weight
 
 Format = Literal["Doubles", "Singles"]
 
 app = FastAPI(title="Champions Meta Lab")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+_name_tables: dict | None = None
+
+
+@app.middleware("http")
+async def localize_names(request, call_next):
+    """X-Lang: en|ja 요청이면 응답 JSON의 한국어 이름을 그 언어 이름으로 바꾼다 (app/names.py)."""
+    global _name_tables
+    lang = request.headers.get("x-lang", "ko")
+    response = await call_next(request)
+    if lang not in ("en", "ja") or not response.headers.get("content-type", "").startswith("application/json"):
+        return response
+    from fastapi.responses import Response
+
+    from . import names
+
+    body = b"".join([chunk async for chunk in response.body_iterator])
+    try:
+        if _name_tables is None:
+            _name_tables = names.build(engine().d)
+        body = names.translate_body(body, _name_tables[lang])
+    except Exception:  # 변환에 실패해도 원래 응답은 보낸다
+        pass
+    headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+    return Response(content=body, status_code=response.status_code, headers=headers, media_type="application/json")
 
 _engine: Engine | None = None
 
@@ -120,6 +145,7 @@ def meta(format: Format = "Doubles", top: int = Query(50, ge=5, le=300), season:
     rising = sorted([r for r in movers if r["delta"] >= 5], key=lambda r: -r["delta"] / (r["rank"] ** 0.5))[:8]
     falling = sorted([r for r in movers if r["delta"] <= -5], key=lambda r: r["delta"] / (r["rank"] ** 0.5))[:8]
     result = {"format": format, "season": season, "seasons": seasons, "historical": historical,
+              "officialSeason": season_notice.active_notice(e),
               "prevSeason": prev_season, "generatedAt": archive.date(e, season) if historical else d["generatedAt"],
               "attribution": d["attribution"], "source": d["source"], "total": len(rows), "hasWeekTrend": bool(week),
               "ranking": rows[:top], "rising": rising, "falling": falling}
@@ -255,6 +281,8 @@ class AutoTeamRequest(BaseModel):
     locked: list[TeamSet] = Field(default_factory=list, max_length=5)
     exclude: list[str] = Field(default_factory=list, max_length=12)
     objective: Literal["win", "stability"] = "win"
+    depth: Literal["quick", "standard", "deep"] = "standard"
+    cpu: Literal["ultra", "master", "champion"] = "ultra"
 
 
 @app.post("/api/team/build")
@@ -264,7 +292,7 @@ def auto_team(req: AutoTeamRequest):
     locked = [s.model_dump(exclude_unset=True) for s in req.locked]
     try:
         return builder.build(engine(), req.format, req.styles, req.include, locked,
-                             exclude=req.exclude, objective=req.objective)
+                             exclude=req.exclude, objective=req.objective, depth=req.depth, cpu=req.cpu)
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
 
@@ -331,6 +359,7 @@ class BattleTurn(BaseModel):
 class BattleReplacement(BaseModel):
     turn: int = Field(ge=1, le=simulation.MAX_TURNS)
     choices: dict[int, int] = Field(min_length=1, max_length=2)
+    phase: int | None = Field(default=None, ge=1)
 
 
 _battles = simulation.Sessions()
@@ -389,7 +418,7 @@ def simulate_battles(req: BatchRequest):
 @app.post("/api/battle/{battle_id}/replace")
 def replace_battle_member(battle_id: str, req: BattleReplacement):
     try:
-        return _battles.replace(battle_id, req.turn, req.choices)
+        return _battles.replace(battle_id, req.turn, req.choices, req.phase)
     except KeyError as error:
         raise HTTPException(404, "battle expired") from error
     except ValueError as error:
@@ -497,6 +526,44 @@ def duel_view(req: DuelRequest):
     return lab.duel(e, a, b, req.format)
 
 
+class SpeedRequest(BaseModel):
+    format: Format = "Doubles"
+    topN: int = 60
+    team: list[TeamSet] = []
+
+
+@app.post("/api/speed")
+def speed_tiers(req: SpeedRequest):
+    """메타 상위권의 실전 스피드 분포와 내 팀 스피드"""
+    from . import speed
+
+    e = engine()
+    return {"format": req.format,
+            "meta": speed.meta_rows(e, req.format, max(10, min(150, req.topN))),
+            "team": speed.team_rows(e, req.format, [s.model_dump(exclude_unset=True) for s in req.team[:6]])}
+
+
+class PasteRequest(BaseModel):
+    url: str
+
+
+@app.post("/api/pokepaste")
+def pokepaste(req: PasteRequest):
+    """pokepast.es 링크의 팀 텍스트를 가져온다 (앱의 Showdown 가져오기로 넘긴다)."""
+    import urllib.request
+
+    m = re.match(r"^https?://(?:www\.)?pokepast\.es/([0-9a-fA-F]{8,32})(?:/raw)?/?$", req.url.strip())
+    if not m:
+        raise HTTPException(400, "pokepast.es 링크가 아닙니다")
+    try:
+        with urllib.request.urlopen(urllib.request.Request(
+                f"https://pokepast.es/{m.group(1)}/raw", headers=collector.UA), timeout=15) as r:
+            text = r.read(200_000).decode("utf-8", "replace")
+    except Exception:
+        raise HTTPException(502, "팀을 불러오지 못했습니다")
+    return {"text": text}
+
+
 @app.get("/api/jokers")
 def jokers(format: Format = "Doubles", minRank: int = Query(50, ge=10, le=260), topN: int = Query(20, ge=5, le=50),
            role: str | None = None, type: str | None = None):
@@ -509,8 +576,9 @@ def jokers(format: Format = "Doubles", minRank: int = Query(50, ge=10, le=260), 
 @app.post("/api/refresh")
 def refresh():
     """원본 사이트에서 새 데이터를 받아 다시 계산한다."""
-    global _engine
+    global _engine, _name_tables
     collector.collect()
+    _name_tables = None
     _engine = None
     return {"dataVersion": engine().d["dataVersion"]}
 

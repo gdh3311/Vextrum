@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text, Tooltip;
 
 import '../api.dart';
 import '../lab_icons.dart';
 import '../widgets.dart';
+import '../i18n.dart';
 
 String battleRecord(Json row) {
   final rate = fmtPct(100 * (row['win'] as int) / (row['runs'] as int));
