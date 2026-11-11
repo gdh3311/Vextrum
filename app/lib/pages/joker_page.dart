@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../lab_icons.dart';
 import '../api.dart';
 import '../main.dart';
 import '../team_state.dart';
@@ -13,7 +14,7 @@ const _roleFilters = {
   'disrupt': '방해', 'fast': '고속', 'bulky': '내구형',
 };
 const _gradeColor = {
-  'S': Color(0xFFD64545), 'A': Color(0xFFE08A00), 'B': Color(0xFF2F6FED), 'C': Color(0xFF7A7A7A),
+  'S': Color(0xFFE9B44C), 'A': Color(0xFF45D0BF), 'B': Color(0xFF8D95A6), 'C': Color(0xFF8D95A6),
 };
 
 class JokerPage extends ConsumerWidget {
@@ -24,51 +25,50 @@ class JokerPage extends ConsumerWidget {
     final f = ref.watch(jokerFilterProvider);
     final data = ref.watch(jokersProvider);
     final fmt = ref.watch(formatProvider);
-    final t = Theme.of(context);
     void set(JokerFilter nf) => ref.read(jokerFilterProvider.notifier).state = nf;
 
     return PageBody(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
-        child: Text('조커 파인더 · ${fmt == 'Doubles' ? '더블배틀' : '싱글배틀'}',
-            style: t.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
-      ),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
-        child: Text('순위는 낮지만 지금 메타 상위권을 넓게 압박할 수 있는 포켓몬을 찾습니다.',
-            style: t.textTheme.bodyMedium?.copyWith(color: t.colorScheme.onSurfaceVariant)),
-      ),
-      Section(
-        '조건',
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-            const Text('사용 순위'),
-            for (final r in const [30, 50, 100, 150])
-              ChoiceChip(
-                  label: Text('$r위 밖'), selected: f.minRank == r, onSelected: (_) => set(f.copyWith(minRank: r))),
-            const SizedBox(width: 12),
-            const Text('기준 메타'),
-            for (final n in const [20, 30])
-              ChoiceChip(label: Text('상위 $n'), selected: f.topN == n, onSelected: (_) => set(f.copyWith(topN: n))),
-          ]),
-          const SizedBox(height: 10),
-          Wrap(spacing: 6, runSpacing: 6, children: [
-            for (final e in _roleFilters.entries)
-              FilterChip(
-                  visualDensity: VisualDensity.compact,
-                  label: Text(e.value),
-                  selected: f.role == e.key,
-                  onSelected: (on) => set(f.copyWith(role: () => on ? e.key : null))),
-          ]),
-          const SizedBox(height: 10),
-          Wrap(spacing: 4, runSpacing: 4, children: [
-            for (final ty in typeKo.keys)
-              InkWell(
-                onTap: () => set(f.copyWith(type: () => f.type == ty ? null : ty)),
-                child: Opacity(opacity: f.type == null || f.type == ty ? 1 : .35, child: TypeChip(ty)),
+      PageHeader('조커 파인더', glyph: LabGlyph.crystal,
+          subtitle: '${fmt == 'Doubles' ? '더블배틀' : '싱글배틀'} · 순위는 낮지만 지금 메타 상위권을 넓게 압박할 수 있는 포켓몬'),
+      Card(
+        margin: const EdgeInsets.only(bottom: 16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          child: Wrap(spacing: 24, runSpacing: 12, crossAxisAlignment: WrapCrossAlignment.center, children: [
+            _FilterGroup(
+              '사용 순위',
+              SegmentedButton<int>(
+                showSelectedIcon: false,
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                segments: const [
+                  ButtonSegment(value: 30, label: Text('30위 밖')),
+                  ButtonSegment(value: 50, label: Text('50위 밖')),
+                  ButtonSegment(value: 100, label: Text('100위 밖')),
+                  ButtonSegment(value: 150, label: Text('150위 밖')),
+                ],
+                selected: {f.minRank},
+                onSelectionChanged: (v) => set(f.copyWith(minRank: v.first)),
               ),
+            ),
+            _FilterGroup(
+              '기준 메타',
+              SegmentedButton<int>(
+                showSelectedIcon: false,
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                segments: const [
+                  ButtonSegment(value: 20, label: Text('상위 20')),
+                  ButtonSegment(value: 30, label: Text('상위 30')),
+                ],
+                selected: {f.topN},
+                onSelectionChanged: (v) => set(f.copyWith(topN: v.first)),
+              ),
+            ),
+            _FilterGroup(
+                '역할', _Dropdown(value: f.role, labels: _roleFilters, onChanged: (v) => set(f.copyWith(role: () => v)))),
+            _FilterGroup(
+                '타입', _Dropdown(value: f.type, labels: typeKo, onChanged: (v) => set(f.copyWith(type: () => v)))),
           ]),
-        ]),
+        ),
       ),
       AsyncView<Json>(data, (d) {
         final jokers = (d['jokers'] as List).cast<Json>();
@@ -111,9 +111,9 @@ class _JokerCard extends ConsumerWidget {
         );
 
     Widget mons(String title, List rows, Color color) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: color)),
+          Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
           const SizedBox(height: 4),
-          if (rows.isEmpty) Text('뚜렷한 상대 없음', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+          if (rows.isEmpty) Text('뚜렷한 상대 없음', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
           Wrap(spacing: 6, runSpacing: 6, children: [
             for (final m in rows.cast<Json>())
               MonPill(m,
@@ -123,9 +123,9 @@ class _JokerCard extends ConsumerWidget {
         ]);
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             InkWell(
@@ -140,32 +140,26 @@ class _JokerCard extends ConsumerWidget {
                   Text('사용 순위 #${j['rank']}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                 ]),
                 const SizedBox(height: 6),
-                Wrap(spacing: 4, runSpacing: 4, children: [
-                  for (final r in (p['roles'] as List).cast<Json>())
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                      decoration: BoxDecoration(
-                          border: Border.all(color: cs.outlineVariant), borderRadius: BorderRadius.circular(20)),
-                      child: Text(r['label'] as String, style: const TextStyle(fontSize: 10)),
-                    ),
-                ]),
+                Text((p['roles'] as List).map((r) => r['label']).join(' · '),
+                    style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant)),
               ]),
             ),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Row(mainAxisSize: MainAxisSize.min, children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: _gradeColor[grade], borderRadius: BorderRadius.circular(6)),
-                  child: Text('$grade 조커',
-                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
+                  decoration: BoxDecoration(
+                      color: _gradeColor[grade]!.withOpacity(.16), borderRadius: BorderRadius.circular(6)),
+                  child: Text('$grade 등급',
+                      style: TextStyle(color: _gradeColor[grade], fontSize: 12.5, fontWeight: FontWeight.w700)),
                 ),
                 const SizedBox(width: 8),
                 Text('${(j['score'] as num).round()}',
-                    style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, height: 1)),
+                    style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700, height: 1)),
               ]),
               const SizedBox(height: 8),
               FilledButton.tonalIcon(
-                icon: const Icon(Icons.add, size: 18),
+                icon: const LabIcon(LabGlyph.plus, size: 18),
                 label: Text(team.length >= 6 ? '팀 가득 참' : '팀에 추가'),
                 onPressed: team.length >= 6
                     ? null
@@ -173,18 +167,18 @@ class _JokerCard extends ConsumerWidget {
                         await ref.read(teamProvider.notifier).add(p['id'] as String, set: j['set'] as Json);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text('${p['ko'] ?? p['name']}을(를) 추천 세트로 팀에 추가했습니다'),
+                              content: Text('${p['ko'] ?? p['name']} — 추천 세트로 추가했습니다'),
                               action: SnackBarAction(label: '팀 보기', onPressed: () => context.go('/team'))));
                         }
                       },
               ),
             ]),
           ]),
-          const Divider(height: 22),
+          const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Divider()),
           LayoutBuilder(builder: (context, c) {
             final cols = c.maxWidth >= 880 ? 3 : (c.maxWidth >= 560 ? 2 : 1);
-            final w = (c.maxWidth - (cols - 1) * 20) / cols;
-            return Wrap(spacing: 20, runSpacing: 14, children: [
+            final w = (c.maxWidth - (cols - 1) * 28) / cols;
+            return Wrap(spacing: 28, runSpacing: 18, children: [
               SizedBox(
                 width: w,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -198,7 +192,7 @@ class _JokerCard extends ConsumerWidget {
               SizedBox(
                 width: w,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('추천 세트', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+                  const Text('추천 세트', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
                   Row(children: [
                     ItemIcon(p['item'] as String?, size: 22),
@@ -220,19 +214,69 @@ class _JokerCard extends ConsumerWidget {
                   Text(
                       '포인트 ${statKeys.map((k) => '${(p['points'] as Json)[k]}').join('/')} → '
                       '${statKeys.map((k) => '${(p['stats'] as Json)[k]}').join('/')}',
-                      style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                 ]),
               ),
               SizedBox(
                 width: w,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  mons('강한 상대', j['strong'] as List, const Color(0xFF1E9E55)),
+                  mons('강한 상대', j['strong'] as List, const Color(0xFF34C77B)),
                   const SizedBox(height: 10),
-                  mons('약한 상대', j['weak'] as List, const Color(0xFFD64545)),
+                  mons('약한 상대', j['weak'] as List, const Color(0xFFF0616D)),
                 ]),
               ),
             ]);
           }),
+        ]),
+      ),
+    );
+  }
+}
+
+class _FilterGroup extends StatelessWidget {
+  final String label;
+  final Widget child;
+  const _FilterGroup(this.label, this.child);
+  @override
+  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(label, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        const SizedBox(width: 10),
+        child,
+      ]);
+}
+
+/// '전체' + 항목 목록에서 하나를 고르는 드롭다운
+class _Dropdown extends StatelessWidget {
+  final String? value;
+  final Map<String, String> labels;
+  final ValueChanged<String?> onChanged;
+  const _Dropdown({required this.value, required this.labels, required this.onChanged});
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return PopupMenuButton<String>(
+      tooltip: '',
+      position: PopupMenuPosition.under,
+      color: cs.surfaceContainerHighest,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      constraints: const BoxConstraints(maxHeight: 420),
+      onSelected: (v) => onChanged(v.isEmpty ? null : v),
+      itemBuilder: (_) => [
+        const PopupMenuItem(value: '', height: 38, child: Text('전체', style: TextStyle(fontSize: 13.5))),
+        for (final e in labels.entries)
+          PopupMenuItem(value: e.key, height: 38, child: Text(e.value, style: const TextStyle(fontSize: 13.5))),
+      ],
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 7, 8, 7),
+        decoration: BoxDecoration(
+            color: value == null ? cs.surfaceContainer : cs.primary.withOpacity(.16),
+            borderRadius: BorderRadius.circular(9)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(value == null ? '전체' : labels[value] ?? value!,
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600, color: value == null ? cs.onSurface : cs.primary)),
+          const SizedBox(width: 2),
+          LabIcon(LabGlyph.down, size: 18, color: cs.onSurfaceVariant),
         ]),
       ),
     );

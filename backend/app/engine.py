@@ -168,7 +168,9 @@ class Engine:
         return self._default[key]
 
     # ---------- 데미지 ----------
-    def damage(self, a: dict, move: str, b: dict, fmt: str) -> dict | None:
+    def damage(self, a: dict, move: str, b: dict, fmt: str, *,
+               spread: bool | None = None, full_hp: bool = True, recharge_discount: bool = True,
+               weather: str | None = None, psychic_terrain: bool = False) -> dict | None:
         """평균 데미지를 상대 HP 대비 %로 추정한다 (급소/랭크 변화/날씨 지속 등은 무시한 근사치)."""
         m = self.M.get(move)
         if not m or m["category"] == "Status" or not m["power"] or m.get("selfdestruct"):
@@ -176,6 +178,13 @@ class Engine:
         mtype, power, phys = m["type"], m["power"] * m.get("hits", 1), m["category"] == "Physical"
         flags = m.get("flags", [])
         aa, ba = a["ability"], (None if a["ability"] in MOLD else b["ability"])
+        if move == "Weather Ball" and weather:
+            mtype = {"sun": "Fire", "rain": "Water", "sand": "Rock", "snow": "Ice"}[weather]
+            power *= 2
+        if weather is None:
+            weather = {"Drought": "sun", "Drizzle": "rain"}.get(aa, "")
+        if move == "Expanding Force" and psychic_terrain:
+            power *= 1.5
         if mtype == "Normal" and aa in ATE:
             mtype, power = ATE[aa], power * 1.2
         if aa == "Technician" and m["power"] <= 60:
@@ -216,14 +225,17 @@ class Engine:
             return {"move": move, "pct": 0.0, "eff": 0, "type": mtype, "acc": m["accuracy"], "priority": m["priority"]}
 
         mod = eff
-        if fmt == "Doubles" and m["target"] in SPREAD_TARGETS:
+        use_spread = spread if spread is not None else fmt == "Doubles" and m["target"] in SPREAD_TARGETS
+        if use_spread:
             mod *= 0.75
         if mtype in a["types"]:
             mod *= 2 if aa == "Adaptability" else 1.5
-        if aa == "Drought":
+        if weather == "sun":
             mod *= 1.5 if mtype == "Fire" else 0.5 if mtype == "Water" else 1
-        if aa == "Drizzle":
+        if weather == "rain":
             mod *= 1.5 if mtype == "Water" else 0.5 if mtype == "Fire" else 1
+        if psychic_terrain and mtype == "Psychic":
+            mod *= 1.3
         if a["item"] == "Life Orb":
             mod *= 1.3
         elif TYPE_ITEMS.get(a["item"]) == mtype:
@@ -234,7 +246,7 @@ class Engine:
             mod *= 2
         if RESIST_BERRIES.get(b["item"]) == mtype and (eff > 1 or mtype == "Normal"):
             mod *= 0.5
-        if ba in ("Multiscale", "Shadow Shield"):
+        if full_hp and ba in ("Multiscale", "Shadow Shield"):
             mod *= 0.5
         if ba in ("Filter", "Solid Rock", "Prism Armor") and eff > 1:
             mod *= 0.75
@@ -242,7 +254,7 @@ class Engine:
             mod *= 0.5
         if ba == "Fluffy":
             mod *= (0.5 if "contact" in flags else 1) * (2 if mtype == "Fire" else 1)
-        if m.get("recharge"):
+        if recharge_discount and m.get("recharge"):
             mod *= 0.6  # 반동으로 한 턴 쉬는 기술은 실질 화력을 깎아서 본다
 
         raw = (math.floor(math.floor(22 * power * atk / max(dfn, 1)) / 50) + 2) * mod * 0.925

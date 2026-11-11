@@ -26,8 +26,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
-  Win32Window::Size size(1280, 720);
-  if (!window.Create(L"champions_meta_lab", origin, size)) {
+  Win32Window::Size size(1480, 940);
+  if (!window.Create(L"Champions Meta Lab", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

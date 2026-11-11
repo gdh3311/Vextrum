@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="champions_meta_lab"
+        android:label="Meta Lab"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

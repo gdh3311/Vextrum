@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'lab_icons.dart';
 import 'api.dart';
 
 const typeKo = {
@@ -50,7 +51,30 @@ class Sprite extends StatelessWidget {
       fit: BoxFit.contain,
       filterQuality: FilterQuality.medium,
       errorBuilder: (_, __, ___) =>
-          SizedBox(width: size, height: size, child: Icon(Icons.catching_pokemon, size: size * .6)));
+          SizedBox(width: size, height: size, child: LabIcon(LabGlyph.ball, size: size * .6)));
+}
+
+class SpriteBadge extends StatelessWidget {
+  const SpriteBadge(this.name, {super.key, required this.type, this.size = 56});
+  final String name;
+  final String? type;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tone = typeColor[type] ?? cs.primary;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: RadialGradient(colors: [tone.withOpacity(.23), cs.surfaceContainer]),
+        border: Border.all(color: tone.withOpacity(.28)),
+        borderRadius: BorderRadius.circular(size * .23),
+      ),
+      child: Center(child: Sprite(name, size: size * .88)),
+    );
+  }
 }
 
 class ItemIcon extends StatelessWidget {
@@ -64,7 +88,7 @@ class ItemIcon extends StatelessWidget {
           width: size,
           height: size,
           errorBuilder: (_, __, ___) =>
-              SizedBox(width: size, height: size, child: Icon(Icons.inventory_2_outlined, size: size * .8)));
+              SizedBox(width: size, height: size, child: LabIcon(LabGlyph.box, size: size * .8)));
 }
 
 class TypeChip extends StatelessWidget {
@@ -72,12 +96,36 @@ class TypeChip extends StatelessWidget {
   final bool dense;
   const TypeChip(this.type, {super.key, this.dense = false});
   @override
-  Widget build(BuildContext context) => Container(
-        padding: EdgeInsets.symmetric(horizontal: dense ? 5 : 8, vertical: dense ? 1 : 2),
-        decoration: BoxDecoration(color: typeColor[type] ?? Colors.grey, borderRadius: BorderRadius.circular(4)),
-        child: Text(typeKo[type] ?? type,
-            style: TextStyle(
-                color: Colors.white, fontSize: dense ? 10 : 12, fontWeight: FontWeight.w700, height: 1.25)),
+  Widget build(BuildContext context) {
+    final base = typeColor[type] ?? Colors.grey;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final ink = Color.lerp(base, dark ? Colors.white : const Color(0xFF091429), dark ? .49 : .43)!;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: dense ? 6 : 9, vertical: dense ? 2 : 3),
+      decoration: BoxDecoration(
+        color: base.withOpacity(dark ? .16 : .13),
+        border: Border.all(color: base.withOpacity(dark ? .35 : .22)),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(typeKo[type] ?? type,
+          style: TextStyle(color: ink, fontSize: dense ? 11 : 12.5, fontWeight: FontWeight.w600, height: 1.2)),
+    );
+  }
+}
+
+/// 타입 색 점 (기술 옆에 붙는 작은 표시)
+class TypeDot extends StatelessWidget {
+  final String? type;
+  const TypeDot(this.type, {super.key});
+  @override
+  Widget build(BuildContext context) => Tooltip(
+        message: typeKo[type] ?? '',
+        child: Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(
+              color: typeColor[type] ?? Theme.of(context).colorScheme.outline, shape: BoxShape.circle),
+        ),
       );
 }
 
@@ -96,43 +144,45 @@ class NameBlock extends StatelessWidget {
   final String name;
   final double size;
   final CrossAxisAlignment align;
-  const NameBlock(this.ko, this.name, {super.key, this.size = 14, this.align = CrossAxisAlignment.start});
+  const NameBlock(this.ko, this.name, {super.key, this.size = 14.5, this.align = CrossAxisAlignment.start});
   @override
   Widget build(BuildContext context) {
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     return Column(crossAxisAlignment: align, mainAxisSize: MainAxisSize.min, children: [
       Text(ko ?? name,
-          style: TextStyle(fontSize: size, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: size, fontWeight: FontWeight.w600, height: 1.25),
           maxLines: 1,
           overflow: TextOverflow.ellipsis),
       if (ko != null)
         Text(name,
-            style: TextStyle(fontSize: size * .78, color: muted), maxLines: 1, overflow: TextOverflow.ellipsis),
+            style: TextStyle(fontSize: size < 14 ? 12 : size * .82, color: muted, height: 1.3),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis),
     ]);
   }
 }
 
-/// 기술 칩: 타입 색 띠 + 한글/영문
-class MoveChip extends ConsumerWidget {
+/// 기술 칩: 타입 점 + 한글 이름 (영문은 툴팁)
+class MoveChip extends StatelessWidget {
   final String name;
   final String? ko;
   final String? type;
-  const MoveChip(this.name, {super.key, this.ko, this.type});
+  final bool expand;
+  const MoveChip(this.name, {super.key, this.ko, this.type, this.expand = false});
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final label =
+        Text(ko ?? name, style: const TextStyle(fontSize: 13, height: 1.2), maxLines: 1, overflow: TextOverflow.ellipsis);
     return Tooltip(
       message: name,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(0, 0, 8, 0),
-        decoration: BoxDecoration(color: cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(6)),
-        clipBehavior: Clip.antiAlias,
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 5, height: 24, color: typeColor[type] ?? cs.outline),
-          const SizedBox(width: 6),
-          Flexible(
-              child: Text(ko ?? name,
-                  style: const TextStyle(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis)),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        decoration: BoxDecoration(color: cs.surfaceContainer, borderRadius: BorderRadius.circular(8)),
+        child: Row(mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min, children: [
+          TypeDot(type),
+          const SizedBox(width: 7),
+          expand ? Expanded(child: label) : Flexible(child: label),
         ]),
       ),
     );
@@ -147,23 +197,31 @@ class Section extends StatelessWidget {
   const Section(this.title, {super.key, this.subtitle, required this.child, this.trailing});
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context);
+    final cs = Theme.of(context).colorScheme;
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+            Container(
+              width: 3, height: 19,
+              decoration: BoxDecoration(
+                color: cs.primary.withOpacity(.78), borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(width: 9),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: t.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                if (subtitle != null)
-                  Text(subtitle!, style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
+                Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -.2)),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 3),
+                  Text(subtitle!, style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant, height: 1.35)),
+                ],
               ]),
             ),
-            if (trailing != null) trailing!,
+            if (trailing != null) ...[const SizedBox(width: 12), trailing!],
           ]),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           child,
         ]),
       ),
@@ -181,7 +239,7 @@ class UsageBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: Stack(children: [
         if (pct != null)
           Positioned.fill(
@@ -189,15 +247,18 @@ class UsageBar extends StatelessWidget {
               alignment: Alignment.centerLeft,
               widthFactor: (pct! / 100).clamp(0.0, 1.0).toDouble(),
               child: DecoratedBox(
-                  decoration: BoxDecoration(
-                      color: (color ?? cs.primary).withOpacity(.18), borderRadius: BorderRadius.circular(6))),
+                  decoration:
+                      BoxDecoration(color: cs.primary.withOpacity(.13), borderRadius: BorderRadius.circular(7))),
             ),
           ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
           child: Row(children: [
             Expanded(child: leading),
-            if (pct != null) Text(fmtPct(pct), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            if (pct != null)
+              Text(fmtPct(pct),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13, fontFeatures: [FontFeature.tabularFigures()])),
           ]),
         ),
       ]),
@@ -213,7 +274,7 @@ class Stars extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Row(mainAxisSize: MainAxisSize.min, children: [
       for (var i = 0; i < 5; i++)
-        Icon(i < n ? Icons.star_rounded : Icons.star_outline_rounded,
+        LabIcon(i < n ? LabGlyph.starFill : LabGlyph.star,
             size: 18, color: i < n ? Colors.amber : cs.outlineVariant),
     ]);
   }
@@ -228,22 +289,73 @@ class MonPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
+    return Material(
+      color: cs.surfaceContainer,
       borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(4, 3, 10, 3),
-        decoration: BoxDecoration(color: cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(10)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Sprite(mon['sprite'] as String, size: 34),
-          const SizedBox(width: 4),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Text((mon['ko'] ?? mon['name']) as String,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-            Text(caption ?? mon['name'] as String, style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(6, 5, 12, 5),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Sprite(mon['sprite'] as String, size: 36),
+            const SizedBox(width: 8),
+            Flexible(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Text((mon['ko'] ?? mon['name']) as String,
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, height: 1.25)),
+              Text(caption ?? mon['name'] as String,
+                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, height: 1.3)),
+            ])),
           ]),
-        ]),
+        ),
       ),
+    );
+  }
+}
+
+class LabExpansionTile extends StatefulWidget {
+  const LabExpansionTile({
+    super.key, required this.title, required this.children, this.subtitle, this.leading,
+    this.tilePadding, this.childrenPadding, this.expandedAlignment, this.expandedCrossAxisAlignment,
+    this.initiallyExpanded = false,
+  });
+  final Widget title;
+  final List<Widget> children;
+  final Widget? subtitle;
+  final Widget? leading;
+  final EdgeInsetsGeometry? tilePadding;
+  final EdgeInsetsGeometry? childrenPadding;
+  final Alignment? expandedAlignment;
+  final CrossAxisAlignment? expandedCrossAxisAlignment;
+  final bool initiallyExpanded;
+
+  @override
+  State<LabExpansionTile> createState() => _LabExpansionTileState();
+}
+
+class _LabExpansionTileState extends State<LabExpansionTile> {
+  late bool expanded = widget.initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    return ExpansionTile(
+      title: widget.title,
+      subtitle: widget.subtitle,
+      leading: widget.leading,
+      tilePadding: widget.tilePadding,
+      childrenPadding: widget.childrenPadding,
+      expandedAlignment: widget.expandedAlignment,
+      expandedCrossAxisAlignment: widget.expandedCrossAxisAlignment,
+      initiallyExpanded: widget.initiallyExpanded,
+      onExpansionChanged: (value) => setState(() => expanded = value),
+      expansionAnimationStyle: reduced ? AnimationStyle.noAnimation : null,
+      trailing: AnimatedRotation(
+        turns: expanded ? .5 : 0,
+        duration: reduced ? Duration.zero : const Duration(milliseconds: 180),
+        child: const LabIcon(LabGlyph.down, size: 18),
+      ),
+      children: widget.children,
     );
   }
 }
@@ -281,7 +393,7 @@ Future<T?> showPicker<T>(BuildContext context, String title, List<PickItem<T>> i
               TextField(
                 autofocus: true,
                 decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search), hintText: '이름으로 검색 (한글/영문)', isDense: true),
+                    prefixIcon: LabIcon(LabGlyph.search), hintText: '이름으로 검색 (한글/영문)', isDense: true),
                 onChanged: (v) => setState(() => q = v.trim().toLowerCase()),
               ),
               const SizedBox(height: 8),
@@ -347,7 +459,7 @@ Future<Json?> showPokemonPicker(BuildContext context, List<Json> all, String fmt
               TextField(
                 autofocus: true,
                 decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search), hintText: '이름으로 검색 (한글/영문)', isDense: true),
+                    prefixIcon: LabIcon(LabGlyph.search), hintText: '이름으로 검색 (한글/영문)', isDense: true),
                 onChanged: (v) => setState(() => q = v.trim().toLowerCase()),
               ),
               const SizedBox(height: 8),
@@ -365,11 +477,11 @@ Future<Json?> showPokemonPicker(BuildContext context, List<Json> all, String fmt
                       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                         Sprite(p['sprite'] as String, size: 52),
                         Text((p['ko'] ?? p['name']) as String,
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                         Text('${rank == null ? '' : '#$rank '}${p['name']}',
-                            style: TextStyle(fontSize: 9, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                            style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                       ]),
@@ -401,7 +513,7 @@ class AsyncView<T> extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(32),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.cloud_off, size: 40),
+              const LabIcon(LabGlyph.cloud, size: 40),
               const SizedBox(height: 8),
               Text('서버에 연결하지 못했습니다 ($apiBase)\n백엔드가 실행 중인지 확인하세요.', textAlign: TextAlign.center),
               if (onRetry != null) TextButton(onPressed: onRetry, child: const Text('다시 시도')),

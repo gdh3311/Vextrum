@@ -42,7 +42,7 @@ NOT_STONES = {"Eviolite"}
 KO_FORM = {
     "Alolan": "알로라", "Galarian": "가라르", "Hisuian": "히스이", "Paldean": "팔데아",
     "Wash": "워시", "Heat": "히트", "Frost": "프로스트", "Fan": "스핀", "Mow": "커트",
-    "Female": "♀", "Male": "♂", "Paldean Aqua Breed": "팔데아 워터종",
+    "Female": "암컷", "Male": "수컷", "Paldean Aqua Breed": "팔데아 워터종",
     "Paldean Blaze Breed": "팔데아 블레이즈종", "Paldean Combat Breed": "팔데아 컴뱃종",
     "Dusk Form": "황혼", "Midnight Form": "한밤중", "Low Key Form": "로우", "Blade Forme": "블레이드",
     "Shield Forme": "실드", "Hero Form": "마이티", "Zero Form": "나이브", "Eternal": "영원의 꽃",

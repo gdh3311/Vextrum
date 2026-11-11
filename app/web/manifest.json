@@ -1,11 +1,11 @@
 {
-    "name": "champions_meta_lab",
-    "short_name": "champions_meta_lab",
+    "name": "Champions Meta Lab",
+    "short_name": "Meta Lab",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0B1020",
+    "theme_color": "#0B1020",
+    "description": "Pokémon Champions meta analyzer and team builder (unofficial).",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

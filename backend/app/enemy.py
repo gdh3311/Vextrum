@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from itertools import combinations
 
 from .engine import ROLE_MOVES, Engine, weight
@@ -65,6 +66,7 @@ def strategies(e: Engine, enemy: list[dict], fmt: str) -> list[dict]:
         full = bool(ab_users or typed)  # 날씨를 살리는 동료가 없으면 '요소'로만 표시
         add(key, label if full else label.replace(" 파티", " 요소"), setters + ab_users + typed, tip,
             bool(ab_users) or len(typed) >= 2)
+        out[-1]["setters"] = [mini(r) for r in setters]
 
     surge = having(lambda r, mv, ab, ro: "Psychic Surge" in ab)
     if surge:
@@ -73,6 +75,7 @@ def strategies(e: Engine, enemy: list[dict], fmt: str) -> list[dict]:
         if ef or psy:
             add("psyspam", "사이코스팸", surge + ef + psy,
                 "사이코필드 + 와이드포스. 필드를 덮어쓰거나 악 타입으로 압박 (내 선공기는 필드에 막힘)", bool(ef))
+            out[-1]["setters"] = [mini(r) for r in surge]
     for ability, label in OTHER_TERRAINS:
         s = having(lambda r, mv, ab, ro: ability in ab)
         if s:
@@ -84,9 +87,11 @@ def strategies(e: Engine, enemy: list[dict], fmt: str) -> list[dict]:
         if slow or len(tr) >= 2:
             add("trickroom", "트릭룸", tr + slow,
                 "트릭룸 시동을 도발/속이다/집중 공격으로 막거나, 방어로 턴을 흘리기", len(slow) >= 2)
+            out[-1]["setters"] = [mini(r) for r in tr]
     tw = having(lambda r, mv, ab, ro: "Tailwind" in mv)
     if tw:
         add("tailwind", "순풍", tw, "순풍 턴에는 방어/교체로 버티고, 시동 포켓몬을 먼저 처리", len(tw) >= 2)
+        out[-1]["setters"] = [mini(r) for r in tw]
     prio = having(lambda r, mv, ab, ro: "priority" in ro)
     if len(prio) >= 3:
         add("priority", "선공기 공세", prio, "체력이 깎인 포켓몬은 선공기에 마무리당함. 내구를 남기는 교체가 중요", True)
@@ -110,7 +115,8 @@ def strategies(e: Engine, enemy: list[dict], fmt: str) -> list[dict]:
 
 def likely_leads(e: Engine, enemy: list[dict], fmt: str, team: list[dict], strats: list[dict]) -> list[dict]:
     roles = {r["id"]: set(e.roles(r, fmt)) for r in enemy}
-    core = [set(m["id"] for m in s["members"]) for s in strats if s["key"] in CORE_KEYS]
+    core = [({m["id"] for m in s["members"]}, {m["id"] for m in s.get("setters", [])})
+            for s in strats if s["key"] in CORE_KEYS]
 
     def pressure(r):  # 내 팀을 얼마나 압박하는가
         if not team:
@@ -152,7 +158,8 @@ def likely_leads(e: Engine, enemy: list[dict], fmt: str, team: list[dict], strat
                 if "redirect" in x and y & {"setup", "trickroom"}:
                     s += 12
                     why.append("유도로 시동 보조")
-            if any(a["id"] in c and b["id"] in c for c in core):
+            pair = {a["id"], b["id"]}
+            if any(pair <= members and (not setters or pair & setters) for members, setters in core):
                 s += 16
                 why.append("전략의 핵심 조합")
             if a["mega"] and b["mega"]:
@@ -160,6 +167,8 @@ def likely_leads(e: Engine, enemy: list[dict], fmt: str, team: list[dict], strat
             cands.append(([a, b], s, why))
     cands.sort(key=lambda c: -c[1])
     top = cands[:6]
+    if not top:
+        return []
     tot = sum(max(c[1], 1) ** 3 for c in top) or 1
     best = max(top[0][1], 1)
     return [{"members": [mini(r) for r in ms], "ids": [r["id"] for r in ms],
@@ -252,7 +261,8 @@ def recommend(e: Engine, team: list[dict], enemy: list[dict], fmt: str, leads: l
                              for s, ld, bk in options[1:4]]}
 
 
-def analyze_enemy(e: Engine, enemy_ids: list[str], team_sets: list[dict], fmt: str) -> dict:
+def analyze_enemy(e: Engine, enemy_ids: list[str], team_sets: list[dict], fmt: str,
+                  enemy_lead: Sequence[str] = (), locked_bring: Sequence[str] = ()) -> dict:
     enemy, seen = [], set()
     for i in enemy_ids:
         if i in e.P and i not in seen:
@@ -263,6 +273,13 @@ def analyze_enemy(e: Engine, enemy_ids: list[str], team_sets: list[dict], fmt: s
     team = [e.resolve(s, fmt) for s in team_sets if s.get("id") in e.P]
     strats = strategies(e, enemy, fmt)
     leads = likely_leads(e, enemy, fmt, team, strats)
+    if fmt == "Doubles":
+        from .preview import DoublesPreview
+        draft = DoublesPreview(e, team, enemy, strats, leads, enemy_lead, team_sets)
+        leads = draft.scenarios
+        recommendation = draft.recommend(locked_bring)
+    else:
+        recommendation = recommend(e, team, enemy, fmt, leads) if team else None
     rows = []
     for f in enemy:
         row = {**e.describe(f, fmt), "threat": None, "answer": None, "danger": []}
@@ -280,4 +297,4 @@ def analyze_enemy(e: Engine, enemy_ids: list[str], team_sets: list[dict], fmt: s
     if team:
         rows.sort(key=lambda r: -r["threat"])
     return {"format": fmt, "enemy": rows, "strategies": strats, "leads": leads,
-            "recommendation": recommend(e, team, enemy, fmt, leads) if team else None}
+            "recommendation": recommendation}
