@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'api.dart';
 import 'i18n.dart';
 
-const appVersion = '1.5.0';
+const appVersion = '1.6.0';
 
 /// 기기에 저장하는 앱 설정. 배틀 형식·테마·경기장은 기존 provider(formatProvider 등)가 따로 들고 있다.
 class AppSettings {

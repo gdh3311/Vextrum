@@ -125,6 +125,11 @@ def _alternatives(battle, side, base):
                           any(battle._priority(f, m) > 0 and m not in SUPPORT for _, f in foes for m in battle._moves(f)))
                 if useful:
                     tactics.append((.5, action))
+            elif move in {"Tailwind", "Trick Room"}:
+                value = battle._speed_control_value(side, actor, move, getattr(battle, "foe_strategy", None)
+                                                    if side == 1 else None)
+                if value > .05:
+                    tactics.append((value, action))
             elif move in HEAL:
                 tactics.append((.65 * (1 - actor.hp / actor.max_hp), action))
             elif (value := battle._support_value(side, slot, actor, action)) is not None:
@@ -200,7 +205,7 @@ def _plans(battle, side, budget):
 
 def _position(battle, side):
     material = sum(f.hp / f.max_hp + .65 * bool(f.hp) for f in battle.teams[side])
-    field = .045 * battle.tailwind[side] + .05 * sum(battle.screens[side].values())
+    field = TW_FLAT * bool(battle.tailwind[side]) + TW_TURN * battle.tailwind[side] + .05 * sum(battle.screens[side].values())
     field -= .04 * len(battle._bench(side)) * len(battle.hazards[side])
     direction = -1 if battle.trick_room else 1
     opponents = [f for _, f in battle._present(1 - side)]
@@ -228,6 +233,9 @@ CANDIDATES = int(os.environ.get("CPU_CANDIDATES", "10"))  # 비교하는 내 행
 SAMPLES = int(os.environ.get("CPU_SAMPLES", "2"))  # 난수(데미지·명중) 표본 수
 TEMP = float(os.environ.get("CPU_TEMP", "1"))  # 상대 행동 가능성의 날카로움
 RISK = float(os.environ.get("CPU_RISK", ".5"))  # 최악의 경우를 얼마나 신경 쓰는가
+CONTROL = float(os.environ.get("CPU_CONTROL", ".8"))  # 순풍·트릭룸의 장기 이득 가중치
+TW_FLAT = float(os.environ.get("CPU_TW_FLAT", ".12"))
+TW_TURN = float(os.environ.get("CPU_TW_TURN", ".02"))
 
 
 def _hidden(battle):
@@ -288,7 +296,12 @@ def choose_actions_pro(battle):
             outcomes.append(sum(samples) / len(samples))
         expected = sum(w * o for w, o in zip(weights, outcomes))
         switches = sum(a["kind"] == "switch" for a in actions)
-        return (1 - RISK) * expected + RISK * min(outcomes) - .06 * switches
+        # 2턴 탐색으로는 순풍·트릭룸의 남은 턴 이득이 다 보이지 않으므로 미리 더해 준다.
+        tempo = sum(forecast._speed_control_value(1, dict(forecast._present(1)).get(a["slot"]), a["move"],
+                                                  battle.foe_strategy)
+                    for a in actions if a.get("move") in {"Tailwind", "Trick Room"}
+                    and dict(forecast._present(1)).get(a["slot"]) is not None)
+        return (1 - RISK) * expected + RISK * min(outcomes) - .06 * switches + CONTROL * tempo
 
     scored = [(evaluate(i, actions), actions) for i, actions in enumerate(candidates)]
     best = max(score for score, _ in scored)

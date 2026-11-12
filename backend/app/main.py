@@ -306,13 +306,31 @@ def party_list(format: Format = "Doubles"):
 
 
 @app.get("/api/parties/simulated")
-def simulated_parties(format: Format = "Doubles"):
-    from .auto_team import simulated_recommendations
+def simulated_parties(format: Format = "Doubles", joker: Literal["off", "allow", "force"] = "allow",
+                      depth: Literal["quick", "standard", "deep"] = "standard",
+                      cpu: Literal["ultra", "master", "champion"] = "ultra",
+                      styles: str = "", rankerWeight: float = Query(.5, ge=0, le=1)):
+    """랭커 코어·전략·조커를 시작점으로 만든 후보를 메타 상대군과 랭커 파티 상대로 검증한 추천."""
+    from . import recommend
 
+    keys = tuple(k for k in styles.split(",") if k)
     try:
-        return simulated_recommendations(engine(), format)
+        return recommend.cached(engine(), format, joker, depth, cpu, keys, round(rankerWeight, 2))
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
+
+
+@app.get("/api/parties/research")
+def party_research(format: Format = "Doubles"):
+    from . import recommend
+
+    e = engine()
+    return {"rankers": len(recommend.ranker_rosters(e, format)),
+            "cores": [{"ids": list(r["ids"]), "names": [e.P[p]["ko"] or e.P[p]["name"] for p in r["ids"]],
+                       "sprites": [e.P[p]["sprite"] for p in r["ids"]], "teams": r["teams"],
+                       "share": r["share"], "lift": r["lift"]}
+                      for r in [*recommend.ranker_cores(e, format, 3, 6)[:3], *recommend.ranker_cores(e, format, 2, 10)[:6]]],
+            "jokerRank": recommend.JOKER_RANK}
 
 
 class BattleRequest(BaseModel):

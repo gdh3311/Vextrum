@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart' hide Text, Tooltip;
+import 'package:flutter/services.dart';
 
 import '../i18n.dart';
 import '../lab_icons.dart';
@@ -390,7 +391,8 @@ class _BattleArenaState extends State<BattleArena> {
       child: Column(children: [
         LayoutBuilder(builder: (context, c) {
           final w = c.maxWidth;
-          final h = (w * .5).clamp(300.0, 470.0);
+          // 명령 메뉴 옆에 붙는 좁은 경기장은 조금 더 세로로 길게 해 이름표가 포켓몬을 가리지 않게 한다.
+          final h = (w * (w < 760 ? .64 : .5)).clamp(300.0, 470.0);
           final compact = w < 560;
           final foeSize = h * (doubles ? .29 : .33);
           final mySize = h * (doubles ? .40 : .46);
@@ -478,7 +480,7 @@ class _BattleArenaState extends State<BattleArena> {
               Positioned(
                 left: 12,
                 top: 12,
-                width: math.min(compact ? w * .5 : 270.0, w * .48),
+                width: math.min(compact ? w * .5 : (w < 760 ? 220.0 : 270.0), w * .48),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   for (var slot = 0; slot < act[1].length; slot++)
                     if (act[1][slot] case final index?)
@@ -496,7 +498,7 @@ class _BattleArenaState extends State<BattleArena> {
               Positioned(
                 right: 12,
                 bottom: 12,
-                width: math.min(compact ? w * .5 : 290.0, w * .48),
+                width: math.min(compact ? w * .5 : (w < 760 ? 230.0 : 290.0), w * .48),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
                   for (var slot = 0; slot < act[0].length; slot++)
                     if (act[0][slot] case final index?)
@@ -1181,6 +1183,8 @@ class GameCommandPanel extends StatefulWidget {
     required this.team,
     required this.reserved,
     required this.onSelected,
+    this.onBack,
+    this.step,
   });
 
   final Json mon;
@@ -1195,6 +1199,12 @@ class GameCommandPanel extends StatefulWidget {
   final Set<int> reserved;
   final ValueChanged<Json?>? onSelected;
 
+  /// 이전 포켓몬의 명령으로 돌아가기 (Backspace)
+  final VoidCallback? onBack;
+
+  /// '1/2' 처럼 몇 번째 명령인지
+  final String? step;
+
   @override
   State<GameCommandPanel> createState() => _GameCommandPanelState();
 }
@@ -1202,6 +1212,94 @@ class GameCommandPanel extends StatefulWidget {
 class _GameCommandPanelState extends State<GameCommandPanel> {
   String? move;
   bool switching = false;
+  Map<String, List<Json>> _moves = const {};
+  List<Json> _swaps = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_onKey);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKey);
+    super.dispose();
+  }
+
+  bool _onKey(KeyEvent event) => commandKeysAllowed() && _key(event, _moves, _swaps) == KeyEventResult.handled;
+
+  /// 1~5: 기술(대상 고르는 중이면 대상, 교체 중이면 대기 포켓몬), S: 교체 목록, Backspace/Esc: 뒤로
+  KeyEventResult _key(KeyEvent event, Map<String, List<Json>> moves, List<Json> swaps) {
+    if (event is! KeyDownEvent || widget.onSelected == null) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    const digits = [
+      LogicalKeyboardKey.digit1,
+      LogicalKeyboardKey.digit2,
+      LogicalKeyboardKey.digit3,
+      LogicalKeyboardKey.digit4,
+      LogicalKeyboardKey.digit5,
+    ];
+    final n = digits.indexOf(key);
+    if (n >= 0) {
+      if (switching) {
+        final open = [
+          for (final o in swaps)
+            if (!widget.reserved.contains(o['target'])) o
+        ];
+        if (n < open.length) widget.onSelected!(open[n]);
+      } else if (move != null && (moves[move]?.length ?? 0) > 1 && widget.selected?['move'] != move) {
+        final list = moves[move]!;
+        if (n < list.length) widget.onSelected!(list[n]);
+      } else if (n < moves.length) {
+        _pick(moves, moves.keys.elementAt(n));
+      }
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyS && swaps.isNotEmpty) {
+      setState(() => switching = !switching);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.backspace || key == LogicalKeyboardKey.escape) {
+      if (switching || move != null) {
+        setState(() {
+          switching = false;
+          move = null;
+        });
+      } else {
+        widget.onBack?.call();
+      }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  void _pick(Map<String, List<Json>> moves, String key) {
+    final list = moves[key]!;
+    setState(() {
+      move = key;
+      switching = false;
+    });
+    if (list.length == 1) {
+      widget.onSelected!(list.single);
+    } else if (widget.selected?['move'] != key) {
+      widget.onSelected!(null);
+    }
+  }
+
+  /// 기술 버튼에 붙는 상성 표시: 대상 중 가장 잘 듣는 배율
+  (String, Color)? _effect(List<Json> list) {
+    final effs = [
+      for (final o in list)
+        if (o['eff'] case final num e) e.toDouble()
+    ];
+    if (effs.isEmpty) return null;
+    final best = effs.reduce(math.max);
+    if (best == 0) return ('효과 없음', const Color(0xFF8D95A6));
+    if (best >= 2) return ('효과 굉장', const Color(0xFFFFC857));
+    if (best < 1) return ('별로', const Color(0xFF9DB4D6));
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1225,18 +1323,9 @@ class _GameCommandPanelState extends State<GameCommandPanel> {
     final maxHp = widget.mon['maxHp'] as int? ?? 1;
     final name = _name(widget.mon);
 
-    void pickMove(String key) {
-      final list = moves[key]!;
-      setState(() {
-        move = key;
-        switching = false;
-      });
-      if (list.length == 1) {
-        widget.onSelected!(list.single);
-      } else if (selected?['move'] != key) {
-        widget.onSelected!(null);
-      }
-    }
+    void pickMove(String key) => _pick(moves, key);
+    _moves = moves;
+    _swaps = swaps;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -1252,7 +1341,7 @@ class _GameCommandPanelState extends State<GameCommandPanel> {
           const SizedBox(width: 8),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('$name${josa(name, '은', '는')} 무엇을 할까?',
+              Text('${widget.step == null ? '' : '${widget.step}  '}$name${josa(name, '은', '는')} 무엇을 할까?',
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
               const SizedBox(height: 4),
               SizedBox(
@@ -1288,13 +1377,15 @@ class _GameCommandPanelState extends State<GameCommandPanel> {
               onTap: enabled ? () => widget.onSelected!(wait) : null)
         else
           LayoutBuilder(builder: (context, c) {
-            final cols = c.maxWidth >= 520 ? 2 : 1;
+            final cols = c.maxWidth >= 300 ? 2 : 1;
             final w = (c.maxWidth - (cols - 1) * 8) / cols;
             return Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final entry in moves.entries)
+              for (final (i, entry) in moves.entries.indexed)
                 SizedBox(
                   width: w,
                   child: _MoveButton(
+                    hotkey: '${i + 1}',
+                    effect: _effect(entry.value),
                     label: entry.value.first['label'] as String,
                     type: entry.value.first['type'] as String?,
                     detail: _detail(entry.value.first),
@@ -1306,11 +1397,12 @@ class _GameCommandPanelState extends State<GameCommandPanel> {
           }),
         if (!switching && candidates.length > 1) ...[
           const SizedBox(height: 12),
-          Text('대상 선택', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
+          Text('대상 선택 (숫자 키)', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
           Wrap(spacing: 8, runSpacing: 8, children: [
-            for (final o in candidates)
+            for (final (i, o) in candidates.indexed)
               _TargetButton(
+                hotkey: '${i + 1}',
                 mon: widget.foes[o['target']],
                 eff: (o['eff'] as num?)?.toDouble(),
                 selected: identical(selected, o),
@@ -1329,8 +1421,15 @@ class _GameCommandPanelState extends State<GameCommandPanel> {
                       if (!switching && selected?['kind'] == 'switch') widget.onSelected!(null);
                     },
               icon: LabIcon(LabGlyph.swap, size: 16, color: switching ? cs.primary : null),
-              label: Text(switching ? '취소' : '포켓몬 교체'),
+              label: Text(switching ? '취소' : '포켓몬 교체 (S)'),
             ),
+            const Spacer(),
+            if (widget.onBack != null)
+              TextButton.icon(
+                onPressed: enabled ? widget.onBack : null,
+                icon: const LabIcon(LabGlyph.back, size: 16),
+                label: const Text('이전 포켓몬'),
+              ),
           ]),
           if (switching)
             Wrap(spacing: 8, runSpacing: 8, children: [
@@ -1342,7 +1441,15 @@ class _GameCommandPanelState extends State<GameCommandPanel> {
                     onTap: !enabled || widget.reserved.contains(o['target']) ? null : () => widget.onSelected!(o),
                   ),
             ]),
-        ],
+        ] else if (widget.onBack != null)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: enabled ? widget.onBack : null,
+              icon: const LabIcon(LabGlyph.back, size: 16),
+              label: const Text('이전 포켓몬'),
+            ),
+          ),
       ]),
     );
   }
@@ -1369,7 +1476,16 @@ class _GameCommandPanelState extends State<GameCommandPanel> {
 }
 
 class _MoveButton extends StatelessWidget {
-  const _MoveButton({required this.label, required this.type, required this.detail, required this.selected, this.onTap});
+  const _MoveButton(
+      {required this.label,
+      required this.type,
+      required this.detail,
+      required this.selected,
+      this.onTap,
+      this.hotkey,
+      this.effect});
+  final String? hotkey;
+  final (String, Color)? effect;
   final String label;
   final String? type;
   final String detail;
@@ -1396,9 +1512,15 @@ class _MoveButton extends StatelessWidget {
             border: Border.all(color: selected ? Colors.white.withOpacity(.85) : color.withOpacity(.6), width: selected ? 2 : 1.2),
           ),
           child: Row(children: [
+            if (hotkey != null) ...[
+              _Hotkey(hotkey!),
+              const SizedBox(width: 8),
+            ],
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                if (effect case (final String text, final Color tone))
+                  Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: tone)),
                 if (detail.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
@@ -1414,8 +1536,32 @@ class _MoveButton extends StatelessWidget {
   }
 }
 
+/// 글자를 입력하는 중(텍스트 칸에 포커스)이 아니고 화면이 보일 때만 배틀 단축키를 받는다.
+bool commandKeysAllowed() {
+  final focused = FocusManager.instance.primaryFocus?.context?.widget;
+  return focused is! EditableText;
+}
+
+class _Hotkey extends StatelessWidget {
+  const _Hotkey(this.label);
+  final String label;
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 20,
+        height: 20,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: Colors.white.withOpacity(.35)),
+          color: Colors.black.withOpacity(.18),
+        ),
+        child: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+      );
+}
+
 class _TargetButton extends StatelessWidget {
-  const _TargetButton({required this.mon, required this.eff, required this.selected, this.onTap});
+  const _TargetButton({required this.mon, required this.eff, required this.selected, this.onTap, this.hotkey});
+  final String? hotkey;
   final Json? mon;
   final double? eff;
   final bool selected;
@@ -1444,6 +1590,7 @@ class _TargetButton extends StatelessWidget {
             border: Border.all(color: selected ? cs.primary : Colors.transparent, width: 1.5),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (hotkey != null) _Hotkey(hotkey!),
             if (mon != null) Sprite(mon!['sprite'] as String, size: 36),
             const SizedBox(width: 6),
             Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [

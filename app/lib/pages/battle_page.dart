@@ -133,6 +133,19 @@ class _BattlePracticeState extends State<_BattlePractice> {
   String foeName = '';
   Json setup = {};
   final scoutKey = GlobalKey();
+  final arenaKey = GlobalKey();
+
+  /// 다시 고르는 중인 자리 (null 이면 아직 명령이 없는 첫 자리)
+  int? editing;
+
+  void _showArena() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (arenaKey.currentContext case final context?) {
+        Scrollable.ensureVisible(context,
+            alignment: .02, duration: const Duration(milliseconds: 350), curve: Curves.easeOutCubic);
+      }
+    });
+  }
 
   int get limit => widget.format == 'Doubles' ? 4 : 3;
 
@@ -250,6 +263,7 @@ class _BattlePracticeState extends State<_BattlePractice> {
             : (result['opponent'] as Json)['label'] as String;
         choices.clear();
         replacements.clear();
+        editing = null;
         battle = batch ? null : result;
         if (!batch) _queuePlayback(result, fresh: true);
         if (batch) report = result;
@@ -257,6 +271,7 @@ class _BattlePracticeState extends State<_BattlePractice> {
         setup = {...body, 'seed': result['seed']};
       });
       if (batch) await _record(result, 'batch');
+      if (!batch) _showArena();
     }, loading: batch ? '$runs판의 전략별 배틀을 진행 중…' : '포켓몬을 내보내는 중…');
   }
 
@@ -278,8 +293,10 @@ class _BattlePracticeState extends State<_BattlePractice> {
         battle = result;
         choices.clear();
         replacements.clear();
+        editing = null;
         _queuePlayback(result);
       });
+      _showArena();
       if (result['winner'] != null) await _record(result, 'manual');
     }, loading: replace ? '교체 포켓몬이 등장하는 중…' : '양쪽의 명령을 처리하는 중…');
   }
@@ -669,123 +686,57 @@ class _BattlePracticeState extends State<_BattlePractice> {
               : '$turn턴 · 명령 선택',
       subtitle: '$teamName vs $foeName · CPU ${playedRank.label}',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        BattleReveal(
-          key: ValueKey(current['id']),
-          child: BattleArena(
-            teams: teams,
-            active: active,
-            field: field,
-            events: playEvents,
-            playKey: playId,
-            turn: turn,
-            prompt: prompt,
-            weather: current['weather'] as String? ?? '',
-            terrain: current['terrain'] as String? ?? '',
-            onPlayback: (on) {
-              if (mounted && playing != on) setState(() => playing = on);
-            },
-          ),
-        ),
-        const SizedBox(height: 14),
-        if (winner != null && !playing)
+        LayoutBuilder(builder: (context, box) {
+          final arena = BattleReveal(
+            key: ValueKey(current['id']),
+            child: BattleArena(
+              teams: teams,
+              active: active,
+              field: field,
+              events: playEvents,
+              playKey: playId,
+              turn: turn,
+              prompt: prompt,
+              weather: current['weather'] as String? ?? '',
+              terrain: current['terrain'] as String? ?? '',
+              onPlayback: (on) {
+                if (mounted && playing != on) setState(() => playing = on);
+              },
+            ),
+          );
+          final panel = AnimatedOpacity(
+            duration: const Duration(milliseconds: 200),
+            opacity: playing ? .45 : 1,
+            child: IgnorePointer(
+              ignoring: playing,
+              child: _commandArea(current, teams, active, options, foes, replacement, vacancies, reserves, need,
+                  swaps, pivot, winner, turn, locked),
+            ),
+          );
+          // 넓은 화면은 실제 게임처럼 경기장 오른쪽에 명령 메뉴를 둔다.
+          if (box.maxWidth >= 880 && winner == null) {
+            return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: KeyedSubtree(key: arenaKey, child: arena)),
+              const SizedBox(width: 14),
+              SizedBox(width: box.maxWidth >= 1100 ? 400 : 350, child: panel),
+            ]);
+          }
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            KeyedSubtree(key: arenaKey, child: arena),
+            const SizedBox(height: 14),
+            panel,
+          ]);
+        }),
+        if (winner != null && !playing) ...[
+          const SizedBox(height: 14),
           BattleResultBanner(
             winner: winner,
             turns: turn - 1,
             members: teams[0].whereType<Json>().toList(),
           ),
-        AnimatedOpacity(
-          duration: const Duration(milliseconds: 200),
-          opacity: playing ? .45 : 1,
-          child: IgnorePointer(
-            ignoring: playing,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              if (replacement != null) ...[
-                Text(pivot
-                    ? '교체할 포켓몬을 고르면 이번 턴의 남은 행동이 이어집니다.'
-                    : need == 1
-                        ? '대기 포켓몬 한 마리를 내보내세요.'
-                        : '빈 자리마다 다른 대기 포켓몬을 골라 주세요.'),
-                for (final slot in vacancies)
-                  ReplacementPicker(
-                    slot: slot,
-                    bench: reserves,
-                    team: teams[0],
-                    chosen: replacements[slot],
-                    taken: replacements.values.toSet(),
-                    onPick: locked
-                        ? null
-                        : (index) => setState(() {
-                              if (index == null) {
-                                replacements.remove(slot);
-                              } else {
-                                replacements.removeWhere((key, value) => value == index);
-                                replacements[slot] = index;
-                              }
-                            }),
-                  ),
-                const SizedBox(height: 10),
-              ] else if (winner == null)
-                for (final group in options)
-                  GameCommandPanel(
-                    key: ValueKey((turn, group['slot'])),
-                    mon: teams[0][active[0][group['slot'] as int]!]!,
-                    options: (group['options'] as List).cast<Json>(),
-                    selected: choices[group['slot']],
-                    foes: foes,
-                    team: teams[0],
-                    reserved: {
-                      for (final entry in choices.entries)
-                        if (entry.key != group['slot'] && entry.value['kind'] == 'switch')
-                          entry.value['target'] as int,
-                    },
-                    onSelected: locked
-                        ? null
-                        : (action) => setState(() {
-                              final slot = group['slot'] as int;
-                              if (action == null) {
-                                choices.remove(slot);
-                              } else {
-                                choices[slot] = action;
-                              }
-                            }),
-                  ),
-              if (winner == null)
-                Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16)),
-                        icon: LabIcon(replacement == null ? LabGlyph.play : LabGlyph.swap),
-                        onPressed: locked ||
-                                (replacement != null
-                                    ? replacements.length != need
-                                    : choices.length != options.length ||
-                                        swaps.length !=
-                                            choices.values.where((action) => action['kind'] == 'switch').length)
-                            ? null
-                            : () => _turn(replace: replacement != null),
-                        label: Text(replacement == null ? '명령 확정' : '교체 확정'),
-                      ),
-                      TextButton(
-                        onPressed: locked
-                            ? null
-                            : () => setState(() {
-                                  battle = null;
-                                  choices.clear();
-                                  replacements.clear();
-                                }),
-                        child: const Text('배틀 종료'),
-                      ),
-                      if (activity != null) BattleLoading(activity!),
-                    ])
-              else if (!playing)
-                _Result(current),
-            ]),
-          ),
-        ),
+          _Result(current),
+        ],
+        const SizedBox(height: 6),
         LabExpansionTile(
           title: Text('상대 로스터 · ${foe['label']}'),
           tilePadding: EdgeInsets.zero,
@@ -804,6 +755,261 @@ class _BattlePracticeState extends State<_BattlePractice> {
         ),
         if (logs.isNotEmpty) BattleMessageHistory(logs),
       ]),
+    );
+  }
+
+
+  Widget _commandArea(
+      Json current,
+      List<List<Json?>> teams,
+      List<List<int?>> active,
+      List<Json> options,
+      Map<int, Json> foes,
+      Json? replacement,
+      List<int> vacancies,
+      List<int> reserves,
+      int need,
+      Set<Object?> swaps,
+      bool pivot,
+      String? winner,
+      int turn,
+      bool locked) {
+    final cs = Theme.of(context).colorScheme;
+    if (winner != null) return const SizedBox();
+    final endButton = TextButton(
+      onPressed: locked
+          ? null
+          : () => setState(() {
+                battle = null;
+                choices.clear();
+                replacements.clear();
+              }),
+      child: const Text('배틀 종료'),
+    );
+    if (replacement != null) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(pivot
+            ? '교체할 포켓몬을 고르면 이번 턴의 남은 행동이 이어집니다.'
+            : need == 1
+                ? '대기 포켓몬 한 마리를 내보내세요.'
+                : '빈 자리마다 다른 대기 포켓몬을 골라 주세요.'),
+        for (final slot in vacancies)
+          ReplacementPicker(
+            slot: slot,
+            bench: reserves,
+            team: teams[0],
+            chosen: replacements[slot],
+            taken: replacements.values.toSet(),
+            onPick: locked
+                ? null
+                : (index) => setState(() {
+                      if (index == null) {
+                        replacements.remove(slot);
+                      } else {
+                        replacements.removeWhere((key, value) => value == index);
+                        replacements[slot] = index;
+                      }
+                    }),
+          ),
+        const SizedBox(height: 10),
+        Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          FilledButton.icon(
+            style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16)),
+            icon: const LabIcon(LabGlyph.swap),
+            onPressed: locked || replacements.length != need ? null : () => _turn(replace: true),
+            label: const Text('교체 확정'),
+          ),
+          endButton,
+          if (activity != null) BattleLoading(activity!),
+        ]),
+      ]);
+    }
+    final slots = [for (final g in options) g['slot'] as int];
+    final pending = slots.where((slot) => !choices.containsKey(slot)).firstOrNull;
+    final now = editing != null && slots.contains(editing) ? editing : pending;
+    final switchCount = choices.values.where((action) => action['kind'] == 'switch').length;
+    final ready = !locked && choices.length == options.length && swaps.length == switchCount;
+    Json mon(int slot) => teams[0][active[0][slot]!]!;
+
+    String summary(Json action) {
+      if (action['kind'] == 'switch') return '→ ${_monName(teams[0][action['target'] as int]!)}';
+      final target = foes[action['target']];
+      return target == null ? '${action['label']}' : '${action['label']} → ${_monName(target)}';
+    }
+
+    final steps = slots.length < 2
+        ? const SizedBox()
+        : Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(children: [
+              for (final (i, slot) in slots.indexed) ...[
+                if (i > 0) const SizedBox(width: 8),
+                Expanded(
+                  child: Material(
+                    color: slot == now ? cs.primary.withOpacity(.16) : cs.surfaceContainer,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: locked ? null : () => setState(() => editing = slot),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(6, 6, 10, 6),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: slot == now ? cs.primary : Colors.transparent, width: 1.4),
+                        ),
+                        child: Row(children: [
+                          Sprite(mon(slot)['sprite'] as String, size: 30),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              choices[slot] == null
+                                  ? (slot == now ? '고르는 중' : '대기')
+                                  : summary(choices[slot]!),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: choices[slot] == null ? cs.onSurfaceVariant : cs.primary),
+                            ),
+                          ),
+                          if (choices[slot] != null) Icon(Icons.check_rounded, size: 16, color: cs.primary),
+                        ]),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ]),
+          );
+
+    final Widget body;
+    if (now != null) {
+      final index = slots.indexOf(now);
+      final group = options[index];
+      body = GameCommandPanel(
+        key: ValueKey((turn, now)),
+        mon: mon(now),
+        step: slots.length > 1 ? '${index + 1}/${slots.length}' : null,
+        options: (group['options'] as List).cast<Json>(),
+        selected: choices[now],
+        foes: foes,
+        team: teams[0],
+        reserved: {
+          for (final entry in choices.entries)
+            if (entry.key != now && entry.value['kind'] == 'switch') entry.value['target'] as int,
+        },
+        onBack: index > 0 && !locked ? () => setState(() => editing = slots[index - 1]) : null,
+        onSelected: locked
+            ? null
+            : (action) => setState(() {
+                  if (action == null) {
+                    choices.remove(now);
+                  } else {
+                    choices[now] = action;
+                    editing = null;
+                  }
+                }),
+      );
+    } else {
+      body = _ConfirmCard(
+        lines: [for (final slot in slots) (mon(slot), summary(choices[slot]!))],
+        onConfirm: ready ? () => _turn(replace: false) : null,
+        onBack: locked ? null : () => setState(() => editing = slots.last),
+      );
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      steps,
+      body,
+      Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+        endButton,
+        if (MediaQuery.sizeOf(context).width >= 700)
+          Text('단축키 · 1~4 기술 · S 교체 · Backspace 뒤로 · Enter 확정',
+              style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
+        if (activity != null) BattleLoading(activity!),
+      ]),
+    ]);
+  }
+}
+
+/// 모든 명령을 고른 뒤의 확인 카드 (Enter 확정, Backspace 다시 고르기)
+class _ConfirmCard extends StatefulWidget {
+  const _ConfirmCard({required this.lines, required this.onConfirm, required this.onBack});
+  final List<(Json, String)> lines;
+  final VoidCallback? onConfirm;
+  final VoidCallback? onBack;
+
+  @override
+  State<_ConfirmCard> createState() => _ConfirmCardState();
+}
+
+class _ConfirmCardState extends State<_ConfirmCard> {
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_onKey);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKey);
+    super.dispose();
+  }
+
+  bool _onKey(KeyEvent event) {
+    if (event is! KeyDownEvent || !commandKeysAllowed()) return false;
+    if (event.logicalKey == LogicalKeyboardKey.enter || event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+      widget.onConfirm?.call();
+      return widget.onConfirm != null;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.backspace || event.logicalKey == LogicalKeyboardKey.escape) {
+      widget.onBack?.call();
+      return widget.onBack != null;
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cs.primary.withOpacity(.7), width: 1.4),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('이번 턴 명령', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          for (final (mon, text) in widget.lines)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(children: [
+                Sprite(mon['sprite'] as String, size: 32),
+                const SizedBox(width: 6),
+                Expanded(child: Text(text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+              ]),
+            ),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                icon: const LabIcon(LabGlyph.play),
+                onPressed: widget.onConfirm,
+                label: const Text('명령 확정 (Enter)'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14)),
+              onPressed: widget.onBack,
+              child: const Text('다시 고르기'),
+            ),
+          ]),
+        ]),
     );
   }
 }

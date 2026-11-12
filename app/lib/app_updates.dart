@@ -11,6 +11,22 @@ const _seenKey = 'last_read_app_update';
 const _releases = [
   (
     version: appVersion,
+    date: '2026.11.12',
+    entries: [
+      (
+        glyph: LabGlyph.archive,
+        title: '랭커 연구로 만드는 추천 파티',
+        detail: '시즌 최종 상위 랭커 29팀의 코어를 분석해 추천의 출발점으로 삼고, 모든 후보를 메타 상대군과 랭커 파티 상대로 수천 판 시뮬레이션합니다. 조커 제외·허용·필수와 평가 깊이, 검증 CPU를 고를 수 있고 랭커 파티별 유리·호각·불리를 보여 줍니다.',
+      ),
+      (
+        glyph: LabGlyph.controller,
+        title: '더 편한 배틀 명령과 제대로 쓰는 순풍',
+        detail: '넓은 화면에서는 명령 메뉴가 경기장 옆에 붙고, 포켓몬마다 한 장씩 명령을 고릅니다. 숫자 키·S·Enter 단축키와 기술별 상성 표시를 더했습니다. CPU는 순풍·트릭룸이 뒤집는 스피드 관계를 계산해 엘풍 같은 시동 요원이 첫 턴에 순풍을 겁니다.',
+      ),
+    ],
+  ),
+  (
+    version: '1.5.0',
     date: '2026.11.11',
     entries: [
       (

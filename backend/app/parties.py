@@ -55,18 +55,57 @@ _REPORTS = [
     },
 ]
 
-for season, source, rank, rating, player, ids in [
-    ("M7", "2026/11/04", 1, 2418, "ナーク", "charizard garchomp rillaboom milotic incineroar sneasler"),
-    ("M7", "2026/11/04", 3, 2370, "まりるり", "charizard floetteeternal whimsicott garchomp kingambit basculegion"),
-    ("M7", "2026/11/04", 4, 2354, "Online", "archaludon armarouge charizard pelipper swampert indeedeef"),
+# 랭커 파티 (종 구성만 공개). 출처: 리버티노트 시즌 최종 순위 정리. 세트는 각 포켓몬의 가장 흔한 세트로 채운다.
+M7_TOP = """
+1 2418 ナーク charizard garchomp rillaboom milotic incineroar sneasler
+3 2370 まりるり charizard floetteeternal whimsicott garchomp kingambit basculegion
+4 2354 Online archaludon armarouge charizard pelipper swampert indeedeef
+5 2353 じゅんや charizard aerodactyl kingambit garchomp sylveon farigiraf
+6 2349 Me dragonite kingambit basculegion mudsdale weavile sylveon
+7 2347 キム staraptor indeedeef farigiraf kingambit basculegion raichu
+9 2338 MOTOTE gholdengo floetteeternal incineroar charizard sneasler rillaboom
+10 2337 ヤシの木 gengar dragonite garchomp sneasler basculegion kingambit
+13 2329 アーニャ incineroar garchomp sneasler floetteeternal rillaboom aegislash
+15 2319 justing_tang floetteeternal delphox sinistcha sneasler kingambit incineroar
+18 2309 いしろ gengar dragonite rillaboom sneasler basculegion kingambit
+19 2309 わらびもち salamence sylveon basculegion kingambit sneasler raichu
+20 2308 ショコラ gengar garchomp vivillonfancy rillaboom incineroar primarina
+21 2308 MeLuCa salamence froslass rillaboom basculegion kingambit sneasler
+22 2308 Yuyuvgc rillaboom milotic ceruledge incineroar ninetalesalola floetteeternal
+24 0 Lorenzo dragonite rillaboom incineroar gengar hippowdon kingambit
+25 2304 ちゃっぴー charizard venusaur basculegion indeedeef kingambit sylveon
+26 2304 ゆー floetteeternal talonflame garchomp rillaboom kingambit basculegion
+27 2303 HRK pelipper basculegionf sneasler archaludon raichu golisopod
+28 2303 ゆヌ floetteeternal garchomp dragonite sneasler kingambit basculegion
+30 2293 アル scovillain raichu ninetalesalola kingambit basculegion sneasler
+34 2287 じーん sneasler dragonite basculegion kingambit rillaboom incineroar
+35 2285 りょうたろう floetteeternal mausholdfour basculegion talonflame garchomp gardevoir
+36 2285 ユウキ gengar incineroar rillaboom kommoo blastoise indeedeef
+37 2282 ゆうき raichu sneasler rillaboom incineroar primarina garchomp
+39 2275 Mitsu charizard garchomp farigiraf floetteeternal basculegion whimsicott
+"""
+M7_SOURCE = "https://liberty-note.com/2026/11/04/champions-seasonm7-top100/"
+RANKERS = []
+for line in M7_TOP.strip().splitlines():
+    rank, rating, player, *ids = line.split()
+    RANKERS.append({"id": f"m7-d-{rank}", "season": "M7", "format": "Doubles", "rank": int(rank),
+                    "rating": int(rating) or None, "player": player.replace("_", " "),
+                    "name": f"{player.replace('_', ' ')}의 파티", "source": M7_SOURCE, "ids": ids})
+for row in [
     ("M6", "2026/10/07", 1, 2500, "なま", "garchomp sneasler kingambit delphox dragonite basculegion"),
     ("M6", "2026/10/07", 2, 2490, "Paul", "charizard garchomp venusaur sylveon toxapex incineroar"),
     ("M6", "2026/10/07", 3, 2478, "ヤシの木🌴", "gengar dragonite garchomp sneasler basculegion kingambit"),
 ]:
-    _REPORTS.append({"id": f"{season.lower()}-d-{rank}", "season": season, "format": "Doubles", "rank": rank,
-                     "rating": rating, "player": player, "name": f"{player}의 파티",
-                     "source": f"https://liberty-note.com/{source}/champions-season{season.lower()}-top100/",
-                     "sets": [{"id": pid} for pid in ids.split()]})
+    season, source, rank, rating, player, ids = row
+    RANKERS.append({"id": f"{season.lower()}-d-{rank}", "season": season, "format": "Doubles", "rank": rank,
+                    "rating": rating, "player": player, "name": f"{player}의 파티",
+                    "source": f"https://liberty-note.com/{source}/champions-season{season.lower()}-top100/",
+                    "ids": ids.split()})
+_detailed = {r["id"] for r in _REPORTS}
+for ranker in RANKERS:
+    if ranker["id"] not in _detailed:
+        _REPORTS.append({**{k: v for k, v in ranker.items() if k != "ids"},
+                         "sets": [{"id": pid} for pid in ranker["ids"]]})
 
 
 def _member(e: Engine, s: dict, fmt: str) -> dict:

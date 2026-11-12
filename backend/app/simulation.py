@@ -651,22 +651,14 @@ class Battle:
             heals = [a for a in options if a.get("move") in HEAL]
             allied = [self._speed(side, f) for _, f in self._present(side)]
             enemies = [self._speed(1 - side, f) for _, f in self._present(1 - side)]
-            slower = sum(allied) * len(enemies) < sum(enemies) * len(allied)
             strategy = self.foe_strategy if side == 1 else None
-            field_move = "Trick Room" if slower and not self.trick_room else None
-            tailwind = next((a for a in options if a.get("move") == "Tailwind"), None)
-            if slower and not self.trick_room and not self.tailwind[side] and tailwind:
-                field_move = "Tailwind"
-            preferred = None
-            if enemies and not self.trick_room:
-                if strategy == "tailwind" and not self.tailwind[side] and min(allied) < max(enemies):
-                    preferred = "Tailwind"
-                if strategy == "trickroom" and min(f.mon["speed"] for f in self.teams[side] if f.hp) < max(enemies):
-                    preferred = "Trick Room"
-            if preferred:
-                field_move = preferred
-            setup = next((a for a in options if field_move and a.get("move") == field_move
-                          and not any(c.get("move") == field_move for c in chosen)), None)
+            # 순풍·트릭룸: 실제로 뒤집히는 스피드 관계 수로 가치를 매긴다.
+            control = max(((self._speed_control_value(side, actor, a["move"], strategy), a) for a in options
+                           if a.get("move") in {"Tailwind", "Trick Room"}
+                           and not any(c.get("move") in {"Tailwind", "Trick Room"} for c in chosen)),
+                          key=lambda row: row[0], default=(0., None))
+            preferred = control[1]["move"] if control[1] is not None else None
+            setup = None
             if not setup and self.turn <= 3:
                 def useful_weather(move):
                     weather = WEATHER_MOVES.get(move)
@@ -691,7 +683,11 @@ class Battle:
                           key=lambda row: row[0], default=(0., None))
             if difficulty in {"poke", "great"}:
                 utility = (utility[0] * .7, utility[1])
-            if defensive:
+            if control[1] is not None and control[0] >= max(.22, best_score * .9) and (
+                not defensive or control[0] >= .6 and actor.hp > actor.max_hp * .4
+            ):
+                action = control[1]
+            elif defensive:
                 action = defensive
             elif utility[1] is not None and utility[0] > max(.12, best_score * 1.05):
                 action = utility[1]
@@ -956,6 +952,41 @@ class Battle:
             self._lower(target, {"atk": -1}, actor)
             return True
         return False
+
+    def _speed_control_value(self, side, actor, move, strategy=None) -> float:
+        """순풍·트릭룸의 가치: 앞으로 몇 턴 동안 선공이 뒤집히는 (내 포켓몬, 상대) 쌍의 수.
+        필드에 있는 포켓몬은 1, 대기 포켓몬은 0.4로 센다. 공격 점수(상대 체력 비율)와 같은 척도."""
+        if move == "Tailwind" and (self.tailwind[side] or self.trick_room):
+            return 0.
+        if move == "Trick Room" and self.trick_room:
+            return 0.
+        on_field = {id(f) for _, f in self._present(side)} | {id(f) for _, f in self._present(1 - side)}
+        allies = [f for f in self.teams[side] if f.hp > 0]
+        foes = [f for f in self.teams[1 - side] if f.hp > 0]
+        if not foes:
+            return 0.
+        net = 0.
+        for a in allies:
+            sa = self._speed(side, a)
+            attacks = any(self.engine.M.get(m, {}).get("power") for m in a.mon["moves"])
+            if not attacks:
+                continue
+            for f in foes:
+                sf = self._speed(1 - side, f)
+                w = (1 if id(a) in on_field else .4) * (1 if id(f) in on_field else .4)
+                if move == "Tailwind":
+                    net += w * (sa < sf < 2 * sa)
+                else:
+                    net += w * ((sa < sf) - (sa > sf))
+        if net <= 0:
+            return 0.
+        value = .2 * net
+        if move == "Tailwind" and self._priority(actor, move) > 0:
+            value += .08  # 짓궂은마음: 이번 턴부터 바로 효과
+        if strategy in {"tailwind", "trickroom"} and move.lower().replace(" ", "") == strategy:
+            value += .25
+        # 남은 아군이 적을수록 가치가 줄어든다.
+        return min(1.4, value) * min(1., len(allies) / 3)
 
     def _support_value(self, side, slot, actor, action) -> float | None:
         """새로 다루는 보조 기술의 대략적인 가치 (공격 점수와 같은 척도). 해당 없으면 None."""

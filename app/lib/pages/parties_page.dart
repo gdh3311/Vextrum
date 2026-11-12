@@ -9,7 +9,7 @@ import '../main.dart';
 import '../team_state.dart';
 import '../widgets.dart';
 import 'sim_insights.dart';
-import 'battle_console.dart';
+import 'party_lab.dart';
 import 'party_simulation.dart';
 import 'team_switcher.dart';
 import '../i18n.dart';
@@ -34,7 +34,7 @@ class _PartiesPageState extends ConsumerState<PartiesPage> {
   Widget build(BuildContext context) {
     final simulated = tab == _PartyTab.simulation;
     final published = tab == _PartyTab.ladder;
-    final provider = simulated ? simulatedPartiesProvider : partiesProvider;
+    final provider = partiesProvider;
     final data = ref.watch(provider);
     final compact = MediaQuery.sizeOf(context).width < 480;
     final format = ref.watch(formatProvider);
@@ -62,22 +62,18 @@ class _PartiesPageState extends ConsumerState<PartiesPage> {
                   value: _PartyTab.styles, label: Text('전략별 추천')),
               ButtonSegment(
                   value: _PartyTab.simulation,
-                  label: Text(compact ? '시뮬 추천' : '시뮬레이션 추천')),
+                  label: Text(compact ? '추천 연구소' : '추천 파티 연구소')),
             ],
             selected: {tab},
             onSelectionChanged: (value) => setState(() => tab = value.first),
           ),
         ),
       ),
-      if (simulated && data.isLoading && !data.hasValue)
-        const BattleLoading('후보 팀을 같은 상대군에서 검증하는 중…')
+      if (simulated)
+        const PartyLab()
       else
         AsyncView<Json>(data, (d) {
-          final list = simulated
-              ? 'candidates'
-              : published
-                  ? 'published'
-                  : 'recommended';
+          final list = published ? 'published' : 'recommended';
           final visible = (d[list] as List)
               .cast<Json>()
               .where(
@@ -99,11 +95,7 @@ class _PartiesPageState extends ConsumerState<PartiesPage> {
                       onChanged: (value) => setState(() => season = value),
                     ),
                   ),
-                if (simulated)
-                  PartyEvaluationSummary(d['evaluation'] as Json,
-                      candidates: visible)
-                else
-                  Padding(
+                Padding(
                     padding: const EdgeInsets.only(bottom: 14),
                     child: Text(published
                         ? '공개 구성 글에서 확인한 파티입니다. 공개 범위에 따라 멤버와 세트 정보가 달라집니다.'
@@ -173,11 +165,14 @@ class _PartyCardState extends ConsumerState<PartyCard> {
       p['name'] as String,
       subtitle: published
           ? '${p['season']} · 최종 ${p['rank']}위 · ${p['player']}${p['rating'] == null ? '' : ' · 레이팅 ${p['rating']}'}'
-          : '메타 상성 점수 ${p['metaScore']} / 100',
+          : p['origin'] != null
+              ? '${tr(p['origin']['label'] as String)} · ${tr(p['origin']['detail'] as String)}'
+              : '메타 상성 점수 ${p['metaScore']} / 100',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (p['note'] != null) Text(p['note'] as String),
         if (p['simulation'] case final Json simulation)
           PartySimulationResult(simulation, members: members),
+        if (p['rankers'] case final Json rankers) RankerMatchups(rankers),
         if (p['analysis'] != null)
           LabExpansionTile(
             tilePadding: EdgeInsets.zero,
@@ -233,9 +228,12 @@ class _PartyCardState extends ConsumerState<PartyCard> {
               tilePadding: EdgeInsets.zero,
               leading: Sprite(member['sprite'] as String, size: 40),
               title: Text(
-                  '${member['ko'] ?? member['name']}${fixedIds.contains(member['id']) ? ' · 지정' : ''}'),
-              subtitle: Text(
-                  '${member['itemKo'] ?? member['set']['item'] ?? '도구 없음'}'),
+                  '${member['ko'] ?? member['name']}${fixedIds.contains(member['id']) ? ' · 지정' : ''}${member['joker'] == true ? ' · 조커' : ''}'),
+              subtitle: Text([
+                '${member['itemKo'] ?? member['set']['item'] ?? '도구 없음'}',
+                if (member['usageRank'] != null) '사용률 ${member['usageRank']}위',
+                if (member['speed'] != null) '스피드 ${member['speed']}',
+              ].join(' · ')),
               childrenPadding: const EdgeInsets.only(bottom: 12),
               expandedCrossAxisAlignment: CrossAxisAlignment.start,
               expandedAlignment: Alignment.centerLeft,
