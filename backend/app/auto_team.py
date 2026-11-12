@@ -54,12 +54,13 @@ DRAFT_MOVES = STYLE_MOVES | {"Sandstorm", "Snowscape"} | ROLE_MOVES["recovery"]
 DRAFT_ABILITIES = STYLE_ABILITIES | {"Sand Stream", "Sand Rush", "Snow Warning", "Slush Rush"}
 WEATHER_STYLES = {"rain", "sun", "sand", "snow"}
 DISCOVERY_STYLES = ("balance", "speed", "physical", "special", "bulky", "rain", "sun", "tailwind", "trickroom")
-SCREEN_RUNS = 21
-FINAL_RUNS = 56
+SCREEN_RUNS = 30
+FINAL_RUNS = 80
 # 평가 깊이: (1차 선별 판 수, 최종 검증 판 수)
-DEPTHS = {"quick": (12, 30), "standard": (SCREEN_RUNS, FINAL_RUNS), "deep": (36, 120)}
-DRAFT_LIMIT = 12
-FINAL_LIMIT = 5
+DEPTHS = {"quick": (16, 40), "standard": (SCREEN_RUNS, FINAL_RUNS), "deep": (48, 160)}
+RANKER_GAMES = {"quick": 1, "standard": 2, "deep": 4}
+DRAFT_LIMIT = 20
+FINAL_LIMIT = 6
 
 
 @dataclass
@@ -245,7 +246,35 @@ def _eligible(c, chosen):
     return all(c.species != m.species and (not item or item != m.set.get("item")) for m in chosen)
 
 
-def _score(chosen, goals, weights):
+TYPE_CORES = {
+    "fwg": ({"Fire", "Water", "Grass"}, "불·물·풀"),
+    "dsf": ({"Dragon", "Steel", "Fairy"}, "드래곤·강철·페어리"),
+}
+
+
+@dataclass(frozen=True)
+class Extra:
+    """초안 점수에 더하는 조건: 타입 코어, 랭커 동시 채용 코어, 인기 가중치."""
+    core: str = ""
+    pairs: tuple = ()  # ((id_a, id_b, 보너스), ...)
+    popularity: float = 1.5
+
+    def pair_bonus(self, ids):
+        return sum(bonus for a, b, bonus in self.pairs if a in ids and b in ids)
+
+
+DEFAULT_EXTRA = Extra(popularity=3.5)
+
+
+def ranker_pairs(e, fmt):
+    """랭커 파티에서 기대보다 자주 함께 쓰인 쌍 → 보너스 (팀 수와 배율에 비례)."""
+    from .recommend import ranker_cores
+
+    return tuple((*row["ids"], round(.9 * min(row["teams"], 9) ** .5 * min(row["lift"], 2.5), 2))
+                 for row in ranker_cores(e, fmt, 2, 80) if row["lift"] >= .9)
+
+
+def _score(chosen, goals, weights, extra=DEFAULT_EXTRA):
     counts = Counter(key for c in chosen for key in c.features)
     features = counts.keys()
     coverage = sum(w * max(c.matchups[i] for c in chosen) for i, w in enumerate(weights))
@@ -254,6 +283,8 @@ def _score(chosen, goals, weights):
         weak = sum(c.weak[i] for c in chosen)
         resist = sum(c.resist[i] for c in chosen)
         pressure += 1.4 * max(0, weak - 1 - resist) + 2.5 * (weak >= 3 and not resist)
+    if extra.core == "resist":
+        pressure *= 1.8
     goal_points = 0
     for goal in goals:
         needed = tuple(STYLES[goal].requirements)
@@ -270,28 +301,33 @@ def _score(chosen, goals, weights):
         conflict = 12 * sum(bool(c.features & conflicting) for c in chosen)
     if "trickroom" in goals:
         variety += min(3, sum("slow_attacker" in c.features for c in chosen))
-    return (coverage * .55 + goal_points + variety * 1.25 + teammates * .4
-            + 3.5 * sum(c.popularity for c in chosen) - pressure - 4 * max(0, megas - 1) - conflict)
+    core = 0
+    if extra.core in TYPE_CORES:
+        types = {t for c in chosen for t in c.resolved["types"]}
+        core = 3 * len(TYPE_CORES[extra.core][0] & types)
+    return (coverage * .55 + goal_points + variety * 1.25 + teammates * .4 + core
+            + extra.popularity * sum(c.popularity for c in chosen) + extra.pair_bonus(ids)
+            - pressure - 10 * max(0, megas - 1) - 20 * max(0, megas - 2) - conflict)
 
 
-def _keep_best(options, goals, weights, limit=16):
+def _keep_best(options, goals, weights, limit=16, extra=DEFAULT_EXTRA):
     best = {}
     for group in options:
         key = frozenset(c.id for c in group)
-        score = _score(group, goals, weights)
+        score = _score(group, goals, weights, extra)
         if key not in best or score > best[key][0]:
             best[key] = (score, group)
     return sorted(best.values(), key=lambda row: -row[0])[:limit]
 
 
-def _draft(pool, fixed, required, goals, weights, limit):
+def _draft(pool, fixed, required, goals, weights, limit, extra=DEFAULT_EXTRA):
     current = [tuple(fixed)]
     for variants in required:
         options = (group + (c,) for group in current for c in variants if _eligible(c, group))
-        current = [group for _, group in _keep_best(options, goals, weights, limit)]
+        current = [group for _, group in _keep_best(options, goals, weights, limit, extra)]
     while current and len(current[0]) < 6:
         options = (group + (c,) for group in current for c in pool if _eligible(c, group))
-        current = [group for _, group in _keep_best(options, goals, weights, limit)]
+        current = [group for _, group in _keep_best(options, goals, weights, limit, extra)]
     return current
 
 
@@ -342,9 +378,29 @@ def _keep_weather_options(rows, limit, split_weather):
     return [row for row in rows if row in picked][:limit]
 
 
+JOKER_RANK = 40
+
+
+def _rank_of(e, fmt, pid):
+    return e.P[pid]["usage"].get(fmt, {}).get("rank") or 999
+
+
+def _joker_candidates(e, fmt, meta, limit=10):
+    """조커 파인더가 고른 세트 + 생성 세트 (사용률 40위 밖)."""
+    rows = []
+    for j in e.jokers(fmt, JOKER_RANK + 1, 20, limit=limit):
+        pid = j["set"]["id"]
+        if pid not in e.P:
+            continue
+        rows.append(_candidate(e, fmt, meta, j["set"]))
+        rows += [_candidate(e, fmt, meta, s) for s in _generated_sets(e, fmt, pid, draft=True)][:2]
+    return rows
+
+
 def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: list[dict], *,
-          exclude: Sequence[str] = (), objective: str = "win", depth: str = "standard", cpu: str = "ultra"):
-    from . import battle_lab
+          exclude: Sequence[str] = (), objective: str = "win", depth: str = "standard", cpu: str = "ultra",
+          joker: str = "allow", mega: str = "auto", core: str = "", tune: str = "off", rankers: bool = True):
+    from . import parallel
 
     goals = tuple(dict.fromkeys(styles))
     if any(key not in STYLES or (STYLES[key].doubles_only and fmt != "Doubles") for key in goals):
@@ -360,6 +416,20 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
     if any(species(e, pid) in excluded for pid in ids):
         raise ValueError("꼭 넣을 포켓몬이나 고정 세트를 제외 목록에서 빼 주세요.")
     meta, pool = _pool(e, fmt)
+    fixed_ids = set(ids)
+    extra = Extra(core=core, pairs=ranker_pairs(e, fmt))
+    jokers = ()
+    if joker == "off":
+        pool = tuple(c for c in pool if c.id in fixed_ids or _rank_of(e, fmt, c.id) <= JOKER_RANK)
+    else:
+        jokers = tuple(c for c in _joker_candidates(e, fmt, meta) if c.species not in
+                       {species(e, pid) for pid in [*exclude, *ids]})
+        if joker == "force":
+            pool = tuple(c for c in pool if c.id in fixed_ids or _rank_of(e, fmt, c.id) <= JOKER_RANK)
+        else:
+            pool = (*pool, *jokers)
+    if mega == "none":
+        pool = tuple(c for c in pool if not c.resolved["mega"])
     weights = [weight(e.rank(f["id"], fmt) or 250) for f in meta]
     total = sum(weights) or 1
     weights = [w / total for w in weights]
@@ -377,6 +447,17 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
         fixed.append(c)
     required = [[_candidate(e, fmt, meta, s) for s in _generated_sets(e, fmt, pid, required=True, draft=True)]
                 for pid in include]
+    if mega == "none":
+        required = [[c for c in rows if not c.resolved["mega"]] or rows for rows in required]
+    has_joker = any(_rank_of(e, fmt, pid) > JOKER_RANK for pid in ids)
+    if joker == "force" and not has_joker and jokers:
+        required.append(list(jokers))
+    has_mega = any(c.resolved["mega"] for c in fixed) or any(
+        all(c.resolved["mega"] for c in rows) for rows in required if rows)
+    if mega == "one" and not has_mega:
+        megas = [c for c in pool if c.resolved["mega"]]
+        megas.sort(key=lambda c: -c.popularity)
+        required.append(megas[:40])
     weather = [key for key in goals if key in WEATHER_STYLES]
     split_weather = len(weather) > 1
     groups = [goals] if goals else [(style,) for style in DISCOVERY_STYLES
@@ -394,7 +475,9 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
             [*rows, *(row for c in rows if (row := _slow_variant(e, fmt, meta, c)) is not None)]
             if room else rows for rows in required
         ]
-        rows = _draft(available, fixed, wanted, group, weights, limit=16 if goals else 9)
+        if mega == "one":
+            available = tuple(c for c in available if not c.resolved["mega"])
+        rows = _draft(available, fixed, wanted, group, weights, limit=16 if goals else 9, extra=extra)
         if not rows:
             continue
         best_fit = max(_fit_count(group, roster) for roster in rows)
@@ -422,8 +505,8 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
     screen_runs, final_runs = DEPTHS.get(depth, DEPTHS["standard"])
 
     def assess(picks, runs, seed, difficulty="ultra"):
-        results = battle_lab.compare_teams(e, fmt, [[c.set for c in roster] for _, roster in picks], runs, seed,
-                                           difficulty)
+        results = parallel.compare_teams(e, fmt, [[c.set for c in roster] for _, roster in picks], runs, seed,
+                                         difficulty)
         rows = [(group, roster, report) for (group, roster), report in zip(picks, results)]
         return sorted(rows, key=lambda row: _rank_key(row[2], objective), reverse=True)
 
@@ -432,6 +515,37 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
     finalists = _keep_weather_options(screened, FINAL_LIMIT, split_weather)
     assessed = assess([(group, roster) for group, roster, _ in finalists], final_runs, seed=3146781, difficulty=cpu)
     shown = _keep_weather_options(assessed, max(3, len(weather)), split_weather)
+
+    # 세트 최적화: 도구·특성·기술·능력 포인트를 바꿔 보고 시뮬레이션으로 확인된 변경만 받아들인다.
+    tuning = {}
+    if tune != "off":
+        from .set_tuner import Tuner
+
+        tuner = Tuner(e, fmt)
+        keep = {entry["id"] for entry in locked}
+        retuned = []
+        for group, roster, report in shown:
+            sets, changes, info = tuner.tune([c.set for c in roster], tune, locked=keep)
+            if changes:
+                roster = tuple(_candidate(e, fmt, meta, s) for s in sets)
+            tuning[frozenset(c.id for c in roster)] = {"changes": changes, **info}
+            retuned.append((group, roster))
+        shown = assess(retuned, final_runs, seed=3146781, difficulty=cpu)
+    ranker_reports = {}
+    if rankers:
+        from .recommend import ranker_rosters
+
+        if ranker_rosters(e, fmt):
+            games = RANKER_GAMES.get(depth, 2)
+            results = parallel.versus_rankers_many(e, fmt, [[c.set for c in roster] for _, roster, _ in shown],
+                                                   games, 6151, cpu)
+            ranker_reports = {frozenset(c.id for c in roster): r for (_, roster, _), r in zip(shown, results)}
+    if objective == "ranker" and ranker_reports:
+        def combined(row):
+            report = row[2]
+            meta_rate = (report["win"] + .5 * report["draw"]) / report["runs"]
+            return .5 * meta_rate + .5 * ranker_reports[frozenset(c.id for c in row[1])]["rate"]
+        shown.sort(key=combined, reverse=True)
     candidates = []
     names_seen = set()
     for index, (group, roster, report) in enumerate(shown, 1):
@@ -469,6 +583,8 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
         for m, c in zip(members, roster):
             m["speed"] = round(c.resolved["speed"])
             m["fixed"] = c.id in ids
+            m["usageRank"] = None if _rank_of(e, fmt, c.id) >= 999 else _rank_of(e, fmt, c.id)
+            m["joker"] = _rank_of(e, fmt, c.id) > JOKER_RANK
             m["features"] = [FEATURE_NAMES[f] for f in sorted(c.features) if f in FEATURE_NAMES][:4]
         candidates.append({"id": f"auto-{index}", "name": name, "format": fmt, "complete": True,
                            "members": members, "metaScore": analysis["metaScore"],
@@ -484,10 +600,17 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
                                "axes": [{"label": a["label"], "play": a["play"]} for a in guide.get("axes", [])][:4],
                                "lead": guide.get("lead"),
                            }})
+    for c, (_, roster, _) in zip(candidates, shown):
+        key = frozenset(m.id for m in roster)
+        c["rankers"] = ranker_reports.get(key)
+        c["tuning"] = tuning.get(key)
+        c["jokers"] = [m["ko"] or m["name"] for m in c["members"] if m.get("joker")]
     return {"candidates": candidates, "splitWeather": split_weather,
             "evaluation": {"screened": len(picks), "finalists": len(finalists),
                            "screenRuns": screen_runs, "finalRuns": final_runs,
-                           "objective": objective, "depth": depth, "cpu": cpu}}
+                           "objective": objective, "depth": depth, "cpu": cpu, "joker": joker,
+                           "mega": mega, "core": core, "tune": tune,
+                           "rankerGames": RANKER_GAMES.get(depth, 2) if ranker_reports else 0}}
 
 
 @lru_cache(maxsize=6)

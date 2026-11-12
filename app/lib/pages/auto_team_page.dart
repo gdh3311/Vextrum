@@ -46,6 +46,29 @@ const _tactics = <(String, String, String, bool)>[
   ('pivot', '교체 운영', '공격을 받아내거나 교체 기술로 유리한 포켓몬을 내보냅니다.', false),
 ];
 
+const _jokerModes = <(String, String, String)>[
+  ('off', '제외', '사용률 40위 안의 포켓몬으로만 구성합니다.'),
+  ('allow', '허용', '조커 파인더의 세트도 후보에 넣어 함께 겨룹니다.'),
+  ('force', '1마리 필수', '팀마다 사용률 40위 밖의 조커를 1마리 넣습니다.'),
+];
+const _megaModes = <(String, String, String)>[
+  ('auto', '자동', '메가스톤은 많아야 1~2개. 성적이 좋은 쪽을 고릅니다.'),
+  ('one', '1마리 필수', '메가진화 포켓몬을 반드시 1마리 넣습니다.'),
+  ('none', '쓰지 않음', '메가스톤 없이 도구를 자유롭게 씁니다.'),
+];
+const _cores = <(String, String, String)>[
+  ('', '상관없음', ''),
+  ('fwg', '불·물·풀', '서로의 약점을 받아주는 불·물·풀 타입을 함께 넣습니다.'),
+  ('dsf', '드래곤·강철·페어리', '드래곤·강철·페어리 타입으로 서로의 약점을 받아줍니다.'),
+  ('resist', '약점 최소화', '여러 마리가 같은 약점을 갖는 구성을 더 강하게 피합니다.'),
+];
+const _tunes = <(String, String, String)>[
+  ('off', '사용률 세트', '각 포켓몬의 가장 흔한 세트를 그대로 씁니다.'),
+  ('quick', '빠르게', '도구·특성·기술·능력 포인트를 바꿔 보고 확인합니다 (후보당 40판 → 160판).'),
+  ('standard', '표준', '도구·특성·기술·능력 포인트를 바꿔 보고 확인합니다 (후보당 60판 → 240판).'),
+  ('deep', '정밀', '도구·특성·기술·능력 포인트를 바꿔 보고 확인합니다 (후보당 100판 → 400판).'),
+];
+
 class AutoTeamPage extends ConsumerWidget {
   const AutoTeamPage({super.key});
 
@@ -74,6 +97,11 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
   String objective = 'win';
   String depth = 'standard';
   String cpu = 'ultra';
+  String joker = 'allow';
+  String mega = 'auto';
+  String core = '';
+  String tune = 'standard';
+  bool rankers = true;
   Json? result;
   String? error;
   bool building = false;
@@ -118,6 +146,11 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
         'objective': objective,
         'depth': depth,
         'cpu': cpu,
+        'joker': joker,
+        'mega': mega,
+        'core': core,
+        'tune': tune,
+        'rankers': rankers,
       });
       if (mounted) {
         setState(() => result = response.data as Json);
@@ -234,14 +267,59 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
         ]),
       ),
       Section(
+        '구성 조건',
+        subtitle: '조커, 메가진화, 타입 조합과 세트 최적화를 고릅니다.',
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _OptionRow(
+            label: '조커 포켓몬',
+            options: _jokerModes,
+            value: joker,
+            onChanged: building ? null : (v) => _change(() => joker = v),
+          ),
+          _OptionRow(
+            label: '메가진화',
+            options: _megaModes,
+            value: mega,
+            onChanged: building ? null : (v) => _change(() => mega = v),
+          ),
+          _OptionRow(
+            label: '타입 조합',
+            options: _cores,
+            value: core,
+            onChanged: building ? null : (v) => _change(() => core = v),
+          ),
+          _OptionRow(
+            label: '세트 최적화',
+            options: _tunes,
+            value: tune,
+            onChanged: building ? null : (v) => _change(() => tune = v),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('랭커 파티 상대 전적도 확인'),
+            subtitle: const Text('시즌 상위 랭커 파티와도 싸워 유리·호각·불리를 보여 줍니다.'),
+            value: rankers,
+            onChanged: building
+                ? null
+                : (v) => _change(() {
+                      rankers = v;
+                      if (!v && objective == 'ranker') objective = 'win';
+                    }),
+          ),
+        ]),
+      ),
+      Section(
         '팀을 고르는 기준',
-        subtitle: objective == 'win'
-            ? '여러 상대를 합친 전체 승률이 높은 팀을 먼저 봅니다.'
-            : '전략별 승률 중 가장 낮은 값이 높은 팀을 먼저 봅니다.',
+        subtitle: switch (objective) {
+          'stability' => '전략별 승률 중 가장 낮은 값이 높은 팀을 먼저 봅니다.',
+          'ranker' => '메타 상대군 승률과 랭커 파티 상대 승률을 반씩 합쳐 봅니다.',
+          _ => '여러 상대를 합친 전체 승률이 높은 팀을 먼저 봅니다.',
+        },
         child: Wrap(spacing: 8, runSpacing: 6, children: [
           for (final (value, label) in [
             ('win', '종합 승률'),
-            ('stability', '약점 보완')
+            ('stability', '약점 보완'),
+            if (rankers) ('ranker', '랭커 파티 상대'),
           ])
             ChoiceChip(
               label: Text(label),
@@ -268,9 +346,9 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
               onSelectionChanged: building ? null : (v) => _change(() => depth = v.first),
             ),
             Text(switch (depth) {
-              'quick' => '후보당 12판 → 최종 30판',
-              'deep' => '후보당 36판 → 최종 120판',
-              _ => '후보당 21판 → 최종 56판',
+              'quick' => '후보당 16판 → 최종 40판 · 랭커 파티별 1판',
+              'deep' => '후보당 48판 → 최종 160판 · 랭커 파티별 4판',
+              _ => '후보당 30판 → 최종 80판 · 랭커 파티별 2판',
             }, style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant)),
           ]),
           const SizedBox(height: 10),
@@ -396,5 +474,43 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
       for (final candidate in candidates)
         PartyCard(key: ValueKey(candidate['id']), party: candidate),
     ]);
+  }
+}
+
+/// 라벨 + 선택 칩 + 고른 항목 설명
+class _OptionRow extends StatelessWidget {
+  const _OptionRow(
+      {required this.label,
+      required this.options,
+      required this.value,
+      required this.onChanged});
+  final String label;
+  final List<(String, String, String)> options;
+  final String value;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final help = options.firstWhere((o) => o.$1 == value).$3;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: theme.textTheme.titleSmall),
+        const SizedBox(height: 5),
+        Wrap(spacing: 8, runSpacing: 6, children: [
+          for (final (key, text, _) in options)
+            ChoiceChip(
+              label: Text(text),
+              selected: value == key,
+              onSelected: onChanged == null ? null : (_) => onChanged!(key),
+            ),
+        ]),
+        if (help.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(help, style: theme.textTheme.bodySmall),
+        ],
+      ]),
+    );
   }
 }

@@ -173,6 +173,7 @@ class _PartyCardState extends ConsumerState<PartyCard> {
         if (p['simulation'] case final Json simulation)
           PartySimulationResult(simulation, members: members),
         if (p['rankers'] case final Json rankers) RankerMatchups(rankers),
+        if (p['tuning'] case final Json tuning) _TuningNotes(tuning),
         if (p['analysis'] != null)
           LabExpansionTile(
             tilePadding: EdgeInsets.zero,
@@ -314,5 +315,57 @@ class _SetDetails extends StatelessWidget {
           child: Text(roles.map((r) => r['label']).join(' · ')),
         ),
     ]);
+  }
+}
+
+/// 세트 최적화 결과: 채택된 변경과 시험한 수
+class _TuningNotes extends StatelessWidget {
+  final Json tuning;
+  const _TuningNotes(this.tuning);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final changes = (tuning['changes'] as List? ?? const []).cast<Json>();
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('세트 최적화', style: theme.textTheme.titleSmall),
+        const SizedBox(height: 4),
+        Text(
+            tr('변경 후보 {}개를 {}판씩 시험하고, 나아 보인 {}개를 새 상대와 {}판씩 다시 확인했습니다.')
+                .replaceFirst('{}', '${tuning['tried'] ?? 0}')
+                .replaceFirst('{}', '${tuning['screenRuns'] ?? 0}')
+                .replaceFirst('{}', '${tuning['screened'] ?? 0}')
+                .replaceFirst('{}', '${tuning['confirmRuns'] ?? 0}'),
+            style: theme.textTheme.bodySmall),
+        const SizedBox(height: 6),
+        if (changes.isEmpty)
+          const Text('사용률 세트보다 확실히 나은 변경이 없어 그대로 두었습니다.')
+        else ...[
+          for (final c in changes)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Text(tr('{} · {} · {} (승률 +{}%p)')
+                  .replaceFirst('{}', '${c['name']}')
+                  .replaceFirst('{}', tr(c['kind'] as String))
+                  .replaceFirst('{}', '${c['change']}')
+                  .replaceFirst('{}', '${c['gain']}')),
+            ),
+          if (tuning['base'] != null && tuning['tuned'] != null)
+            Text(
+                tr('최종 확인 · 기존 {} → 최적화 {}')
+                    .replaceFirst('{}', fmtPct(100 * (tuning['base'] as num)))
+                    .replaceFirst('{}', fmtPct(100 * (tuning['tuned'] as num))),
+                style: theme.textTheme.bodySmall),
+        ],
+      ]),
+    );
   }
 }

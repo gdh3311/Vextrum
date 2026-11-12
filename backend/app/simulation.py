@@ -36,6 +36,8 @@ TARGETED_SUPPORT = {"Taunt", "Parting Shot"} | set(mx.STATUS_MOVES) | set(mx.TAR
     "Encore", "Leech Seed", "Pain Split", "Yawn", "Strength Sap"}
 TERRAIN = {"Psychic Surge": "psychic", "Grassy Surge": "grassy", "Electric Surge": "electric", "Misty Surge": "misty"}
 TERRAIN_MOVES = {f"{kind.title()} Terrain": kind for kind in TERRAIN.values()}
+SEEDS = {"Grassy Seed": ("grassy", "def"), "Electric Seed": ("electric", "def"),
+         "Psychic Seed": ("psychic", "spd"), "Misty Seed": ("misty", "spd")}
 TERRAIN_LABELS = {"psychic": "사이코필드", "grassy": "그래스필드", "electric": "일렉트릭필드", "misty": "미스트필드"}
 ABSORB_HEAL = {"Water Absorb": "Water", "Dry Skin": "Water", "Volt Absorb": "Electric", "Earth Eater": "Ground"}
 ABSORB_BOOST = {"Storm Drain": ("Water", "spa", 1), "Lightning Rod": ("Electric", "spa", 1),
@@ -247,6 +249,8 @@ class Battle:
         if ability in TERRAIN:
             self._ability(fighter)
             self._set_terrain(side, TERRAIN[ability], fighter)
+        elif self.terrain:
+            self._seed(fighter)
 
     def _change_stages(self, fighter, changes, *, ignore_ability=False):
         ability = None if ignore_ability else fighter.mon["ability"]
@@ -258,6 +262,13 @@ class Battle:
             if new != old:
                 fighter.stages[stat] = new
                 changed[stat] = new - old
+        if (fighter.mon["item"] == "White Herb" and not fighter.item_used
+                and any(v < 0 for v in fighter.stages.values())):
+            self._consume(fighter)
+            for stat, v in list(fighter.stages.items()):
+                if v < 0:
+                    fighter.stages[stat] = 0
+            self._event(f"{fighter.name}은(는) 하양허브로 능력 변화를 원래대로 되돌렸다!", "field")
         return changed
 
     def _lower(self, fighter, changes, source, *, reflect=True):
@@ -334,9 +345,10 @@ class Battle:
         target.yawn = 0
         self._event(f"{target.name}은(는) {mx.STATUS_LABELS[status]} 상태가 되었다!", "status",
                     ref=self._ref(target), status=status)
-        if target.mon["item"] == "Lum Berry" and not target.item_used:
+        if target.mon["item"] == "Lum Berry" and not target.item_used or (
+                status == "slp" and target.mon["item"] == "Chesto Berry" and not target.item_used):
             self._consume(target)
-            self._cure(target, "리샘열매로 ")
+            self._cure(target, "리샘열매로 " if target.mon["item"] == "Lum Berry" else "잠깨는열매로 ")
         elif source is not None and target.mon["ability"] == "Synchronize" and status in {"brn", "par", "psn", "tox"}:
             self._ability(target)
             self._inflict(source, status)
@@ -386,6 +398,13 @@ class Battle:
             return fighter.hp - before
         return 0
 
+    def _mental_herb(self, fighter):
+        if fighter.mon["item"] == "Mental Herb" and not fighter.item_used:
+            self._consume(fighter)
+            fighter.taunt = fighter.encore = 0
+            fighter.encore_move = None
+            self._event(f"{fighter.name}은(는) 멘탈허브로 정신을 되찾았다!", "field")
+
     def _consume(self, fighter):
         fighter.item_used = True
         if fighter.mon["ability"] == "Unburden":
@@ -397,6 +416,16 @@ class Battle:
         self.terrain_turns = 8 if actor.mon["item"] == "Terrain Extender" else 5
         self.activated[side].add(terrain)
         self._event(f"필드 · {TERRAIN_LABELS[terrain]}", "field", terrain=terrain)
+        for s in range(2):
+            for _, f in self._present(s):
+                self._seed(f)
+
+    def _seed(self, fighter):
+        stat = SEEDS.get(fighter.mon["item"])
+        if stat and not fighter.item_used and self.terrain == stat[0]:
+            self._consume(fighter)
+            if changed := self._change_stages(fighter, {stat[1]: 1}):
+                self._stage_event(fighter, changed)
 
     def _set_weather(self, side: int, weather: str, actor: Fighter):
         rocks = {"sun": "Heat Rock", "rain": "Damp Rock", "sand": "Smooth Rock", "snow": "Icy Rock"}
@@ -496,6 +525,11 @@ class Battle:
         accuracy = self._accuracy(actor, target, accuracy)
         power = 1.5 if actor.helped else 1.
         physical = meta.get("category") == "Physical"
+        item = None if actor.item_used else actor.mon["item"]
+        if item == "Muscle Band" and physical or item == "Wise Glasses" and not physical:
+            power *= 1.1
+        if item == "Normal Gem" and hit["type"] == "Normal" and meta.get("power"):
+            power *= 1.3
         if actor.status:
             if move == "Facade":
                 power *= 2
@@ -884,6 +918,7 @@ class Battle:
                     elif ability != "Oblivious" and not target.taunt:
                         target.taunt = 3
                         self._event(f"{target.name}은(는) 보조기를 쓸 수 없게 됐다.")
+                        self._mental_herb(target)
                         return False
             self._event(f"{self._move_name(move)} 실패")
         return False
@@ -896,6 +931,8 @@ class Battle:
             accuracy *= 1.3
         if actor.mon["item"] == "Wide Lens":
             accuracy *= 1.1
+        if target.mon["item"] == "Bright Powder" and not target.item_used:
+            accuracy *= .9
         return min(100, accuracy)
 
     def _targeted(self, side, actor, target, move) -> bool:
@@ -931,6 +968,7 @@ class Battle:
                 return False
             target.encore, target.encore_move = 3, last
             self._event(f"{target.name}은(는) 앙코르를 받았다!", "status", ref=self._ref(target))
+            self._mental_herb(target)
             return True
         if move == "Leech Seed":
             if target.seeded or "Grass" in target.mon["types"] or target.sub:
@@ -1241,6 +1279,12 @@ class Battle:
                 else:
                     self._consume(target)
                 amount -= 1
+            elif amount == target.hp and target.mon["item"] == "Focus Band" and self.rng.random() < .1:
+                self._event(f"{target.name}은(는) 기합의머리띠로 버텼다!", "field")
+                amount -= 1
+            if (actor.mon["item"] == "Normal Gem" and not actor.item_used and opponent
+                    and self._move_type(actor, move) == "Normal" and self.engine.M.get(move, {}).get("power")):
+                self._consume(actor)
             target.hp -= amount
             target.taken += amount
             dealt += amount

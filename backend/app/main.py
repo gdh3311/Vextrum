@@ -280,9 +280,14 @@ class AutoTeamRequest(BaseModel):
     include: list[str] = Field(default_factory=list, max_length=5)
     locked: list[TeamSet] = Field(default_factory=list, max_length=5)
     exclude: list[str] = Field(default_factory=list, max_length=12)
-    objective: Literal["win", "stability"] = "win"
+    objective: Literal["win", "stability", "ranker"] = "win"
     depth: Literal["quick", "standard", "deep"] = "standard"
     cpu: Literal["ultra", "master", "champion"] = "ultra"
+    joker: Literal["off", "allow", "force"] = "allow"
+    mega: Literal["auto", "one", "none"] = "auto"
+    core: Literal["", "fwg", "dsf", "resist"] = ""
+    tune: Literal["off", "quick", "standard", "deep"] = "standard"
+    rankers: bool = True
 
 
 @app.post("/api/team/build")
@@ -292,7 +297,8 @@ def auto_team(req: AutoTeamRequest):
     locked = [s.model_dump(exclude_unset=True) for s in req.locked]
     try:
         return builder.build(engine(), req.format, req.styles, req.include, locked,
-                             exclude=req.exclude, objective=req.objective, depth=req.depth, cpu=req.cpu)
+                             exclude=req.exclude, objective=req.objective, depth=req.depth, cpu=req.cpu,
+                             joker=req.joker, mega=req.mega, core=req.core, tune=req.tune, rankers=req.rankers)
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
 

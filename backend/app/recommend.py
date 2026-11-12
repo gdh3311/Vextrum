@@ -10,7 +10,7 @@ from functools import lru_cache
 from itertools import combinations
 from random import Random
 
-from . import auto_team, battle_lab, simulation
+from . import auto_team, battle_lab, parallel, simulation
 from .engine import Engine, weight
 from .parties import RANKERS, _member
 
@@ -245,11 +245,11 @@ def recommend(e: Engine, fmt: str, *, joker: str = "allow", depth: str = "standa
         raise ValueError("이 조건으로 추천 파티를 만들 수 없습니다. 조커나 전략 조건을 바꿔 보세요.")
 
     teams = [[c.set for c in roster] for _, _, roster in drafts]
-    screened = battle_lab.compare_teams(e, fmt, teams, screen_meta, 515153, "ultra")
+    screened = parallel.compare_teams(e, fmt, teams, screen_meta, 515153, "ultra")
+    screened_ranks = parallel.versus_rankers_many(e, fmt, teams, screen_rank, 7121, "ultra") if rosters else [None] * len(teams)
     rows = []
-    for (origin, goals, roster), team, report in zip(drafts, teams, screened):
+    for (origin, goals, roster), team, report, ranks in zip(drafts, teams, screened, screened_ranks):
         meta_rate = (report["win"] + .5 * report["draw"]) / report["runs"]
-        ranks = versus_rankers(e, fmt, team, screen_rank, 7121, "ultra") if rosters else None
         rows.append((_combined(meta_rate, ranks["rate"] if ranks else 0, ranker_weight), origin, goals, roster))
     rows.sort(key=lambda row: -row[0])
     # 조커가 들어간 후보와 없는 후보를 비교할 수 있도록 각각 최소 한 팀은 최종 검증에 남긴다.
@@ -265,10 +265,11 @@ def recommend(e: Engine, fmt: str, *, joker: str = "allow", depth: str = "standa
                     chosen = [*chosen[:finalists - 1], extra]
 
     final_teams = [[c.set for c in roster] for _, _, _, roster in chosen]
-    reports = battle_lab.compare_teams(e, fmt, final_teams, final_meta, 9157, cpu)
+    reports = parallel.compare_teams(e, fmt, final_teams, final_meta, 9157, cpu)
+    final_ranks = (parallel.versus_rankers_many(e, fmt, final_teams, final_rank, 6151, cpu) if rosters
+                   else [None] * len(final_teams))
     candidates = []
-    for (screen, origin, goals, roster), team, report in zip(chosen, final_teams, reports):
-        ranks = versus_rankers(e, fmt, team, final_rank, 6151, cpu) if rosters else None
+    for (screen, origin, goals, roster), team, report, ranks in zip(chosen, final_teams, reports, final_ranks):
         meta_rate = (report["win"] + .5 * report["draw"]) / report["runs"]
         score = _combined(meta_rate, ranks["rate"] if ranks else 0, ranker_weight)
         candidates.append((score, origin, goals, roster, team, report, ranks))

@@ -1028,3 +1028,49 @@ KO {}/판 · 피해 {}	KO {}/game · damage {}	KO {}/試合 · ダメージ {}
 시즌 최종 상위 랭커 29팀의 코어를 분석해 추천의 출발점으로 삼고, 모든 후보를 메타 상대군과 랭커 파티 상대로 수천 판 시뮬레이션합니다. 조커 제외·허용·필수와 평가 깊이, 검증 CPU를 고를 수 있고 랭커 파티별 유리·호각·불리를 보여 줍니다.	Cores from 29 top final-ranked teams seed the recommendations, and every candidate is simulated thousands of times against the meta pool and the ranker teams. Choose to exclude, allow or require a joker, the depth and the CPU, and see favored, even or unfavored against each ranker team.	シーズン最終上位ランカー29構築のコアを分析して推薦の出発点にし、すべての候補をメタ相手群とランカー構築を相手に数千戦シミュレーションします。ジョーカーの除外・許可・必須、評価の深さ、検証CPUを選べ、ランカー構築ごとの有利・互角・不利を表示します。
 더 편한 배틀 명령과 제대로 쓰는 순풍	Easier battle commands and real Tailwind play	使いやすい行動選択と本格的な追い風
 넓은 화면에서는 명령 메뉴가 경기장 옆에 붙고, 포켓몬마다 한 장씩 명령을 고릅니다. 숫자 키·S·Enter 단축키와 기술별 상성 표시를 더했습니다. CPU는 순풍·트릭룸이 뒤집는 스피드 관계를 계산해 엘풍 같은 시동 요원이 첫 턴에 순풍을 겁니다.	On wide screens the command menu sits beside the arena and you pick one Pokémon's command at a time. Added number, S and Enter shortcuts and effectiveness on each move. The CPU now counts the speed matchups Tailwind and Trick Room flip, so setters like Whimsicott use Tailwind on turn 1.	広い画面では行動メニューがバトル場の横に付き、ポケモンごとに1枚ずつ行動を選びます。数字・S・Enterのショートカットと技ごとの相性表示を追加。CPUは追い風・トリックルームで逆転する素早さ関係を計算し、エルフーンのような起点役が1ターン目に追い風を使います。
+# ---- 팀 자동 구성 개선
+사용률 40위 안의 포켓몬으로만 구성합니다.	Uses only Pokémon in the top 40 by usage.	使用率40位以内のポケモンだけで構成します。
+조커 파인더의 세트도 후보에 넣어 함께 겨룹니다.	Adds Joker Finder sets to the candidate pool.	ジョーカーファインダーの型も候補に入れて競わせます。
+자동	Auto	自動
+메가스톤은 많아야 1~2개. 성적이 좋은 쪽을 고릅니다.	At most 1–2 Mega Stones; keeps whichever does better.	メガストーンは多くても1~2個。成績の良い方を選びます。
+메가진화 포켓몬을 반드시 1마리 넣습니다.	Always includes one Mega Evolution.	メガシンカポケモンを必ず1体入れます。
+쓰지 않음	None	使わない
+메가스톤 없이 도구를 자유롭게 씁니다.	No Mega Stones; items are free to choose.	メガストーンなしで道具を自由に使います。
+상관없음	Any	こだわらない
+불·물·풀	Fire · Water · Grass	ほのお・みず・くさ
+서로의 약점을 받아주는 불·물·풀 타입을 함께 넣습니다.	Includes Fire, Water and Grass types that cover each other's weaknesses.	互いの弱点を受け合うほのお・みず・くさタイプを入れます。
+드래곤·강철·페어리	Dragon · Steel · Fairy	ドラゴン・はがね・フェアリー
+드래곤·강철·페어리 타입으로 서로의 약점을 받아줍니다.	Dragon, Steel and Fairy types cover each other's weaknesses.	ドラゴン・はがね・フェアリーで互いの弱点を受け合います。
+약점 최소화	Minimize shared weaknesses	弱点の最小化
+여러 마리가 같은 약점을 갖는 구성을 더 강하게 피합니다.	Avoids several members sharing the same weakness more strongly.	複数のポケモンが同じ弱点を持つ構成をより強く避けます。
+사용률 세트	Usage sets	使用率の型
+각 포켓몬의 가장 흔한 세트를 그대로 씁니다.	Uses each Pokémon's most common set as is.	各ポケモンの最も多い型をそのまま使います。
+도구·특성·기술·능력 포인트를 바꿔 보고 확인합니다 (후보당 40판 → 160판).	Tries other items, abilities, moves and stat points and verifies them (40 → 160 games per change).	道具・特性・技・能力ポイントを変えて検証します (候補ごと40戦 → 160戦)。
+도구·특성·기술·능력 포인트를 바꿔 보고 확인합니다 (후보당 60판 → 240판).	Tries other items, abilities, moves and stat points and verifies them (60 → 240 games per change).	道具・特性・技・能力ポイントを変えて検証します (候補ごと60戦 → 240戦)。
+도구·특성·기술·능력 포인트를 바꿔 보고 확인합니다 (후보당 100판 → 400판).	Tries other items, abilities, moves and stat points and verifies them (100 → 400 games per change).	道具・特性・技・能力ポイントを変えて検証します (候補ごと100戦 → 400戦)。
+구성 조건	Team rules	構成条件
+조커, 메가진화, 타입 조합과 세트 최적화를 고릅니다.	Choose jokers, Mega Evolution, type cores and set tuning.	ジョーカー、メガシンカ、タイプ構成と型の最適化を選びます。
+타입 조합	Type core	タイプ構成
+세트 최적화	Set tuning	型の最適化
+랭커 파티 상대 전적도 확인	Also test against ranker teams	ランカー構築との対戦成績も確認
+시즌 상위 랭커 파티와도 싸워 유리·호각·불리를 보여 줍니다.	Battles the season's top ranker teams and shows favored, even or unfavored.	シーズン上位ランカー構築とも対戦し、有利・互角・不利を表示します。
+메타 상대군 승률과 랭커 파티 상대 승률을 반씩 합쳐 봅니다.	Ranks by half meta pool and half ranker team win rate.	メタ相手群勝率とランカー構築相手勝率を半分ずつ合わせて見ます。
+랭커 파티 상대	Vs ranker teams	ランカー構築相手
+후보당 16판 → 최종 40판 · 랭커 파티별 1판	16 games per candidate → 40 final · 1 per ranker team	候補ごと16戦 → 最終40戦 · ランカー構築ごと1戦
+후보당 30판 → 최종 80판 · 랭커 파티별 2판	30 games per candidate → 80 final · 2 per ranker team	候補ごと30戦 → 最終80戦 · ランカー構築ごと2戦
+후보당 48판 → 최종 160판 · 랭커 파티별 4판	48 games per candidate → 160 final · 4 per ranker team	候補ごと48戦 → 最終160戦 · ランカー構築ごと4戦
+변경 후보 {}개를 {}판씩 시험하고, 나아 보인 {}개를 새 상대와 {}판씩 다시 확인했습니다.	Tested {} changes over {} games each, then re-checked the {} promising ones over {} games against new opponents.	変更候補{}個を{}戦ずつ試し、良さそうな{}個を新しい相手と{}戦ずつ再確認しました。
+사용률 세트보다 확실히 나은 변경이 없어 그대로 두었습니다.	No change clearly beat the usage sets, so they were kept.	使用率の型より明確に良い変更がなかったため、そのままにしました。
+{} · {} · {} (승률 +{}%p)	{} · {} · {} (win rate +{} pts)	{} · {} · {} (勝率 +{}pt)
+최종 확인 · 기존 {} → 최적화 {}	Final check · before {} → tuned {}	最終確認 · 変更前 {} → 最適化 {}
+공격·스피드 최대 (최속)	Max attack and Speed	攻撃・素早さ最大 (最速)
+HP·공격 최대, 스피드 최저 (트릭룸)	Max HP and attack, min Speed (Trick Room)	HP・攻撃最大、素早さ最低 (トリックルーム)
+HP·화력 최대	Max HP and attack	HP・火力最大
+HP·방어·특방 분산 (내구)	HP with split defenses (bulky)	HP・防御・特防に分散 (耐久)
+{}은(는) 하양허브로 능력 변화를 원래대로 되돌렸다!	{} restored its lowered stats with its White Herb!	{}は白いハーブで能力を元に戻した!
+{}은(는) 멘탈허브로 정신을 되찾았다!	{} snapped out of it with its Mental Herb!	{}はメンタルハーブで正気に戻った!
+{}은(는) 기합의머리띠로 버텼다!	{} hung on with its Focus Band!	{}はきあいのハチマキで持ちこたえた!
+더 잘 만드는 팀 자동 구성	Smarter automatic team building	より賢いチーム自動構成
+조커·메가진화·타입 조합·세트 최적화를 고를 수 있습니다. 팀을 짤 때 사용률보다 랭커 파티의 동시 채용 코어를 중시하고, 최종 후보는 도구·특성·기술·능력 포인트를 바꿔 보며 시뮬레이션으로 확인된 변경만 반영합니다. 랭커 파티 상대 전적과 그 기준의 순위도 볼 수 있습니다.	Choose jokers, Mega Evolution, type cores and set tuning. Drafting now favors cores that rankers use together over raw usage, and finalists try other items, abilities, moves and stat points, keeping only changes the simulations confirm. You can also see and rank by results against ranker teams.	ジョーカー・メガシンカ・タイプ構成・型の最適化を選べます。チーム作りでは使用率よりランカー構築の同時採用コアを重視し、最終候補は道具・特性・技・能力ポイントを変えてシミュレーションで確認できた変更だけを反映します。ランカー構築相手の成績とその基準の順位も見られます。
+실전 도구와 4배 빠른 시뮬레이션	Real items and 4× faster simulations	実戦の道具と4倍速いシミュレーション
+필드 시드, 하양허브, 멘탈허브, 잠깨는열매, 노말주얼, 빛의가루, 기합의머리띠, 힘의머리띠, 박식안경의 효과를 배틀에 반영했습니다. 시뮬레이션을 CPU 코어에 나눠 돌려 추천과 팀 구성이 더 많은 판을 빠르게 검증합니다.	Terrain seeds, White Herb, Mental Herb, Chesto Berry, Normal Gem, Bright Powder, Focus Band, Muscle Band and Wise Glasses now work in battle. Simulations run across CPU cores, so recommendations and team building check more games faster.	フィールドシード、白いハーブ、メンタルハーブ、カゴのみ、ノーマルジュエル、ひかりのこな、きあいのハチマキ、ちからのハチマキ、ものしりメガネの効果をバトルに反映しました。シミュレーションをCPUコアに分散し、推薦とチーム構成がより多くの試合を速く検証します。

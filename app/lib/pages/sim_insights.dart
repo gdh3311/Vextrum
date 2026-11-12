@@ -348,6 +348,7 @@ class CandidateComparison extends StatelessWidget {
           cell(Text('팀', style: head), 200),
           cell(Text('검증 승률', style: head), 190),
           cell(Text('가장 어려운 전략', style: head), 170),
+          if (candidates.any((c) => c['rankers'] != null)) cell(Text('랭커 파티', style: head), 150),
           cell(Text('메타 대응 점수', style: head), 100),
           cell(Text('평균 턴', style: head), 64),
           cell(Text('약점 타입', style: head), 120),
@@ -378,6 +379,22 @@ class CandidateComparison extends StatelessWidget {
                   190,
                 ),
                 cell(Text('${worst['label']} ${fmtPct(winRate(worst))}', maxLines: 1, overflow: TextOverflow.ellipsis, style: numStyle), 170),
+                if (candidates.any((c) => c['rankers'] != null))
+                  cell(
+                    c['rankers'] == null
+                        ? const Text('-')
+                        : Row(children: [
+                            SizedBox(
+                                width: 70,
+                                child: WinRateBar(
+                                    rate: 100 * ((c['rankers'] as Json)['rate'] as num).toDouble(),
+                                    ci: (c['rankers'] as Json)['ci'] as List?)),
+                            const SizedBox(width: 8),
+                            Text(fmtPct(100 * ((c['rankers'] as Json)['rate'] as num)),
+                                style: numStyle.copyWith(fontWeight: FontWeight.w700)),
+                          ]),
+                    150,
+                  ),
                 cell(Text('${c['metaScore'] ?? '-'}', style: numStyle), 100),
                 cell(Text('${sim['avgTurns'] ?? '-'}', style: numStyle), 64),
                 cell(Wrap(spacing: 3, children: [for (final w in weak.take(3)) TypeDot(w['type'] as String)]), 120),
