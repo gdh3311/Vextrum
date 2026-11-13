@@ -48,7 +48,7 @@ void main() {
     await tester.tap(find.byTooltip('새 업데이트 보기'));
     await tester.pumpAndSettle();
     expect(find.text('업데이트 내역'), findsOneWidget);
-    expect(find.text('더 잘 만드는 팀 자동 구성'), findsOneWidget);
+    expect(find.text('팀과 선출을 처음부터 함께 탐색'), findsOneWidget);
     await tester.tap(find.byTooltip('닫기'));
     await tester.pumpAndSettle();
 

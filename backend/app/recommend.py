@@ -65,9 +65,13 @@ def ranker_cores(e: Engine, fmt: str, size: int = 2, top: int = 8):
     teams = [(r, [pid for pid in r["ids"] if pid in e.P]) for r in rankers(fmt)]
     if not teams:
         return ()
+    from .regulation import _season_number, season_weight
+
+    # 시즌 신뢰도: 가진 표본 중 가장 새 시즌을 1로, 한 시즌 전 0.75, 두 시즌 전 0.5
+    newest = max((r.get("season") for r, _ in teams), key=lambda s: _season_number(s) or 0, default=None)
     singles, groups, total = Counter(), Counter(), 0.
     for r, ids in teams:
-        w = weight(r["rank"])
+        w = weight(r["rank"]) * season_weight(r.get("season"), reference=newest)
         total += w
         for pid in set(ids):
             singles[pid] += w

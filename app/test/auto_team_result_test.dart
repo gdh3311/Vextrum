@@ -11,6 +11,19 @@ void main() {
   testWidgets('팀 자동 구성 결과: 비교표, 세트 최적화, 랭커 전적을 그린다', (tester) async {
     final data = jsonDecode(File('test/fixtures/auto_team.json').readAsStringSync()) as Map<String, dynamic>;
     final candidates = (data['candidates'] as List).cast<Map<String, dynamic>>();
+    (data['evaluation'] as Map<String, dynamic>)['rosterSearch'] = {
+      'rounds': 2, 'tested': 12, 'accepted': 1,
+    };
+    final members = (candidates.first['members'] as List).cast<Map<String, dynamic>>();
+    candidates.first['rosterSearch'] = [
+      {
+        'strategy': '순풍',
+        'threats': [members[0]],
+        'swaps': [{'out': members[1], 'in': members[2]}],
+        'before': {'wins': 8, 'runs': 21, 'strategyWins': 1, 'strategyRuns': 3},
+        'after': {'wins': 12, 'runs': 21, 'strategyWins': 2, 'strategyRuns': 3},
+      },
+    ];
     final errors = <String>[];
     final previous = FlutterError.onError;
     FlutterError.onError = (details) => errors.add(details.toString());
@@ -35,6 +48,16 @@ void main() {
       ));
       await tester.pump();
       expect(find.text('세트 최적화'), findsWidgets);
+      expect(find.textContaining('12개 조합'), findsOneWidget);
+      expect(find.text('독창성 (랭커 팀과 얼마나 다른가)'), findsOneWidget);
+      expect(find.textContaining('선출만 변경 · +16.7%p'), findsOneWidget);
+      final swaps = find.text('포켓몬 교체 내역');
+      await tester.ensureVisible(swaps);
+      await tester.tap(swaps);
+      await tester.pumpAndSettle();
+      expect(find.text('교체 확인전 · 8승/21판 → 12승/21판'), findsOneWidget);
+      await tester.tap(swaps);
+      await tester.pumpAndSettle();
     }
     FlutterError.onError = previous;
     expect(errors, isEmpty, reason: errors.join('\n\n'));

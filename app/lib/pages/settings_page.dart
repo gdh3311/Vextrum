@@ -276,6 +276,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   tr('{} 기준 · 버전 {}')
                       .replaceFirst('{}', (info.value!['generatedAt'] as String).substring(0, 16).replaceFirst('T', ' '))
                       .replaceFirst('{}', '${info.value!['dataVersion']}'),
+                if (info.valueOrNull?['provenance'] case final Map prov when prov['officialSeason'] != null)
+                  tr('공식 시즌 {} · 레귤레이션 {} (메가진화 배틀당 1회, 도구 중복 금지) · 데이터 표기 시즌 {}')
+                      .replaceFirst('{}', '${prov['officialSeason']}')
+                      .replaceFirst('{}', '${prov['regulation']}')
+                      .replaceFirst('{}', '${prov['sourceSeason']}'),
+                if (info.valueOrNull?['provenance'] case final Map prov when prov['seasonMismatch'] == true)
+                  tr('원본 데이터가 아직 새 시즌 폴더를 열지 않아, 순위·채용률은 원본이 표기한 시즌의 표본입니다.'),
+                tr('순위는 사용률(%)이 아니라 순서입니다. 메타 가중치로만 씁니다.'),
                 tr('원본 사이트에서 새 데이터를 받습니다. 1~2분 걸릴 수 있습니다.'),
               ].join('\n'),
             ),

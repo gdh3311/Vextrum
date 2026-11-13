@@ -1,3 +1,5 @@
+import 'dart:ui' show AppExitResponse;
+
 import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,8 +9,10 @@ import 'lab_icons.dart';
 import 'api.dart';
 import 'app_updates.dart';
 import 'arena_ui.dart';
+import 'backend_launcher.dart';
 import 'pages/auto_team_page.dart';
 import 'pages/battle_page.dart';
+import 'pages/research_page.dart';
 import 'pages/enemy_page.dart';
 import 'pages/joker_page.dart';
 import 'pages/meta_page.dart';
@@ -22,8 +26,17 @@ import 'settings.dart';
 import 'theme.dart';
 import 'i18n.dart';
 
+// ignore: unused_element
+AppLifecycleListener? _exitListener;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 배포판: 실행 파일 옆 backend 폴더의 서버를 앱이 직접 켜고, 창을 닫으면 끈다.
+  await ensureLocalBackend();
+  _exitListener = AppLifecycleListener(onExitRequested: () async {
+    stopLocalBackend();
+    return AppExitResponse.exit;
+  }, onDetach: stopLocalBackend);
   SharedPreferences? prefs;
   try {
     prefs = await SharedPreferences.getInstance();
@@ -91,6 +104,7 @@ final _router = GoRouter(routes: [
       GoRoute(path: '/jokers', pageBuilder: (c, s) => _routePage(s, const JokerPage())),
       GoRoute(path: '/parties', pageBuilder: (c, s) => _routePage(s, const PartiesPage())),
       GoRoute(path: '/battle', pageBuilder: (c, s) => _routePage(s, const BattlePage())),
+      GoRoute(path: '/research', pageBuilder: (c, s) => _routePage(s, const ResearchPage())),
       GoRoute(path: '/speed', pageBuilder: (c, s) => _routePage(s, const SpeedPage())),
       GoRoute(path: '/settings', pageBuilder: (c, s) => _routePage(s, const SettingsPage())),
       GoRoute(
@@ -143,6 +157,7 @@ const _tabs = [
   ('/speed', LabGlyph.bolt, '스피드 티어', '스피드', Color(0xFF9FD8FF)),
   ('/parties', LabGlyph.archive, '파티 탐색', '파티', Color(0xFFFFCB6D)),
   ('/battle', LabGlyph.controller, '가상 배틀', '배틀', Color(0xFFA8DF98)),
+  ('/research', LabGlyph.spark, '자동 연구', '연구', Color(0xFFFF9EDB)),
 ];
 
 class _Logo extends StatelessWidget {

@@ -122,3 +122,6 @@ backend/.venv/
 backend/data/
 __pycache__/
 *.pyc
+
+# 배포판 만들기 결과 (tools/package_release.py)
+/dist/

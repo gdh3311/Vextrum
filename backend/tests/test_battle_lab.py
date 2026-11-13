@@ -3,7 +3,8 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import patch
 
-from app import auto_team, battle_lab, collector, season_notice, simulation
+from app import auto_team, battle_lab, collector, roster_search, season_notice, simulation
+from app.progress import Progress
 from app.engine import Engine
 
 
@@ -304,9 +305,11 @@ class BattleLabTest(unittest.TestCase):
     def test_team_draft_keeps_preferences_and_ranks_final_results_by_stability(self):
         fmt = "Doubles"
         locked = {**self.engine.default_set("garchomp", fmt), "item": "Life Orb", "nature": "Jolly"}
+        # 단일 지표 정렬은 v1 동작이다. v2 는 파레토 선별(tests/test_strategy.py)을 쓴다.
         result = auto_team.build(self.engine, fmt, ["trickroom"], ["kingambit"], [locked],
-                                 exclude=["sneasler"], objective="stability")
+                                 exclude=["sneasler"], objective="stability", engine="v1")
         self.assertEqual(result["evaluation"]["objective"], "stability")
+        self.assertGreater(result["evaluation"]["rosterSearch"]["tested"], 0)
         rankings = []
         for team in result["candidates"]:
             members = {member["id"]: member["set"] for member in team["members"]}
@@ -326,3 +329,40 @@ class BattleLabTest(unittest.TestCase):
         self.assertEqual(rankings, sorted(rankings, reverse=True))
         with self.assertRaises(ValueError):
             auto_team.build(self.engine, fmt, [], ["kingambit"], [], exclude=["kingambit"])
+
+    def test_roster_search_uses_the_confirmed_team_and_rejects_a_screen_only_gain(self):
+        e, fmt = self.engine, "Doubles"
+        _, pool = auto_team._pool(e, fmt)
+        original = tuple({c.species: c for c in pool}.values())[:8]
+        base, first, second = original[:6], (*original[:5], original[6]), (*original[:5], original[7])
+        group = ("balance",)
+
+        def report(wins, runs):
+            return {"win": wins, "loss": runs - wins, "draw": 0, "runs": runs,
+                    "strategies": [{"style": "balance", "label": "균형형", "win": wins,
+                                    "runs": runs, "loss": runs - wins, "lossFoes": []}]}
+
+        initial = [(group, base, report(4, 10))]
+        parents, rounds = [], []
+
+        def propose(_e, _fmt, branch, *_):
+            parents.append(branch.roster)
+            return branch.report["strategies"][0], [first if len(parents) == 1 else second]
+
+        def measure(picks, runs, seed):
+            rounds.append(seed)
+            win = 4 if len(rounds) % 2 else 3
+            return [report(2 if roster is base else win if roster is first else (6 if len(rounds) % 2 else 1), runs)
+                    for _, roster in picks]
+
+        with patch.object(roster_search, "_proposals", side_effect=propose):
+            branches, stats = roster_search.refine(
+                e, fmt, initial, initial, {group: pool}, set(), lambda _: True, [], auto_team.DEFAULT_EXTRA,
+                "standard", measure, lambda r: auto_team._rank_key(r, "win"), Progress(e),
+            )
+        self.assertEqual(parents, [base, first])
+        self.assertEqual(len(set(rounds)), 4)
+        self.assertEqual(stats, {"rounds": 2, "tested": 2, "accepted": 1})
+        self.assertEqual(branches[0].roster, first)
+        swap = branches[0].history[0]["swaps"][0]
+        self.assertEqual((swap["out"]["id"], swap["in"]["id"]), (base[-1].id, first[-1].id))

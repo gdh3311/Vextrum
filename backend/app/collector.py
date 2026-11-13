@@ -15,6 +15,7 @@ import csv
 import json
 import re
 import shutil
+import os
 import sqlite3
 import sys
 import time
@@ -29,7 +30,13 @@ POKEAPI_CSV = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/
 POKEAPI_FILES = ["pokemon_species_names", "move_names", "item_names", "ability_names", "nature_names"]
 FORMATS = ["Doubles", "Singles"]
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+# 데이터 폴더: VEXTRUM_DATA 환경 변수 > 배포판(실행 파일 옆 data) > 개발 폴더(backend/data)
+if os.environ.get("VEXTRUM_DATA"):
+    DATA_DIR = Path(os.environ["VEXTRUM_DATA"])
+elif getattr(sys, "frozen", False):
+    DATA_DIR = Path(sys.executable).resolve().parent / "data"
+else:
+    DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 CACHE = DATA_DIR / "cache"
 DATASET = DATA_DIR / "dataset.json"
 HISTORY_DB = DATA_DIR / "history.sqlite"

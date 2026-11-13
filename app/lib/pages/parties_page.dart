@@ -173,6 +173,14 @@ class _PartyCardState extends ConsumerState<PartyCard> {
         if (p['simulation'] case final Json simulation)
           PartySimulationResult(simulation, members: members),
         if (p['rankers'] case final Json rankers) RankerMatchups(rankers),
+        if (p['rosterSearch'] is List && (p['rosterSearch'] as List).isNotEmpty)
+          PartyRosterChanges((p['rosterSearch'] as List).cast<Json>()),
+        if (p['strategy'] case final Json strategy)
+          _StrategyPanel(
+              strategy: strategy,
+              metrics: p['metrics'] as Json? ?? const {},
+              counterfactual: p['counterfactual'] as Json?,
+              causes: (p['lossCauses'] as List? ?? const []).cast<Json>()),
         if (p['tuning'] case final Json tuning) _TuningNotes(tuning),
         if (p['analysis'] != null)
           LabExpansionTile(
@@ -186,6 +194,22 @@ class _PartyCardState extends ConsumerState<PartyCard> {
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Wrap(spacing: 6, runSpacing: 4, children: [
+              if (p['fromResearch'] == true)
+                const Chip(
+                  avatar: LabIcon(LabGlyph.spark, size: 14),
+                  label: Text('자동 연구에서 발견'),
+                  visualDensity: VisualDensity.compact,
+                ),
+              if (p['rankerOverlap'] case final Json overlap)
+                Chip(
+                  avatar: const LabIcon(LabGlyph.archive, size: 14),
+                  label: Text(tr('랭커 파티와 겹침 {}/6 · {} {}위 {}')
+                      .replaceFirst('{}', '${overlap['count']}')
+                      .replaceFirst('{}', '${overlap['season']}')
+                      .replaceFirst('{}', '${overlap['rank']}')
+                      .replaceFirst('{}', '${overlap['player']}')),
+                  visualDensity: VisualDensity.compact,
+                ),
               for (final (key, label, icon) in [
                 ('fast_attacker', '빠른 공격수', LabGlyph.bolt),
                 ('physical', '물리', LabGlyph.versus),
@@ -369,3 +393,226 @@ class _TuningNotes extends StatelessWidget {
     );
   }
 }
+
+/// V2 엔진 결과: 전략 태그와 근거, 승리 조건 2개, 다목적 지표, 패배 원인, 일관성 경고
+class _StrategyPanel extends StatelessWidget {
+  const _StrategyPanel(
+      {required this.strategy, required this.metrics, required this.causes, this.counterfactual});
+  final Json strategy;
+  final Json metrics;
+  final Json? counterfactual;
+  final List<Json> causes;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tags = (strategy['tags'] as List).cast<Json>();
+    final warnings = (strategy['warnings'] as List? ?? const []).cast<String>();
+    final zero = (metrics['zeroPick'] as List? ?? const []).cast<String>();
+    String pct(Object? v) => v is num ? fmtPct(100 * v) : '-';
+    Widget metric(String label, String value) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(color: cs.surfaceContainer, borderRadius: BorderRadius.circular(10)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text(label, style: theme.textTheme.bodySmall),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
+          ]),
+        );
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: cs.surfaceContainerHigh, borderRadius: BorderRadius.circular(12)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          if (metrics['profile'] case final String profile)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+              decoration: BoxDecoration(color: cs.primary.withOpacity(.18), borderRadius: BorderRadius.circular(20)),
+              child: Text(profile, style: TextStyle(color: cs.primary, fontWeight: FontWeight.w800, fontSize: 12.5)),
+            ),
+          Expanded(child: Text('왜 이 팀인가', style: theme.textTheme.titleSmall)),
+        ]),
+        const SizedBox(height: 8),
+        Text(tr('주 승리 조건 · {}').replaceFirst('{}', '${strategy['primary']}')),
+        if (strategy['secondary'] != null)
+          Text(tr('막혔을 때 · {}').replaceFirst('{}', '${strategy['secondary']}')),
+        const SizedBox(height: 8),
+        Wrap(spacing: 6, runSpacing: 4, children: [
+          for (final t in tags)
+            Tooltip(
+              message: t['why'] as String,
+              child: Chip(label: Text(t['label'] as String), visualDensity: VisualDensity.compact),
+            ),
+        ]),
+        const SizedBox(height: 8),
+        if (metrics['leagues'] case final Map leagues) ...[
+          Text('랭크별 상대 CPU 성적', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 4),
+          for (final name in ['몬스터볼', '하이퍼볼', '마스터볼', '챔피언'])
+            if (leagues[name] case final Map l)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Row(children: [
+                  SizedBox(width: 74, child: Text(name, style: const TextStyle(fontWeight: FontWeight.w700))),
+                  Expanded(
+                    child: Text(tr('{} · 95% 범위 {}~{}% · {}판')
+                        .replaceFirst('{}', pct(l['rate']))
+                        .replaceFirst('{}', '${(l['ci'] as List)[0]}')
+                        .replaceFirst('{}', '${(l['ci'] as List)[1]}')
+                        .replaceFirst('{}', '${l['games']}')),
+                  ),
+                ]),
+              ),
+          if (metrics['stress'] case final Map st)
+            Text(
+                tr('스트레스 리그 · {} 상대만, 카운터형 CPU · {} ({}판)')
+                    .replaceFirst('{}', tr('${st['against']}'))
+                    .replaceFirst('{}', pct(st['rate']))
+                    .replaceFirst('{}', '${st['games']}'),
+                style: theme.textTheme.bodySmall),
+          Text('승률은 앱의 배틀 엔진과 CPU 기준이며 실제 랭크전 승률이 아닙니다.', style: theme.textTheme.bodySmall),
+          const SizedBox(height: 8),
+        ],
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          metric('평균 승률', pct(metrics['winRate'])),
+          metric('가장 어려운 전략 2개', pct(metrics['lowerTail'])),
+          metric('높은 랭크 상대 (낮은 쪽)', pct(metrics['otherPolicy'])),
+          metric('쓸 만한 선봉', tr('{}가지').replaceFirst('{}', '${metrics['leadOptions'] ?? '-'}')),
+          metric('랭커 파티와 다른 수', tr('{}마리').replaceFirst('{}', '${metrics['novelty'] ?? '-'}')),
+        ]),
+        if (metrics['originality'] case final Map o) ...[
+          const SizedBox(height: 10),
+          Text('독창성 (랭커 팀과 얼마나 다른가)', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 4),
+          for (final (key, label) in const [
+            ('species', '종 구성'),
+            ('set', '세트 (도구·기술)'),
+            ('tactical', '운영 (전략·선출)'),
+            ('synergy', '새 조합 쌍'),
+            ('viability', '실전성 (챔피언 리그)'),
+          ])
+            if (o[key] case final num v)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Row(children: [
+                  SizedBox(width: 128, child: Text(tr(label), style: theme.textTheme.bodySmall)),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                          value: v.toDouble().clamp(0, 1), minHeight: 7, backgroundColor: cs.surfaceContainer),
+                    ),
+                  ),
+                  SizedBox(
+                      width: 40,
+                      child: Text('${(100 * v).round()}',
+                          textAlign: TextAlign.right, style: theme.textTheme.bodySmall)),
+                ]),
+              ),
+          if (o['overall'] case final num overall)
+            Text(tr('종합 {} · 네 가지 평균 × 실전성 (비주류만 넣어서는 오르지 않음)').replaceFirst('{}', '${(100 * overall).round()}'),
+                style: theme.textTheme.bodySmall),
+        ],
+        if (counterfactual case final Json cf)
+          if ((cf['levers'] as List? ?? const []).isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text('무엇을 바꿨을 때 나아졌나 (검증된 변경만)', style: theme.textTheme.titleSmall),
+            for (final l in (cf['levers'] as List).cast<Json>())
+              Text(
+                  tr('{} · {} · {}')
+                      .replaceFirst('{}', tr(l['label'] as String))
+                      .replaceFirst('{}', l['adopted'] == true ? '${_signed(100 * (l['gain'] as num))}%p' : tr('변화 없음'))
+                      .replaceFirst('{}', tr(l['detail'] as String)),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: cf['main'] == l['lever'] ? FontWeight.w800 : null)),
+          ],
+        if (zero.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(tr('거의 선출되지 않는 포켓몬 · {}').replaceFirst('{}', zero.join(', ')),
+                style: TextStyle(color: cs.error, fontSize: 12.5)),
+          ),
+        if ((metrics['policy'] as List? ?? const []).isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text('선출 계획 (같은 6마리로 상대별 선봉·후발을 시험)', style: theme.textTheme.titleSmall),
+          for (final row in (metrics['policy'] as List).cast<Json>())
+            if ((row['tried'] as int? ?? 0) > 0)
+              Text(
+                  row['adopted'] == true
+                      ? tr('{} 상대 · 선봉 {} · 후발 {} · 채택 {}%p (95% {}~{}, {}판)')
+                          .replaceFirst('{}', tr('${row['label']}'))
+                          .replaceFirst('{}', (row['leads'] as List).join('+'))
+                          .replaceFirst('{}', (row['back'] as List).join('+'))
+                          .replaceFirst('{}', _signed(100 * (row['diff'] as num)))
+                          .replaceFirst('{}', _signed(100 * (row['low'] as num)))
+                          .replaceFirst('{}', _signed(100 * (row['high'] as num)))
+                          .replaceFirst('{}', '${row['games']}')
+                      : tr('{} 상대 · 기본 선출 유지 (더 나은 선출을 확인하지 못함)')
+                          .replaceFirst('{}', tr('${row['label']}')),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: row['adopted'] == true ? FontWeight.w700 : null)),
+        ],
+        if ((metrics['cpuStyles'] as List? ?? const []).isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text('마스터볼 CPU 플레이 스타일별', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Wrap(spacing: 6, runSpacing: 4, children: [
+            for (final st in (metrics['cpuStyles'] as List).cast<Json>())
+              Chip(
+                label: Text(tr('{} {} ({}판)')
+                    .replaceFirst('{}', tr('${st['label']}'))
+                    .replaceFirst('{}', pct(st['rate']))
+                    .replaceFirst('{}', '${st['runs']}')),
+                visualDensity: VisualDensity.compact,
+              ),
+          ]),
+        ],
+        if ((metrics['plans'] as List? ?? const []).isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text('상대 전략별 선출 (실제 모의전에서 가장 많이 쓴 4마리)', style: theme.textTheme.titleSmall),
+          for (final plan in (metrics['plans'] as List).cast<Json>().take(6))
+            Text(
+                tr('{} 상대 · 선봉 {} · 후발 {} · 첫 턴 {} · {}판 {}승')
+                    .replaceFirst('{}', tr('${plan['against']}'))
+                    .replaceFirst('{}', (plan['leads'] as List).join('+'))
+                    .replaceFirst('{}', (plan['back'] as List).join('+'))
+                    .replaceFirst('{}', (plan['opening'] as List).isEmpty ? '-' : (plan['opening'] as List).join(' / '))
+                    .replaceFirst('{}', '${plan['runs']}')
+                    .replaceFirst('{}', '${plan['win']}'),
+                style: theme.textTheme.bodySmall),
+        ],
+        if ((metrics['lossTags'] as List? ?? const []).isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text('진 판에서 실제로 일어난 일', style: theme.textTheme.titleSmall),
+          for (final t in (metrics['lossTags'] as List).cast<Json>().take(4))
+            Text(
+                tr('{} · 진 판의 {}')
+                    .replaceFirst('{}', tr(t['label'] as String))
+                    .replaceFirst('{}', fmtPct(100 * (t['share'] as num))),
+                style: theme.textTheme.bodySmall),
+        ],
+        if (causes.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text('자주 지는 이유', style: theme.textTheme.titleSmall),
+          for (final c in causes.take(3))
+            Text(
+                tr('{} · 진 판의 {} · 상대가 전개했을 때 {} 패배')
+                    .replaceFirst('{}', tr(c['label'] as String))
+                    .replaceFirst('{}', fmtPct(100 * (c['shareOfLosses'] as num)))
+                    .replaceFirst('{}', fmtPct(100 * (c['lossRateWhenUsed'] as num))),
+                style: theme.textTheme.bodySmall),
+        ],
+        for (final w in warnings)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text('⚠ ${tr(w)}', style: TextStyle(color: cs.error, fontSize: 12.5)),
+          ),
+      ]),
+    );
+  }
+}
+
+String _signed(num v) => '${v >= 0 ? '+' : ''}${v.toStringAsFixed(1)}';

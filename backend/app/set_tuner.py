@@ -228,10 +228,18 @@ class Tuner:
         reports = parallel.compare_teams(self.e, self.fmt, teams, runs, seed, "ultra")
         return [(r["win"] + .5 * r["draw"]) / r["runs"] for r in reports]
 
-    def tune(self, team: list[dict], depth: str = "standard", seed: int = 2711, locked: set[str] = frozenset()):
+    def _outcomes(self, teams, runs, seed):
+        reports = parallel.compare_teams(self.e, self.fmt, teams, runs, seed, "ultra")
+        return [r["outcomes"] for r in reports]
+
+    def tune(self, team: list[dict], depth: str = "standard", seed: int = 2711, locked: set[str] = frozenset(),
+             progress=None):
         screen, confirm = DEPTHS.get(depth, DEPTHS["standard"])
+        report = progress or (lambda *args: None)
         team = [dict(s) for s in team]
         trials = self.candidates(team, locked)
+        name = lambda i: self.e.P[team[i]["id"]]["ko"] or self.e.P[team[i]["id"]]["name"]
+        report(0, [f"{name(i)} · {v.note}" for i, v in trials[::max(1, len(trials) // 8)]], 0)
         info = {"tried": len(trials), "screenRuns": screen, "confirmRuns": confirm}
         if not trials:
             return team, [], info
@@ -241,14 +249,19 @@ class Tuner:
         ranked = sorted(zip(trials, rates[1:]), key=lambda row: -row[1])
         shortlist = [t for t, r in ranked if r > rates[0]][:8]
         info["screened"] = len(shortlist)
+        report(1, [f"{name(i)} · {v.note}" for i, v in shortlist], (len(trials) + 1) * screen)
         if not shortlist:
             return team, [], info
         # 2차: 새 상대군에서 다시 (1차의 운을 걸러낸다)
-        rates2 = self._rates([team] + [swap(i, v) for i, v in shortlist], confirm, seed + 101)
-        margin = max(2, .02 * confirm) / confirm
+        from .battle_lab import clearly_better
+
+        outs2 = self._outcomes([team] + [swap(i, v) for i, v in shortlist], confirm, seed + 101)
+        rates2 = [sum(o) / len(o) for o in outs2]
+        report(2, [f"{name(i)} · {v.note}" for i, v in shortlist[:4]], (len(shortlist) + 1) * confirm)
         best = {}
-        for (i, v), value in zip(shortlist, rates2[1:]):
-            if value >= rates2[0] + margin and (i not in best or value > best[i][1]):
+        for (i, v), value, out in zip(shortlist, rates2[1:], outs2[1:]):
+            # 같은 판 차이의 한쪽 신뢰 하한이 0보다 클 때만 (표본 수를 반영, 고정 1%p 기준 대신)
+            if clearly_better(outs2[0], out) and (i not in best or value > best[i][1]):
                 best[i] = (v, value)
         if not best:
             return team, [], {**info, "base": rates2[0]}
@@ -256,11 +269,13 @@ class Tuner:
         single = max(best.items(), key=lambda row: row[1][1])
         alone = swap(single[0], single[1][0])
         # 3차: 좋았던 변경을 합친 팀과 가장 좋았던 하나만 바꾼 팀을 또 다른 상대군에서 확인
-        base_rate, combined_rate, alone_rate = self._rates([team, combined, alone], confirm, seed + 202)
+        base_out, combined_out, alone_out = self._outcomes([team, combined, alone], confirm, seed + 202)
+        base_rate, combined_rate, alone_rate = (sum(o) / len(o) for o in (base_out, combined_out, alone_out))
+        report(3, [], 3 * confirm)
         if alone_rate > combined_rate and len(best) > 1:
-            best, combined, combined_rate = {single[0]: single[1]}, alone, alone_rate
+            best, combined, combined_rate, combined_out = {single[0]: single[1]}, alone, alone_rate, alone_out
         info.update(base=round(base_rate, 3), tuned=round(combined_rate, 3))
-        if combined_rate < base_rate + .01:  # 최종 확인에서 1%p 이상 좋아야 채택
+        if not clearly_better(base_out, combined_out):  # 새 상대군에서도 확실히 나아야 채택
             return team, [], info
         changes = [{"id": team[i]["id"], "name": self.e.P[team[i]["id"]]["ko"] or self.e.P[team[i]["id"]]["name"],
                     "kind": LABELS[v.kind], "change": v.note, "gain": round(100 * (value - rates2[0]), 1)}

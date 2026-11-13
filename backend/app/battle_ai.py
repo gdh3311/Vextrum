@@ -26,6 +26,9 @@ def _copy_battle(battle):
     forecast.wish = [dict(x) for x in battle.wish]
     forecast.log = []
     forecast.keep_log = False
+    forecast._seen_cache = {}
+    forecast.trace = [dict(t) for t in battle.trace]
+    forecast.opening = list(battle.opening)
     return forecast
 
 
@@ -238,6 +241,11 @@ TW_FLAT = float(os.environ.get("CPU_TW_FLAT", ".12"))
 TW_TURN = float(os.environ.get("CPU_TW_TURN", ".02"))
 
 
+# 스타일별 형세 가중치 (내 형세, 상대 형세): 공격형은 상대를 깎는 쪽, 수비형은 자기 자원 보존을 더 본다.
+STYLE_WEIGHTS = {"aggressive": (.9, 1.15), "defensive": (1.15, .9), "setup": (1., 1.), "pivot": (1.05, .95),
+                 "counter": (.95, 1.1), "balanced": (1., 1.)}
+
+
 def _hidden(battle):
     """플레이어가 아직 보여 주지 않은 포켓몬 수 (팀 미리보기로 존재는 알지만 정체·세트는 모른다)."""
     return getattr(battle, "_hidden_count", 0)
@@ -258,9 +266,10 @@ def _rollout(battle, mine, theirs, seed):
     trial._end_turn()
     if DEPTH > 1 and not trial.winner:
         trial.advance()
+    own, foe = STYLE_WEIGHTS.get(getattr(battle, "cpu_style", "balanced"), (1., 1.))
     if trial.winner == "win" or (trial.winner == "loss" and not hidden):
-        return {"loss": 6., "win": -6.}[trial.winner] + _position(trial, 1) - _position(trial, 0) - reserve
-    return _position(trial, 1) - _position(trial, 0) - reserve
+        return {"loss": 6., "win": -6.}[trial.winner] + own * _position(trial, 1) - foe * _position(trial, 0) - reserve
+    return own * _position(trial, 1) - foe * _position(trial, 0) - reserve
 
 
 def _softmax(values, temperature):

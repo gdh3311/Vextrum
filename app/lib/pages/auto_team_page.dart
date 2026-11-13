@@ -8,7 +8,7 @@ import '../api.dart';
 import '../main.dart';
 import '../team_state.dart';
 import '../widgets.dart';
-import 'battle_console.dart';
+import 'build_loader.dart';
 import 'party_simulation.dart';
 import 'parties_page.dart';
 import '../i18n.dart';
@@ -46,6 +46,11 @@ const _tactics = <(String, String, String, bool)>[
   ('pivot', '교체 운영', '공격을 받아내거나 교체 기술로 유리한 포켓몬을 내보냅니다.', false),
 ];
 
+const _originalities = <(String, String, String)>[
+  ('meta', '메타 중심', '승률을 가장 우선합니다. 상위 랭커 파티와 비슷한 팀이 나올 수 있습니다.'),
+  ('balanced', '균형', '랭커 파티와 최대 3마리까지만 겹치게 하고, 그 안에서 승률이 가장 높은 팀을 찾습니다. 같은 전략도 여러 에이스에서 출발합니다.'),
+  ('unique', '독창적', '랭커 파티와 최대 2마리만 겹치는 나만의 팀을 찾습니다. 메타 핵심을 덜 쓰는 만큼 승률은 조금 낮을 수 있습니다.'),
+];
 const _jokerModes = <(String, String, String)>[
   ('off', '제외', '사용률 40위 안의 포켓몬으로만 구성합니다.'),
   ('allow', '허용', '조커 파인더의 세트도 후보에 넣어 함께 겨룹니다.'),
@@ -102,10 +107,14 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
   String core = '';
   String tune = 'standard';
   bool rankers = true;
+  String originality = 'balanced';
   Json? result;
   String? error;
   bool building = false;
+  Json? progress;
+  int _run = 0;
   final resultsKey = GlobalKey();
+  final loaderKey = GlobalKey();
 
   void _change(VoidCallback action) {
     setState(() {
@@ -127,13 +136,21 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
   }
 
   Future<void> _generate(List<Json> sets) async {
+    final run = ++_run;
     setState(() {
       building = true;
       result = null;
       error = null;
+      progress = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (loaderKey.currentContext case final target?) {
+        Scrollable.ensureVisible(target,
+            alignment: .5, duration: const Duration(milliseconds: 450), curve: Curves.easeOutCubic);
+      }
     });
     try {
-      final response = await dio.post('/api/team/build', data: {
+      final body = {
         'format': widget.format,
         'styles': [
           if (focus.isNotEmpty) focus,
@@ -151,9 +168,21 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
         'core': core,
         'tune': tune,
         'rankers': rankers,
-      });
+        'originality': originality,
+      };
+      Json data;
+      try {
+        // 뒤에서 돌리고 진행 상황을 받아 애니메이션에 보여 준다.
+        final job = (await dio.post('/api/team/build/start', data: body)).data as Json;
+        data = await _follow(job['id'] as String, run);
+      } on DioException catch (failure) {
+        if (failure.response?.statusCode != 404 && failure.response?.statusCode != 405) rethrow;
+        // 진행 상황을 모르는 예전 서버
+        data = (await dio.post('/api/team/build', data: body)).data as Json;
+      }
+      if (!mounted || run != _run) return;
       if (mounted) {
-        setState(() => result = response.data as Json);
+        setState(() => result = data);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (resultsKey.currentContext case final target?) {
             Scrollable.ensureVisible(target,
@@ -171,8 +200,33 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
                 ? detail
                 : '팀을 만들지 못했습니다. 연결을 확인하고 다시 시도해 주세요.');
       }
+    } on _Cancelled {
+      // 사용자가 그만 보기를 눌렀다.
     } finally {
-      if (mounted) setState(() => building = false);
+      if (mounted && run == _run) setState(() => building = false);
+    }
+  }
+
+  Future<Json> _follow(String job, int run) async {
+    while (true) {
+      await Future<void>.delayed(const Duration(milliseconds: 650));
+      if (!mounted || run != _run) throw _Cancelled();
+      final status = (await dio.get('/api/team/build/$job')).data as Json;
+      if (!mounted || run != _run) throw _Cancelled();
+      if (status['progress'] case final Json p) setState(() => progress = p);
+      switch (status['state']) {
+        case 'done':
+          return status['result'] as Json;
+        case 'error':
+          throw DioException(
+            requestOptions: RequestOptions(path: '/api/team/build/$job'),
+            response: Response(
+              requestOptions: RequestOptions(path: '/api/team/build/$job'),
+              statusCode: 422,
+              data: {'detail': status['error']},
+            ),
+          );
+      }
     }
   }
 
@@ -268,8 +322,14 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
       ),
       Section(
         '구성 조건',
-        subtitle: '조커, 메가진화, 타입 조합과 세트 최적화를 고릅니다.',
+        subtitle: '팀 개성, 조커, 메가진화, 타입 조합과 세트 최적화를 고릅니다.',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _OptionRow(
+            label: '팀 개성',
+            options: _originalities,
+            value: originality,
+            onChanged: building ? null : (v) => _change(() => originality = v),
+          ),
           _OptionRow(
             label: '조커 포켓몬',
             options: _jokerModes,
@@ -331,7 +391,7 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
       ),
       Section(
         '평가 방법',
-        subtitle: '판 수가 많을수록 결과가 정확하지만 오래 걸립니다. 최종 후보는 고른 수준의 CPU와 다시 싸웁니다.',
+        subtitle: '평가 깊이를 높이면 멤버를 더 여러 번 바꿔 보고, 검증 경기 수도 늘어납니다.',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Wrap(spacing: 10, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
             SizedBox(width: 92, child: Text('평가 깊이', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant))),
@@ -346,9 +406,9 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
               onSelectionChanged: building ? null : (v) => _change(() => depth = v.first),
             ),
             Text(switch (depth) {
-              'quick' => '후보당 16판 → 최종 40판 · 랭커 파티별 1판',
-              'deep' => '후보당 48판 → 최종 160판 · 랭커 파티별 4판',
-              _ => '후보당 30판 → 최종 80판 · 랭커 파티별 2판',
+              'quick' => '후보 36팀 경주 10→20판 · 교체 1라운드 · 최종 40판',
+              'deep' => '후보 90팀 경주 14→28→48판 · 교체 3라운드 · 최종 160판',
+              _ => '후보 56팀 경주 12→24→32판 · 교체 2라운드 · 최종 80판',
             }, style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant)),
           ]),
           const SizedBox(height: 10),
@@ -450,7 +510,15 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
         child: Align(
           alignment: Alignment.centerLeft,
           child: building
-              ? const BattleLoading('팀 후보를 만들고 가상 배틀에서 비교하는 중…')
+              ? TeamBuildLoader(
+                  key: loaderKey,
+                  progress: progress,
+                  onCancel: () => setState(() {
+                    _run++;
+                    building = false;
+                    progress = null;
+                  }),
+                )
               : FilledButton.icon(
                   onPressed: () => _generate(lockSets),
                   icon: const LabIcon(LabGlyph.spark, size: 18),
@@ -462,6 +530,23 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
         Padding(
           padding: const EdgeInsets.only(bottom: 14),
           child: Text(error!, style: TextStyle(color: cs.error)),
+        ),
+      if ((result?['evaluation'] as Json?)?['ignored'] case final List ignored when ignored.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(tr('싱글배틀에서는 쓸 수 없는 전술을 빼고 만들었습니다: {}')
+              .replaceFirst('{}', ignored.map((e) => tr(e as String)).join(', '))),
+        ),
+      for (final w in ((result?['evaluation'] as Json?)?['dataWarnings'] as List? ?? const []).cast<Json>())
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+              color: (w['level'] == 'warn' ? cs.tertiaryContainer : cs.surfaceContainerHigh),
+              borderRadius: BorderRadius.circular(10)),
+          child: Text(tr(w['text'] as String),
+              style: TextStyle(color: w['level'] == 'warn' ? cs.onTertiaryContainer : null, fontSize: 13)),
         ),
       if (result?['splitWeather'] == true)
         const Padding(
@@ -514,3 +599,5 @@ class _OptionRow extends StatelessWidget {
     );
   }
 }
+
+class _Cancelled implements Exception {}

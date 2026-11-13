@@ -1074,3 +1074,218 @@ HP·방어·특방 분산 (내구)	HP with split defenses (bulky)	HP・防御・
 조커·메가진화·타입 조합·세트 최적화를 고를 수 있습니다. 팀을 짤 때 사용률보다 랭커 파티의 동시 채용 코어를 중시하고, 최종 후보는 도구·특성·기술·능력 포인트를 바꿔 보며 시뮬레이션으로 확인된 변경만 반영합니다. 랭커 파티 상대 전적과 그 기준의 순위도 볼 수 있습니다.	Choose jokers, Mega Evolution, type cores and set tuning. Drafting now favors cores that rankers use together over raw usage, and finalists try other items, abilities, moves and stat points, keeping only changes the simulations confirm. You can also see and rank by results against ranker teams.	ジョーカー・メガシンカ・タイプ構成・型の最適化を選べます。チーム作りでは使用率よりランカー構築の同時採用コアを重視し、最終候補は道具・特性・技・能力ポイントを変えてシミュレーションで確認できた変更だけを反映します。ランカー構築相手の成績とその基準の順位も見られます。
 실전 도구와 4배 빠른 시뮬레이션	Real items and 4× faster simulations	実戦の道具と4倍速いシミュレーション
 필드 시드, 하양허브, 멘탈허브, 잠깨는열매, 노말주얼, 빛의가루, 기합의머리띠, 힘의머리띠, 박식안경의 효과를 배틀에 반영했습니다. 시뮬레이션을 CPU 코어에 나눠 돌려 추천과 팀 구성이 더 많은 판을 빠르게 검증합니다.	Terrain seeds, White Herb, Mental Herb, Chesto Berry, Normal Gem, Bright Powder, Focus Band, Muscle Band and Wise Glasses now work in battle. Simulations run across CPU cores, so recommendations and team building check more games faster.	フィールドシード、白いハーブ、メンタルハーブ、カゴのみ、ノーマルジュエル、ひかりのこな、きあいのハチマキ、ちからのハチマキ、ものしりメガネの効果をバトルに反映しました。シミュレーションをCPUコアに分散し、推薦とチーム構成がより多くの試合を速く検証します。
+# ---- 팀 구성 진행 화면
+랭커 노트를 몰래 훔쳐보는 중…	Sneaking a peek at the rankers' notes…	ランカーのメモをこっそり覗き見中…
+“{T}” 조합이 왜 상위권에 많은지 연구하는 중…	Studying why “{T}” keeps showing up at the top…	「{T}」の組み合わせがなぜ上位に多いのか研究中…
+상위 랭커들의 파티를 한 장씩 넘겨보는 중…	Flipping through top ranker teams one by one…	上位ランカーの構築を一枚ずつめくっています…
+{N}에게 팀에 들어올 생각이 있는지 묻는 중…	Asking {N} if they'd like to join the team…	{N}にチームに入る気があるか聞いています…
+“{T}” 전략에 맞는 6마리를 면접 보는 중…	Interviewing six candidates for the “{T}” plan…	「{T}」戦略に合う6体を面接中…
+같은 약점을 가진 지원자 셋은 정중히 돌려보내는 중…	Politely turning away three applicants with the same weakness…	同じ弱点を持つ志願者3体を丁重にお断り中…
+메가스톤을 세 개 들고 온 팀을 설득하는 중…	Talking a team out of bringing three Mega Stones…	メガストーンを3つ持ってきたチームを説得中…
+모의전 {B}판째… 아직 아무도 울지 않았습니다	Practice battle #{B}… nobody has cried yet	模擬戦{B}戦目… まだ誰も泣いていません
+{N} 몸 푸는 중…	{N} is warming up…	{N}がウォーミングアップ中…
+CPU가 순풍을 쓸지 진지하게 고민하는 중…	The CPU is seriously debating whether to use Tailwind…	CPUが追い風を使うか真剣に悩み中…
+같은 상대·같은 난수로 공정하게 붙이는 중…	Same opponents, same luck, fair fights…	同じ相手・同じ乱数で公平に対戦中…
+최종 후보들끼리 진검승부 중…	The finalists are fighting for real…	最終候補同士で真剣勝負中…
+1차 승률 {T}, 진짜 실력인지 다시 확인하는 중…	Screened at {T} — checking whether that was skill or luck…	一次勝率{T}、本当の実力か再確認中…
+{N}이(가) 결승전 긴장감을 느끼는 중…	{N} is feeling the finals pressure…	{N}が決勝の緊張を感じています…
+시험 중 · {T}	Testing · {T}	試験中 · {T}
+{N}의 가방을 뒤져 도구를 바꿔 보는 중…	Rummaging through {N}'s bag for a better item…	{N}のバッグをあさって道具を替えてみています…
+능력 포인트를 한 칸씩 다시 찍어 보는 중…	Re-placing stat points one by one…	能力ポイントを一つずつ振り直しています…
+운이 좋았던 건지 진짜 좋아진 건지 새 상대로 확인하는 중…	Lucky or actually better? Checking against new opponents…	運が良かったのか本当に良くなったのか、新しい相手で確認中…
+{T} 님의 파티와 연습 경기 중…	Sparring with {T}'s team…	{T}さんの構築と練習試合中…
+랭커에게 혼나는 중… 이것도 공부입니다	Getting schooled by a ranker… that's studying too	ランカーにしごかれ中… これも勉強です
+랭커 파티 상대 전적을 적는 중…	Writing down the record against ranker teams…	ランカー構築相手の戦績を記録中…
+결과를 보기 좋게 정리하는 중…	Tidying up the results…	結果を見やすく整理中…
+패배 기록은 작은 글씨로… 농담입니다	Writing the losses in tiny print… just kidding	負けの記録は小さい字で… 冗談です
+모의전 {}판	{} practice battles	模擬戦 {}戦
+{}초	{} s	{}秒
+그만 보기	Stop watching	見るのをやめる
+랭커 파티 연구	Ranker research	ランカー構築研究
+초안 짜기	Drafting	下書き作り
+1차 모의전	Screening	一次模擬戦
+최종 검증	Final check	最終検証
+랭커 파티와 연습 경기	Ranker sparring	ランカー構築と練習試合
+결과 정리	Wrapping up	結果整理
+팀 자동 구성 진행 화면	Team builder progress screen	チーム自動構成の進行画面
+기다리는 동안 단계별 장면이 바뀝니다. 랭커 노트를 훔쳐보고, 후보를 면접 보고, 모의전에서 맞붙고, 세트를 하나씩 바꿔 보는 모습을 실제 진행 상황과 모의전 수, 지금 시험 중인 변경으로 보여 줍니다.	While you wait, the scene changes with each step: peeking at ranker notes, interviewing candidates, practice battles and swapping sets one by one, driven by the real progress, battle count and the change being tested.	待っている間、段階ごとに場面が変わります。ランカーのメモを覗き、候補を面接し、模擬戦で戦い、型を一つずつ変えていく様子を、実際の進行状況・模擬戦数・試験中の変更で表示します。
+# ---- 자동 구성 멤버 교체
+모의전으로 파티 멤버 교체	Replace team members through simulations	模擬戦でチームメンバーを入れ替え
+패배한 상대와 전략을 보고 포켓몬을 한두 마리 바꿉니다. 새 상대군에서도 개선된 조합을 남기고, 결과에서 교체 전후 전적을 볼 수 있습니다.	Try changing one or two Pokémon based on lost matchups. Keep improvements that hold up against fresh opponents and compare the before-and-after results.	負けた相手と戦術を見てポケモンを1〜2匹入れ替えます。新しい対戦相手にも成績が向上した構成を残し、入れ替え前後の戦績を表示します。
+멤버 교체 실험	Testing roster swaps	メンバーの入れ替えを検証
+평가 깊이를 높이면 멤버를 더 여러 번 바꿔 보고, 검증 경기 수도 늘어납니다.	Deeper evaluation tries more roster swaps and plays more verification games.	評価を深くするとメンバーの入れ替えを繰り返し、検証戦も増えます。
+1차 {}판 · 교체 최대 {}라운드 · 최종 {}판	Screen {} games · up to {} swap rounds · final {} games	一次{}戦 · 入れ替え最大{}ラウンド · 最終{}戦
+“{T}” 상대 패배 기록을 보고 다른 멤버를 시험하는 중…	Testing new members based on losses against “{T}”…	「{T}」相手の敗戦から新しいメンバーを検証中…
+한두 자리를 바꿔 같은 상대군과 다시 겨루는 중…	Testing one- and two-member swaps against the same opponents…	メンバーを1〜2匹変えて同じ相手群と再戦中…
+좋아진 조합을 새 상대군에서 한 번 더 확인하는 중…	Checking promising rosters against fresh opponents…	有望な構成を新しい相手群でもう一度検証中…
+멤버 교체 실험 · {}라운드 · {}개 조합 · {}개 개선 확인	Roster swaps · {} rounds · {} lineups · {} confirmed improvements	入れ替え検証 · {}ラウンド · {}構成 · 改善{}件
+포켓몬 교체 내역	Roster changes	ポケモンの入れ替え履歴
+{} 상대 대응	Counterplay against {}	{}への対策
+패배 경기에서 주목한 상대 · {}	Threats from lost matches · {}	敗戦で注目した相手 · {}
+교체 확인전 · {} → {}	Swap confirmation · {} → {}	入れ替え確認戦 · {} → {}
+해당 전략 상대 · {} → {}	Against this strategy · {} → {}	対象の戦術相手 · {} → {}
+랭커 상대 · {} → {}	Vs rankers · {} → {}	ランカー相手 · {} → {}
+{}승/{}판	{} wins/{} games	{}勝/{}戦
+메타·랭커 종합 순위	Combined meta and ranker ranking	環境・ランカー総合順位
+메타 상대군과 랭커 파티 전적을 반씩 반영합니다.	Meta and ranker results count equally.	環境相手群とランカー構築の戦績を同じ重みで評価します。
+종합 {}	Overall {}	総合 {}
+# ---- 팀 개성
+팀 개성	Team originality	チームの個性
+메타 중심	Meta-focused	メタ重視
+독창적	Original	独創的
+승률을 가장 우선합니다. 상위 랭커 파티와 비슷한 팀이 나올 수 있습니다.	Puts win rate first. Teams may look like top ranker teams.	勝率を最優先します。上位ランカー構築に似たチームになることがあります。
+랭커 파티를 그대로 따라 하지 않으면서 승률도 챙깁니다. 같은 전략이라도 다른 에이스에서 출발합니다.	Keeps win rate in mind without copying ranker teams. Each strategy starts from several different aces.	ランカー構築をそのまま真似せず勝率も確保します。同じ戦略でも別のエースから組み始めます。
+사용률 최상위 포켓몬에 덜 기대고, 랭커 파티와 겹치지 않는 나만의 팀을 찾습니다.	Relies less on the most-used Pokémon and looks for a team of your own that doesn't overlap ranker teams.	使用率最上位のポケモンに頼らず、ランカー構築と重ならない自分だけのチームを探します。
+싱글배틀에서는 쓸 수 없는 전술을 빼고 만들었습니다: {}	Skipped tactics that don't work in Singles: {}	シングルバトルで使えない戦術を除いて作りました: {}
+랭커 파티와 겹침 {}/6 · {} {}위 {}	Shared with a ranker team {}/6 · {} #{} {}	ランカー構築との重複 {}/6 · {} {}位 {}
+팀 개성, 조커, 메가진화, 타입 조합과 세트 최적화를 고릅니다.	Choose originality, jokers, Mega Evolution, type cores and set tuning.	チームの個性、ジョーカー、メガシンカ、タイプ構成と型の最適化を選びます。
+나만의 팀을 만드는 팀 개성	Team originality for a team of your own	自分だけのチームを作る「チームの個性」
+메타 중심·균형·독창적 중에서 고릅니다. 균형과 독창적은 같은 전략도 서로 다른 에이스에서 출발하고, 랭커 파티와 4마리 이상 겹치는 팀은 감점합니다. 결과마다 가장 비슷한 랭커 파티와 겹치는 수를 보여 줍니다.	Choose meta-focused, balanced or original. Balanced and original start each strategy from different aces and penalize teams sharing 4 or more Pokémon with a ranker team. Each result shows how much it overlaps the closest ranker team.	メタ重視・バランス・独創的から選びます。バランスと独創的は同じ戦略でも別のエースから組み始め、ランカー構築と4体以上重なるチームは減点します。結果ごとに最も近いランカー構築との重複数を表示します。
+실전처럼 메가진화를 쓰는 CPU	A CPU that Mega Evolves like real players	実戦のようにメガシンカするCPU
+가상 배틀의 상대 파티는 거의 항상 메가진화 포켓몬을 넣고 선출에도 데려옵니다. 도구도 실전 채용대로 지닙니다.	Practice opponents almost always include a Mega Evolution and bring it into battle, and hold items the way real players do.	仮想バトルの相手はほぼ必ずメガシンカポケモンを入れて選出し、道具も実戦の採用どおりに持ちます。
+후보 36팀 경주 10→20판 · 교체 1라운드 · 최종 40판	Race of 36 candidates 10→20 games · 1 swap round · 40 final	候補36チームの競走 10→20戦 · 交代1ラウンド · 最終40戦
+후보 90팀 경주 14→28→48판 · 교체 3라운드 · 최종 160판	Race of 90 candidates 14→28→48 games · 3 swap rounds · 160 final	候補90チームの競走 14→28→48戦 · 交代3ラウンド · 最終160戦
+후보 56팀 경주 12→24→32판 · 교체 2라운드 · 최종 80판	Race of 56 candidates 12→24→32 games · 2 swap rounds · 80 final	候補56チームの競走 12→24→32戦 · 交代2ラウンド · 最終80戦
+랭커 파티와 최대 3마리까지만 겹치게 하고, 그 안에서 승률이 가장 높은 팀을 찾습니다. 같은 전략도 여러 에이스에서 출발합니다.	Shares at most 3 Pokémon with any ranker team and finds the highest win rate within that. Each strategy starts from several aces.	ランカー構築との重複を最大3体に抑え、その中で勝率が最も高いチームを探します。同じ戦略も複数のエースから組み始めます。
+랭커 파티와 최대 2마리만 겹치는 나만의 팀을 찾습니다. 메타 핵심을 덜 쓰는 만큼 승률은 조금 낮을 수 있습니다.	Finds a team of your own sharing at most 2 Pokémon with any ranker team. Win rate may be a little lower since it uses fewer meta staples.	ランカー構築との重複が最大2体の自分だけのチームを探します。メタの主力を使わない分、勝率は少し下がることがあります。
+메타 중심·균형·독창적 중에서 고릅니다. 균형은 랭커 파티와 최대 3마리, 독창적은 2마리까지만 겹치게 하고 그 안에서 승률이 가장 높은 팀을 찾습니다. 후보를 여러 에이스에서 훨씬 많이 만든 뒤 짧은 모의전부터 단계적으로 걸러, 다양하면서도 강한 팀이 남습니다.	Choose meta-focused, balanced or original. Balanced shares at most 3 Pokémon with any ranker team and original at most 2, and each finds the highest win rate within that limit. Many more candidates start from different aces and are filtered in stages from short practice battles, so the teams that remain are both varied and strong.	メタ重視・バランス・独創的から選びます。バランスはランカー構築との重複を最大3体、独創的は2体までに抑え、その中で勝率が最も高いチームを探します。複数のエースからはるかに多くの候補を作り、短い模擬戦から段階的に絞るので、多様で強いチームが残ります。
+# ---- 자동 연구
+자동 연구	Auto research	自動研究
+연구	Research	研究
+앱 서버가 켜져 있는 동안 팀을 계속 새로 만들고, 바꾸고, 섞어서 매번 새로운 상대와 싸워 봅니다. 결과는 쌓여서 오래 연구할수록 더 강하고 다양한 팀이 남고, 팀 자동 구성도 여기서 찾은 팀을 출발점으로 씁니다.	While the app server runs, it keeps creating, changing and combining teams and battles new opponents every time. Results accumulate, so the longer it researches the stronger and more varied the surviving teams get, and auto team building starts from the teams found here.	アプリのサーバーが動いている間、チームを作り・変え・組み合わせて毎回新しい相手と戦わせます。結果は蓄積され、研究が長いほど強く多様なチームが残り、チーム自動構成もここで見つけたチームを出発点に使います。
+연구 상태를 불러오지 못했습니다. 서버 연결을 확인해 주세요.	Couldn't load research status. Check the server connection.	研究状況を読み込めませんでした。サーバー接続を確認してください。
+발견한 팀	Discovered teams	発見したチーム
+판 수가 많아 믿을 만한 성적(하한 신뢰구간) 순서입니다	Ordered by a reliable score (lower confidence bound)	試合数に基づく信頼できる成績(信頼区間の下限)順です
+모든 전략	All strategies	すべての戦略
+불러오는 중…	Loading…	読み込み中…
+아직 충분히 검증된 팀이 없습니다. 연구가 진행되면 여기에 나타납니다 (팀마다 40판 이상).	No sufficiently tested teams yet. They'll appear here as research continues (40+ games each).	まだ十分に検証されたチームがありません。研究が進むとここに表示されます(各40戦以上)。
+연구 상태	Research status	研究状況
+연구가 꺼져 있습니다	Research is off	研究はオフです
+마지막 오류: {}	Last error: {}	最後のエラー: {}
+기록된 팀	Teams recorded	記録したチーム
+누적 모의전	Total battles	累計模擬戦
+이번 실행 모의전	Battles this run	今回の模擬戦
+이번 실행 세대	Generations this run	今回の世代
+채운 틈새	Niches filled	埋めたニッチ
+실행 시간	Running time	実行時間
+{}분	{} min	{}分
+연구 세기	Research intensity	研究の強さ
+낮게	Low	低
+최대	Max	最大
+다른 작업에 방해가 덜 되게 천천히 연구합니다.	Researches slowly so other work isn't disturbed.	他の作業の邪魔にならないようゆっくり研究します。
+쉬는 시간을 줄이고 세대마다 더 많은 팀을 시험합니다.	Shorter pauses and more teams tested per generation.	休憩を減らし世代ごとにより多くのチームを試します。
+CPU를 최대한 써서 쉬지 않고 연구합니다.	Uses as much CPU as possible without pausing.	CPUを最大限使い休まず研究します。
+최근 발견	Recent discoveries	最近の発見
+연구로 배운 것	What research has learned	研究で分かったこと
+함께 넣었을 때 각자의 승률로 기대되는 것보다 더 잘 이긴 조합	Pairs that won more together than their individual records predict	一緒に入れると個々の勝率から期待されるより勝った組み合わせ
+{} · 기대보다 {}%p · {}판	{} · {} pts vs expected · {} games	{} · 期待より{}pt · {}戦
+연구에서 승률이 높은 포켓몬	Pokémon with the highest win rate in research	研究で勝率が高いポケモン
+자동 연구에서 발견	Found by auto research	自動研究で発見
+팀 자동 구성이 끝날 때까지 잠시 쉬는 중	Pausing until auto team building finishes	チーム自動構成が終わるまで一時休止中
+멈춤	Stopped	停止
+계속 연구하는 자동 연구	Auto research that never stops	研究し続ける自動研究
+앱 서버가 켜져 있는 동안 팀을 계속 새로 만들고, 한 마리씩 바꾸고, 서로 섞어 매번 새로운 상대와 싸워 봅니다. 성적과 함께 쓴 포켓몬의 시너지가 쌓여 오래 연구할수록 강하고 다양한 팀이 남고, 팀 자동 구성도 여기서 찾은 팀에서 출발합니다. 자동 연구 화면에서 진행 상황과 발견한 팀, 배운 조합을 볼 수 있습니다.	While the app server runs, it keeps creating teams, swapping members one at a time and crossing teams, battling new opponents every time. Records and pair synergies accumulate, so the longer it runs the stronger and more varied the surviving teams, and auto team building starts from what it finds. The Auto research screen shows progress, discovered teams and what it has learned.	アプリのサーバーが動いている間、チームを作り、1体ずつ入れ替え、組み合わせて毎回新しい相手と戦わせます。成績と一緒に使ったポケモンの相乗効果が蓄積され、研究が長いほど強く多様なチームが残り、チーム自動構成もここで見つけたチームから始めます。自動研究画面で進行状況・発見したチーム・分かった組み合わせを見られます。
+# ---- V2 전략 분석
+왜 이 팀인가	Why this team	なぜこのチームか
+주 승리 조건 · {}	Main win condition · {}	主な勝ち筋 · {}
+막혔을 때 · {}	If that's shut down · {}	止められたとき · {}
+평균 승률	Average win rate	平均勝率
+가장 어려운 전략 2개	Two hardest strategies	最も苦しい戦略2つ
+다른 CPU 정책	Other CPU policy	別のCPU方針
+쓸 만한 선봉	Usable leads	使える先発
+{}가지	{}	{}通り
+랭커 파티와 다른 수	Different from ranker teams	ランカー構築と異なる数
+거의 선출되지 않는 포켓몬 · {}	Rarely brought · {}	ほぼ選出されないポケモン · {}
+자주 지는 이유	Common reasons for losing	よく負ける理由
+{} · 진 판의 {} · 상대가 전개했을 때 {} 패배	{} · {} of losses · lost {} when the opponent set it up	{} · 負け試合の{} · 相手が展開したとき{}敗北
+공격형	Offensive	攻撃型
+안정형	Stable	安定型
+변칙형	Unconventional	変則型
+랭커 대응형	Anti-ranker	ランカー対策型
+상대 트릭룸 허용	Allowed opponent Trick Room	相手のトリックルームを許した
+상대 순풍 허용	Allowed opponent Tailwind	相手の追い風を許した
+상대 비	Opponent rain	相手の雨
+상대 쾌청	Opponent sun	相手の晴れ
+상대 모래바람	Opponent sandstorm	相手の砂嵐
+상대 눈	Opponent snow	相手の雪
+상대 사이코필드	Opponent Psychic Terrain	相手のサイコフィールド
+상대 그래스필드	Opponent Grassy Terrain	相手のグラスフィールド
+상대 일렉트릭필드	Opponent Electric Terrain	相手のエレキフィールド
+상대 미스트필드	Opponent Misty Terrain	相手のミストフィールド
+상대 랭크업 허용	Allowed opponent stat boosts	相手の能力上昇を許した
+상대 벽	Opponent screens	相手の壁
+날씨 시동이 둘 이상입니다. 선출을 날씨별로 나누지 않으면 서로 날씨를 덮습니다.	There are two or more weather setters. Unless you split them by pick, they overwrite each other's weather.	天候始動役が2体以上います。選出を天候ごとに分けないと互いに上書きします。
+트릭룸 없이 아주 느린 공격수가 여럿입니다.	Several very slow attackers without Trick Room.	トリックルームなしでとても遅いアタッカーが複数います。
+순풍을 걸어도 득을 볼 공격수가 적습니다.	Few attackers benefit from Tailwind.	追い風の恩恵を受けるアタッカーが少ないです。
+트릭룸 시동은 있지만 느린 공격수가 부족합니다.	There's a Trick Room setter but not enough slow attackers.	トリックルーム始動役はいますが遅いアタッカーが足りません。
+광역 공격	Spread attacks	範囲攻撃
+날따름 보호	Redirection	このゆびとまれ
+속이다 압박	Fake Out pressure	ねこだまし
+트릭룸 대응	Anti-Trick Room	トリックルーム対策
+전략부터 짜는 팀 자동 구성 V2	Strategy-first auto team building V2	戦略から組むチーム自動構成V2
+비+순풍, 트릭룸+사이코필드 같은 주·보조 전략 조합부터 초안을 만들고, 결과를 공격형·안정형·변칙형처럼 서로 다른 전략 가족으로 고릅니다. 팀마다 주 승리 조건과 막혔을 때의 계획, 다른 CPU 상대 성적, 쓸 만한 선봉 수, 자주 지는 이유를 보여 줍니다.	Drafts start from main + backup strategy combinations such as rain + Tailwind or Trick Room + Psychic Terrain, and results are picked from different strategy families: offensive, stable and unconventional. Each team shows its main win condition, the plan if that's shut down, results against another CPU, usable leads and common reasons for losing.	雨+追い風、トリックルーム+サイコフィールドのような主・補助戦略の組み合わせから下書きを作り、攻撃型・安定型・変則型のように異なる戦略の系統から結果を選びます。チームごとに主な勝ち筋、止められたときの計画、別のCPU相手の成績、使える先発の数、よく負ける理由を表示します。
+규칙 검증과 데이터 출처	Rule checks and data provenance	ルール検証とデータの出典
+날따름·사이코필드·와이드가드·방음·틀깨기 등 핵심 규칙을 테스트로 고정하고, 방음과 선출 정보(상대의 실제 세트를 미리 보던 문제)를 고쳤습니다. 공식 시즌·레귤레이션과 데이터의 시즌 표기를 따로 보여 줍니다.	Core rules such as redirection, Psychic Terrain, Wide Guard, Soundproof and Mold Breaker are now locked in by tests, and Soundproof and team selection (which used to peek at the opponent's real sets) are fixed. The official season and regulation are shown separately from the data's season label.	このゆびとまれ・サイコフィールド・ワイドガード・ぼうおん・かたやぶりなどの主要ルールをテストで固定し、ぼうおんと選出(相手の実際の型を事前に見ていた問題)を修正しました。公式シーズン・レギュレーションとデータのシーズン表記を分けて表示します。
+공식 시즌 {} · 레귤레이션 {} (메가진화 배틀당 1회, 도구 중복 금지) · 데이터 표기 시즌 {}	Official season {} · Regulation {} (one Mega Evolution per battle, no duplicate items) · data labeled season {}	公式シーズン {} · レギュレーション {} (メガシンカは1バトル1回、道具の重複禁止) · データ表記シーズン {}
+원본 데이터가 아직 새 시즌 폴더를 열지 않아, 순위·채용률은 원본이 표기한 시즌의 표본입니다.	The source hasn't opened a folder for the new season yet, so ranks and usage are samples from the season the source labels.	元データがまだ新シーズンのフォルダを作っていないため、順位・採用率は元データが表記したシーズンの標本です。
+순위는 사용률(%)이 아니라 순서입니다. 메타 가중치로만 씁니다.	Ranks are an order, not a usage percentage. They're only used as meta weights.	順位は使用率(%)ではなく順番です。メタの重みとしてだけ使います。
+# ---- 랭크 리그·패배 태그
+랭크별 상대 CPU 성적	Results by CPU rank tier	ランク別の相手CPU成績
+{} · 95% 범위 {}~{}% · {}판	{} · 95% range {}–{}% · {} games	{} · 95%範囲 {}~{}% · {}戦
+스트레스 리그 · {} 상대만 · {} ({}판)	Stress league · only {} opponents · {} ({} games)	ストレスリーグ · {}相手のみ · {} ({}戦)
+승률은 앱의 배틀 엔진과 CPU 기준이며 실제 랭크전 승률이 아닙니다.	Win rates come from the app's battle engine and CPU, not real ranked play.	勝率はアプリのバトルエンジンとCPU基準で、実際のランクマッチの勝率ではありません。
+높은 랭크 상대 (낮은 쪽)	Vs high ranks (lower of the two)	高ランク相手(低い方)
+상대 전략별 선출 (실제 모의전에서 가장 많이 쓴 4마리)	Picks by opponent strategy (the four used most in simulations)	相手戦略別の選出(模擬戦で最も多く使った4体)
+{} 상대 · 선봉 {} · 후발 {} · 첫 턴 {} · {}판 {}승	Vs {} · lead {} · back {} · turn 1 {} · {} games {} wins	{}相手 · 先発 {} · 後発 {} · 1ターン目 {} · {}戦{}勝
+진 판에서 실제로 일어난 일	What actually happened in losses	負け試合で実際に起きたこと
+{} · 진 판의 {}	{} · {} of losses	{} · 負け試合の{}
+상대 트릭룸에 대응 못 함	Couldn't answer opponent Trick Room	相手のトリックルームに対応できず
+상대 순풍에 대응 못 함	Couldn't answer opponent Tailwind	相手の追い風に対応できず
+날씨·필드 싸움에서 밀림	Lost the weather or terrain battle	天候・フィールド争いで負けた
+광역기에 크게 당함	Hit hard by spread moves	範囲技で大きく削られた
+선제기에 쓰러짐	Knocked out by priority moves	先制技で倒された
+움직이기 전에 2마리 이상 쓰러짐	Two or more knocked out before moving	動く前に2体以上倒された
+선봉 대면에서 먼저 쓰러짐	Lost a Pokémon first in the lead matchup	先発対面で先に倒された
+명중 낮은 기술이 2번 이상 빗나감	Low-accuracy moves missed twice or more	命中の低い技が2回以上外れた
+화력·내구 싸움에서 밀림	Lost the damage and bulk race	火力・耐久勝負で負けた
+챔피언 리그에서 성적이 크게 떨어집니다. 낮은 랭크 CPU의 실수에 기대는 팀일 수 있습니다.	Results drop sharply in the Champion league. The team may rely on mistakes by lower-rank CPUs.	チャンピオンリーグで成績が大きく落ちます。低ランクCPUのミスに頼るチームかもしれません。
+몬스터볼 리그에서도 자주 집니다. 기본 운영에 문제가 있을 수 있습니다.	Loses often even in the Poké Ball league. Its basic play may have a problem.	モンスターボールリーグでもよく負けます。基本の立ち回りに問題がある可能性があります。
+랭크별 리그로 검증하는 팀	Teams verified in rank leagues	ランク別リーグで検証するチーム
+추천 팀을 몬스터볼·하이퍼볼·마스터볼·챔피언 CPU와 각각 싸워 보고, 가장 약한 상대 전략만 모은 스트레스 리그까지 결과와 95% 범위로 보여 줍니다. 챔피언 리그에서 무너지는 팀은 경고합니다. CPU는 이제 상대의 숨겨진 도구·능력 포인트를 모른 채 판단합니다.	Recommended teams battle the Poké Ball, Ultra Ball, Master Ball and Champion CPUs separately, plus a stress league made only of their weakest opponent strategy, with results and 95% ranges. Teams that collapse in the Champion league get a warning. The CPU now decides without knowing the opponent's hidden items or stat points.	推薦チームをモンスターボール・ハイパーボール・マスターボール・チャンピオンのCPUとそれぞれ戦わせ、最も苦手な相手戦略だけのストレスリーグまで結果と95%範囲で表示します。チャンピオンリーグで崩れるチームは警告します。CPUは相手の隠れた道具・能力ポイントを知らずに判断するようになりました。
+선출 계획과 실제 패배 원인	Pick plans and real loss causes	選出プランと実際の敗因
+상대 전략마다 실제 모의전에서 가장 많이 쓴 선봉 2·후발 2와 첫 턴 행동, 그 전적을 보여 줍니다. 진 판은 선제기·광역기·행동 전 기절·트릭룸 대응 실패처럼 배틀에서 실제로 일어난 일로 원인을 적습니다.	For each opponent strategy it shows the 2 leads and 2 back Pokémon used most in simulations, their turn-1 moves and record. Losses are explained by what actually happened in battle, such as priority moves, spread moves, fainting before moving or not answering Trick Room.	相手戦略ごとに模擬戦で最も多く使った先発2・後発2と1ターン目の行動、その戦績を表示します。負け試合は先制技・範囲技・行動前の気絶・トリックルーム対応失敗など、バトルで実際に起きたことで原因を記録します。
+# ---- v4 선출 계획·CPU 스타일
+선출 계획 (같은 6마리로 상대별 선봉·후발을 시험)	Pick plan (testing leads and back for each opponent with the same six)	選出プラン(同じ6体で相手別に先発・後発を試行)
+{} 상대 · 선봉 {} · 후발 {} · 채택 {}%p (95% {}~{}, {}판)	Vs {} · lead {} · back {} · adopted {} pts (95% {} to {}, {} games)	{}相手 · 先発 {} · 後発 {} · 採用 {}pt (95% {}~{}, {}戦)
+{} 상대 · 기본 선출 유지 (더 나은 선출을 확인하지 못함)	Vs {} · default pick kept (no clearly better pick found)	{}相手 · 基本選出を維持(より良い選出を確認できず)
+마스터볼 CPU 플레이 스타일별	By Master Ball CPU play style	マスターボールCPUのプレイスタイル別
+{} {} ({}판)	{} {} ({} games)	{} {} ({}戦)
+스트레스 리그 · {} 상대만, 카운터형 CPU · {} ({}판)	Stress league · only {} opponents, counter-style CPU · {} ({} games)	ストレスリーグ · {}相手のみ、カウンター型CPU · {} ({}戦)
+수비형	Defensive	守備型
+전개형	Setup	展開型
+피벗형	Pivot	ピボット型
+카운터형	Counter	カウンター型
+균형·랭크업	Balance / stat boosts	バランス・能力上昇
+선출까지 함께 최적화	Optimizing the pick too	選出まで一緒に最適化
+같은 6마리라도 상대 전략(미리보기로 추정)마다 선봉 2·후발 2를 직접 바꿔 보고, 새 상대군에서도 확실히 나아진 선출만 계획으로 채택합니다. 팀을 고치기 전에 선출 문제인지 먼저 가립니다.	With the same six, it tries different leads and back Pokémon for each opponent strategy (inferred from team preview) and adopts a pick only when it's clearly better against new opponents too. It checks whether a problem is the pick before changing the team.	同じ6体でも相手戦略(プレビューから推定)ごとに先発2・後発2を変えて試し、新しい相手でも明確に良くなった選出だけを計画として採用します。チームを直す前に選出の問題かを先に見極めます。
+플레이 스타일이 다른 CPU	CPUs with different play styles	プレイスタイルの異なるCPU
+같은 랭크에서도 공격형·수비형·전개형·피벗형·카운터형 CPU가 서로 다른 판단을 합니다. 마스터볼 리그는 여러 스타일과, 스트레스 리그는 승리 조건을 노리는 카운터형과 싸웁니다.	Even at the same rank, offensive, defensive, setup, pivot and counter CPUs make different decisions. The Master Ball league plays several styles, and the stress league plays a counter CPU that targets your win condition.	同じランクでも攻撃型・守備型・展開型・ピボット型・カウンター型のCPUが異なる判断をします。マスターボールリーグは複数のスタイルと、ストレスリーグは勝ち筋を狙うカウンター型と戦います。
+# ---- 1.13.0 (v5)
+팀과 선출을 처음부터 함께 탐색	Search teams and picks together from the start	チームと選出を最初から一緒に探索
+좋은 6마리가 나쁜 선출 때문에 탈락하지 않도록, 탐색 중간에도 선출을 먼저 바꿔 보고 그 계획을 깔고 멤버 교체를 비교합니다. 자동 연구도 이제 팀과 선출 계획을 한 묶음으로 기록합니다.	So a good six is not dropped because of a bad pick, the search now tries pick changes first and compares member swaps on top of that plan. Auto research now records each team together with its pick plan.	良い6匹が悪い選出のせいで落ちないよう、探索の途中でも先に選出を変えてみて、その計画の上でメンバー交代を比べます。自動研究もチームと選出計画をひとまとめで記録します。
+상대 전략을 확률로 읽기	Reading the opponent's strategy as probabilities	相手の戦略を確率で読む
+미리보기 6마리를 순풍·트릭룸 중 하나로 단정하지 않고, 랭커 채용률로 각 전략의 가능성을 계산합니다. 애매하면 두 전략을 함께 대비하는 선출을 따로 검증합니다.	Instead of labelling a preview as just Tailwind or Trick Room, each strategy gets a probability from ranker usage. When it is unclear, a pick that prepares for both is tested separately.	プレビューの6匹を追い風かトリックルームのどちらかに決めつけず、ランカー採用率から各戦略の可能性を計算します。曖昧なときは両方に備える選出を別に検証します。
+독창성 다섯 갈래와 데이터 경고	Five kinds of originality and data warnings	独自性の5つの軸とデータ警告
+종 구성·세트·운영·새 조합·실전성을 따로 보여 주고, 무엇을 바꿨을 때 나아졌는지(선출·세트·멤버)를 나눠 적습니다. 순위 표본이 공식 시즌보다 오래되면 경고하고, 표본 중 이전 시즌의 랭커 팀은 덜 반영합니다.	Species, sets, play, new pairs and viability are shown separately, along with which change helped (picks, sets or members). When the ranking sample is older than the official season, a warning appears, and ranker teams from earlier seasons in the sample count for less.	種構成・セット・運用・新しい組み合わせ・実戦性を分けて示し、何を変えたら良くなったか(選出・セット・メンバー)も分けて記します。順位サンプルが公式シーズンより古いと警告し、サンプル内の前シーズンのランカーチームは比重を下げます。
+독창성 (랭커 팀과 얼마나 다른가)	Originality (how different from ranker teams)	独自性(ランカーチームとの違い)
+종 구성	Species	種構成
+세트 (도구·기술)	Sets (items, moves)	セット(持ち物・技)
+운영 (전략·선출)	Play (strategy, picks)	運用(戦略・選出)
+새 조합 쌍	New pairs	新しい組み合わせ
+실전성 (챔피언 리그)	Viability (Champion league)	実戦性(チャンピオンリーグ)
+종합 {} · 네 가지 평균 × 실전성 (비주류만 넣어서는 오르지 않음)	Overall {} · average of four × viability (off-meta picks alone do not raise it)	総合 {} · 4つの平均 × 実戦性(マイナーを入れるだけでは上がらない)
+무엇을 바꿨을 때 나아졌나 (검증된 변경만)	What change helped (verified changes only)	何を変えたら良くなったか(検証済みの変更のみ)
+변화 없음	No change	変化なし
+선출만 변경	Picks only	選出のみ変更
+세트만 변경	Sets only	セットのみ変更
+멤버 변경	Members	メンバー変更

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections import Counter, OrderedDict
-from dataclasses import dataclass, field
+from dataclasses import replace, dataclass, field
 from random import Random
 from threading import Lock
 from time import monotonic
@@ -62,6 +62,21 @@ THAW_MOVES = {"Flare Blitz", "Scald", "Sacred Fire", "Scorching Sands", "Flame W
 
 def _stage(level: int) -> float:
     return (2 + max(0, level)) / (2 - min(0, level))
+
+
+CPU_STYLES = {
+    # ko: 쓰러뜨리기 가산, focus: 같은 목표 집중, counter: 승리 조건 요원 우선 공격 가산, setup: 전개(순풍·트릭룸·벽·랭크업) 배율,
+    # protect: 방어 허용, danger: 몸을 사리는 위험선(낮을수록 잘 피함), pivot: 교체·퇴장기 선호선, heal: 회복 시작 체력
+    "balanced": {"ko": .3, "focus": False, "counter": 0., "setup": 1., "protect": False, "danger": .85, "pivot": 0., "heal": 1 / 3},
+    "aggressive": {"ko": .55, "focus": True, "counter": 0., "setup": .6, "protect": False, "danger": 1.3, "pivot": 0., "heal": .2},
+    "defensive": {"ko": .25, "focus": False, "counter": 0., "setup": .9, "protect": True, "danger": .6, "pivot": .1, "heal": .5,
+                  "caution": .3},
+    "setup": {"ko": .3, "focus": False, "counter": 0., "setup": 1.6, "protect": True, "danger": .85, "pivot": 0., "heal": 1 / 3},
+    "pivot": {"ko": .3, "focus": False, "counter": 0., "setup": .9, "protect": False, "danger": .7, "pivot": .3, "heal": 1 / 3},
+    "counter": {"ko": .35, "focus": True, "counter": .35, "setup": 1., "protect": False, "danger": .85, "pivot": 0., "heal": 1 / 3},
+}
+STYLE_LABELS = {"balanced": "균형형", "aggressive": "공격형", "defensive": "수비형", "setup": "전개형",
+                "pivot": "피벗형", "counter": "카운터형"}
 
 
 @dataclass
@@ -133,7 +148,7 @@ class Fighter:
 class Battle:
     def __init__(self, engine: Engine, fmt: str, mine: list[dict], foe: list[dict], seed: int, *,
                  log: bool = True, context: dict | None = None, foe_strategy: str | None = None,
-                 difficulty: Difficulty = "ultra", manual: bool = False):
+                 difficulty: Difficulty = "ultra", manual: bool = False, cpu_style: str = "balanced"):
         self.engine, self.fmt, self.seed = engine, fmt, seed
         self.rng = Random(seed)
         self.width = 2 if fmt == "Doubles" else 1
@@ -154,10 +169,17 @@ class Battle:
         self.hazards = [{}, {}]  # rocks / spikes / tspikes / web
         self.wish = [{}, {}]  # slot -> (남은 턴, 회복량)
         self.activated = [set(), set()]
+        # 패배 원인 태깅용 사건 기록 (편별): 선제기·광역기 KO, 행동 전 KO, 명중 낮은 기술 빗나감, 첫 기절
+        self.trace = [dict(priority_ko=0, spread_ko=0, spread_taken=0, taken=0, ko_before_move=0, low_acc_miss=0,
+                           setup_moves=0) for _ in range(2)]
+        self.first_faint = None
+        self.opening = []  # 내 편(0)의 첫 턴 행동
         self.log: list[dict] = []
         self.keep_log = log
         self.context = context or {}
         self.foe_strategy = foe_strategy
+        # 상대 CPU 플레이 스타일 (랭크=판단 깊이와 별개): balanced·aggressive·defensive·setup·pivot·counter
+        self.cpu_style = cpu_style if cpu_style in CPU_STYLES else "balanced"
         self.difficulty = difficulty
         self.manual = manual
         self.replacement_turn: int | None = None
@@ -501,6 +523,8 @@ class Battle:
             return amount, meta.get("accuracy", 100)
         attacker, defender = actor.effective(), target.effective()
         mold = actor.mon["ability"] in MOLD
+        if move in mx.SOUND and target.mon["ability"] == "Soundproof" and not mold:
+            return 0, 100  # 방음: 소리 기술 무효
         if target.mon["ability"] == "Unaware" and not mold:
             attacker["stats"] = dict(actor.mon["stats"])
         if actor.mon["ability"] == "Unaware":
@@ -626,10 +650,40 @@ class Battle:
             return choose_actions(self)
         return self._greedy(side)
 
+    def _seen(self, side: int, f: "Fighter") -> "Fighter":
+        """side 쪽 CPU 가 보는 상대 포켓몬: 그 종의 흔한 세트 + 배틀에서 공개된 정보(특성·메가·쓴 기술·HP 비율).
+        상대의 실제 도구·성격·능력 포인트는 모른다 (명세: 비공개 정보를 CPU 에 주지 않는다)."""
+        if any(f is x for x in self.teams[side]):
+            return f
+        cache = self.__dict__.setdefault("_seen_cache", {})
+        key = (self.turn, side)
+        if cache.get("key") != key:
+            cache.clear()
+            cache["key"] = key
+        proxy = cache.get(id(f))
+        if proxy is None:
+            pid = f.mon["id"]
+            guess = self.engine.default_set(pid, self.fmt)
+            if f.ability_revealed:
+                guess["ability"] = f.mon["ability"]
+            if f.mon.get("mega") != guess.get("mega"):
+                guess["mega"] = f.mon.get("mega")
+                if guess.get("item") and self.engine.find_mega(self.engine.P[pid], stone=guess["item"]):
+                    guess["item"] = None
+            moves = list(dict.fromkeys(sorted(f.known_moves - {"Struggle"}) + guess["moves"]))
+            mon = self.engine.resolve({**guess, "moves": moves}, self.fmt)
+            ratio = f.hp / f.max_hp if f.max_hp else 0
+            proxy = replace(f, mon=mon, hp=max(1, round(ratio * mon["stats"]["hp"])) if f.hp else 0,
+                            choice=f.choice if f.choice in f.known_moves else None)
+            cache[id(f)] = proxy
+        return proxy
+
     def _greedy(self, side: int) -> list[dict]:
         chosen, reserves = [], set()
         difficulty = self.difficulty if side == 1 else "ultra"
-        advanced = difficulty in {"master", "champion"}
+        style = CPU_STYLES[self.cpu_style if side == 1 else "balanced"]
+        advanced = difficulty in {"master", "champion"} or style["focus"]
+        enablers = self._enablers(1 - side) if style["counter"] else set()
         expected = {}
         for slot, actor in self._present(side):
             options = self._options(side, slot, actor)
@@ -639,9 +693,10 @@ class Battle:
             def estimates(a):
                 targets = self._targets(side, slot, a["move"], a["target"])
                 return [
-                    (target, *self._damage(actor, target, a["move"], len(targets) > 1))
+                    (seen, *self._damage(actor, seen, a["move"], len(targets) > 1))
                     for target in targets
                     if id(target) in ally_ids or not self._priority_blocked(side, target, actor, a["move"])
+                    for seen in (self._seen(side, target),)
                 ]
 
             hits = [(a, estimates(a)) for a in attacks]
@@ -654,7 +709,8 @@ class Battle:
                     if not remaining:
                         continue
                     score += (-1 if ally else 1) * (
-                        min(raw, remaining) / target.max_hp + (.3 if raw >= remaining else 0)
+                        min(raw, remaining) / target.max_hp + (style["ko"] if raw >= remaining else 0)
+                        + (style["counter"] if not ally and id(target) in enablers else 0)
                     ) * acc / 100
                     if not ally and raw > 0 and difficulty in {"ultra", "master", "champion"}:
                         move = a["move"]
@@ -684,10 +740,11 @@ class Battle:
             switches = [a for a in options if a["kind"] == "switch" and a["target"] not in reserves]
             heals = [a for a in options if a.get("move") in HEAL]
             allied = [self._speed(side, f) for _, f in self._present(side)]
-            enemies = [self._speed(1 - side, f) for _, f in self._present(1 - side)]
+            enemies = [self._speed(1 - side, self._seen(side, f)) for _, f in self._present(1 - side)]
             strategy = self.foe_strategy if side == 1 else None
             # 순풍·트릭룸: 실제로 뒤집히는 스피드 관계 수로 가치를 매긴다.
-            control = max(((self._speed_control_value(side, actor, a["move"], strategy), a) for a in options
+            control = max(((style["setup"] * self._speed_control_value(side, actor, a["move"], strategy), a)
+                           for a in options
                            if a.get("move") in {"Tailwind", "Trick Room"}
                            and not any(c.get("move") in {"Tailwind", "Trick Room"} for c in chosen)),
                           key=lambda row: row[0], default=(0., None))
@@ -710,9 +767,10 @@ class Battle:
             )), None)
             tactical = difficulty in {"ultra", "master", "champion"}
             defensive = self._defense(side, actor, options, switches, best_score,
-                                      allow_protect=difficulty == "champion") if tactical else None
+                                      allow_protect=difficulty == "champion" or style["protect"],
+                                      danger_line=style["danger"], caution=style.get("caution", 0.)) if tactical else None
             parting = next((a for a in options if a.get("move") == "Parting Shot"), None)
-            utility = max(((self._support_value(side, slot, actor, a) or 0., a) for a in options
+            utility = max(((style["setup"] * (self._support_value(side, slot, actor, a) or 0.), a) for a in options
                            if a.get("move") in mx.NEW_SUPPORT and not any(c.get("move") == a["move"] for c in chosen)),
                           key=lambda row: row[0], default=(0., None))
             if difficulty in {"poke", "great"}:
@@ -725,9 +783,12 @@ class Battle:
                 action = defensive
             elif utility[1] is not None and utility[0] > max(.12, best_score * 1.05):
                 action = utility[1]
-            elif tactical and parting and switches and best_score < .30:
+            elif tactical and parting and switches and best_score < .30 + style["pivot"]:
                 action = parting
-            elif heals and 0 < actor.hp <= actor.max_hp / 3 and best_score < 0.35:
+            elif tactical and style["pivot"] and switches and best is not None and best_score < style["pivot"] \
+                    and actor.entered != self.turn:
+                action = min(switches, key=lambda a: self._threat_to(side, self.teams[side][a["target"]]))
+            elif heals and 0 < actor.hp <= actor.max_hp * style["heal"] and best_score < 0.35:
                 action = heals[0]
             elif setup and actor.hp >= actor.max_hp / 2 and self.turn <= 4 and best_score < (
                 .95 if preferred and setup.get("move") == preferred else .55
@@ -735,7 +796,7 @@ class Battle:
                 action = setup
             elif boost and actor.hp >= actor.max_hp * .8 and self.turn <= 3 and best_score < (
                 .65 if strategy == "setup" else .42
-            ):
+            ) * style["setup"]:
                 action = boost
             elif switches and best is not None and best_score <= 0 and actor.entered != self.turn:
                 action = switches[0]
@@ -750,11 +811,32 @@ class Battle:
             chosen.append(action)
         return chosen
 
-    def _defense(self, side, actor, options, switches, attack_score, *, allow_protect):
-        if attack_score >= .75 or not switches and not allow_protect:
+    def _enablers(self, side):
+        """side 팀의 승리 조건을 여는 포켓몬 (순풍·트릭룸·날씨·필드·날따름) — 카운터형 CPU가 먼저 노린다."""
+        out = set()
+        keys = {"Tailwind", "Trick Room", "Follow Me", "Rage Powder"} | set(WEATHER_MOVES)
+        for f in self.teams[side]:
+            seen = self._seen(1 - side, f)  # 공개 정보(흔한 세트)로만 판단
+            if set(seen.mon["moves"]) & keys or seen.mon["ability"] in WEATHER or seen.mon["ability"] in TERRAIN:
+                out.add(id(seen))
+        return out
+
+    def _threat_to(self, side, target):
+        enemies = [self._seen(side, f) for _, f in self._present(1 - side)]
+        worst = 0.
+        for enemy in enemies:
+            for m in enemy.mon["moves"]:
+                if m in self.engine.M:
+                    raw, acc = self._damage(enemy, target, m, False)
+                    worst = max(worst, raw * acc / 100 / max(1, target.hp))
+        return worst
+
+    def _defense(self, side, actor, options, switches, attack_score, *, allow_protect, danger_line=.85, caution=0.):
+        # caution: 수비형 CPU는 자기 공격이 꽤 좋아도 위험하면 방어·교체를 고른다.
+        if attack_score >= .75 + caution or not switches and not allow_protect:
             return None
-        enemies = [f for _, f in self._present(1 - side)]
-        forecasts = [(f, self.engine.default_set(f.mon["id"], self.fmt)["moves"]) for f in enemies]
+        enemies = [self._seen(side, f) for _, f in self._present(1 - side)]
+        forecasts = [(f, f.mon["moves"]) for f in enemies]
 
         def pressure(target):
             incoming = []
@@ -764,14 +846,14 @@ class Battle:
             return sum(incoming) / max(1, target.hp)
 
         danger = pressure(actor)
-        if danger < .85:
+        if danger < danger_line:
             return None
         if switches and (actor.entered != self.turn or danger >= 1.25):
             best = min(switches, key=lambda a: pressure(self.teams[side][a["target"]]))
             incoming = self.teams[side][best["target"]]
-            if pressure(incoming) < min(.62, danger * .5) and attack_score < .55:
+            if pressure(incoming) < min(.62, danger * .5) and attack_score < .55 + caution:
                 return best
-        if allow_protect and len(self._present(side)) == 2 and not actor.protect_chain and attack_score < .52:
+        if allow_protect and len(self._present(side)) == 2 and not actor.protect_chain and attack_score < .52 + caution:
             return next((a for a in options if a.get("move") in PROTECT), None)
         return None
 
@@ -1010,7 +1092,7 @@ class Battle:
             if not attacks:
                 continue
             for f in foes:
-                sf = self._speed(1 - side, f)
+                sf = self._speed(1 - side, self._seen(side, f))
                 w = (1 if id(a) in on_field else .4) * (1 if id(f) in on_field else .4)
                 if move == "Tailwind":
                     net += w * (sa < sf < 2 * sa)
@@ -1039,7 +1121,7 @@ class Battle:
             status = mx.STATUS_MOVES[move]
             if not target or not self._can_status(target, status, actor, move) or target.mon["ability"] == "Magic Bounce":
                 return 0.
-            physical = sum(self.engine.M.get(m, {}).get("category") == "Physical" for m in target.mon["moves"]) >= 2
+            physical = sum(self.engine.M.get(m, {}).get("category") == "Physical" for m in self._seen(side, target).mon["moves"]) >= 2
             faster = self._speed(1 - side, target) > self._speed(side, actor) and not self.trick_room
             value = {"slp": .8, "par": .3 + .25 * faster, "brn": .6 if physical else .12,
                      "tox": .3 + .15 * (self.width == 1), "psn": .18}[status]
@@ -1052,7 +1134,7 @@ class Battle:
         if move in mx.TARGET_DEBUFFS:
             if not target or target.sub:
                 return 0.
-            physical = sum(self.engine.M.get(m, {}).get("category") == "Physical" for m in target.mon["moves"]) >= 2
+            physical = sum(self.engine.M.get(m, {}).get("category") == "Physical" for m in self._seen(side, target).mon["moves"]) >= 2
             stats = mx.TARGET_DEBUFFS[move]
             relevant = sum(-v for k, v in stats.items() if (k == "atk") == physical or k in {"spe", "def", "spd"})
             return .12 * relevant
@@ -1231,6 +1313,8 @@ class Battle:
             raw, acc = self._damage(actor, target, move, len(targets) > 1)
             if self.rng.random() * 100 >= acc:
                 self._event(f"{target.name}에게 빗나갔습니다.", "miss", ref=self._ref(target))
+                if acc < 90 and opponent:
+                    self.trace[side]["low_acc_miss"] += 1
                 continue
             if self._absorb(actor, target, move):
                 continue
@@ -1290,9 +1374,21 @@ class Battle:
             dealt += amount
             if opponent:
                 actor.dealt += amount
+                victim = 1 - side
+                self.trace[victim]["taken"] += amount
+                if wide:
+                    self.trace[victim]["spread_taken"] += amount
                 if not target.hp:
                     actor.kos += 1
                     actor.victims[target.mon["id"]] += 1
+                    if self.first_faint is None:
+                        self.first_faint = victim
+                    if priority > 0:
+                        self.trace[victim]["priority_ko"] += 1
+                    if wide:
+                        self.trace[victim]["spread_ko"] += 1
+                    if any(queued is target and action["kind"] == "move" for _, _, _, queued, action in remaining):
+                        self.trace[victim]["ko_before_move"] += 1
             ability = None if actor.mon["ability"] in MOLD else target.mon["ability"]
             secondary = ability != "Shield Dust" and target.mon["item"] != "Covert Cloak"
             chance = mx.FLINCH.get(move, 0) * (2 if actor.mon["ability"] == "Serene Grace" else 1)
@@ -1410,6 +1506,8 @@ class Battle:
             move, target = action.get("move"), action.get("target")
             if move not in PROTECT:
                 actor.protect_chain = 0
+            if side == 0 and self.turn == 1 and len(self.opening) < self.width:
+                self.opening.append("교체" if kind == "switch" else move or "대기")
             if kind == "switch":
                 self._switch(side, slot, target, acts_next_turn=True)
             elif kind == "wait":

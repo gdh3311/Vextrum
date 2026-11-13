@@ -4,6 +4,10 @@
 """
 from __future__ import annotations
 
+import threading
+import time
+import uuid
+
 import json
 import re
 import secrets
@@ -97,7 +101,9 @@ def info():
     e = engine()
     d = e.d
     seasons = [s for s in d["seasons"] if s != "Current"]
-    return {"generatedAt": d["generatedAt"], "dataVersion": d["dataVersion"], "seasons": seasons,
+    from .regulation import provenance
+
+    return {"provenance": provenance(d), "generatedAt": d["generatedAt"], "dataVersion": d["dataVersion"], "seasons": seasons,
             "currentSeason": seasons[0] if seasons else None, "formats": d["formats"],
             "attribution": d["attribution"], "source": d["source"], "roles": ROLE_LABELS,
             "natures": {n: {"ko": d["natures"].get(n), "up": collector_nature(n)[0], "down": collector_nature(n)[1]}
@@ -288,6 +294,8 @@ class AutoTeamRequest(BaseModel):
     core: Literal["", "fwg", "dsf", "resist"] = ""
     tune: Literal["off", "quick", "standard", "deep"] = "standard"
     rankers: bool = True
+    originality: Literal["meta", "balanced", "unique"] = "balanced"
+    engine: Literal["v1", "v2", "v3", "v4", "v5"] = "v5"
 
 
 @app.post("/api/team/build")
@@ -298,9 +306,112 @@ def auto_team(req: AutoTeamRequest):
     try:
         return builder.build(engine(), req.format, req.styles, req.include, locked,
                              exclude=req.exclude, objective=req.objective, depth=req.depth, cpu=req.cpu,
-                             joker=req.joker, mega=req.mega, core=req.core, tune=req.tune, rankers=req.rankers)
+                             joker=req.joker, mega=req.mega, core=req.core, tune=req.tune, rankers=req.rankers,
+                             originality=req.originality, engine=req.engine)
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
+
+
+_build_jobs: dict[str, dict] = {}
+_build_lock = threading.Lock()
+
+
+@app.post("/api/team/build/start")
+def start_team_build(req: AutoTeamRequest):
+    """팀 자동 구성을 뒤에서 돌리고 작업 번호를 돌려준다. 진행 상황은 GET /api/team/build/{job} 으로 받는다."""
+    from . import auto_team as builder
+
+    e = engine()
+    locked = [s.model_dump(exclude_unset=True) for s in req.locked]
+    job = uuid.uuid4().hex[:12]
+    entry = {"state": "running", "progress": None, "result": None, "error": None, "created": time.time()}
+    with _build_lock:
+        for key in [k for k, v in _build_jobs.items() if time.time() - v["created"] > 1800]:
+            _build_jobs.pop(key, None)
+        _build_jobs[job] = entry
+
+    def run():
+        from .research import LAB
+
+        LAB.busy += 1  # 자동 연구는 팀 구성이 끝날 때까지 쉰다
+        try:
+            entry["result"] = builder.build(
+                e, req.format, req.styles, req.include, locked, exclude=req.exclude, objective=req.objective,
+                depth=req.depth, cpu=req.cpu, joker=req.joker, mega=req.mega, core=req.core, tune=req.tune,
+                rankers=req.rankers, originality=req.originality, engine=req.engine, progress=lambda snapshot: entry.__setitem__("progress", snapshot))
+            entry["state"] = "done"
+        except ValueError as error:
+            entry.update(state="error", error=str(error))
+        except Exception:  # noqa: BLE001 - 앱에 실패를 알리고 서버 로그에 남긴다
+            import traceback
+
+            traceback.print_exc()
+            entry.update(state="error", error="팀을 만드는 중 오류가 났습니다. 다시 시도해 주세요.")
+        finally:
+            LAB.busy -= 1
+
+    threading.Thread(target=run, daemon=True, name=f"team-build-{job}").start()
+    return {"id": job}
+
+
+@app.get("/api/team/build/{job}")
+def team_build_status(job: str):
+    entry = _build_jobs.get(job)
+    if entry is None:
+        raise HTTPException(404, "작업을 찾을 수 없습니다")
+    body = {"state": entry["state"], "progress": entry["progress"], "error": entry["error"]}
+    if entry["state"] == "done":
+        body["result"] = entry["result"]
+    return body
+
+
+class ResearchControl(BaseModel):
+    running: bool | None = None
+    intensity: Literal["low", "normal", "max"] | None = None
+
+
+@app.on_event("startup")
+def start_research():
+    """자동 연구는 서버와 함께 켜진다 (앱에서 끈 적이 있으면 꺼진 채로)."""
+    from .research import LAB
+
+    if LAB.setting("enabled", True):
+        LAB.start(engine)
+
+
+@app.get("/api/research/status")
+def research_status(format: Format = "Doubles"):
+    from .research import LAB
+
+    return LAB.status(engine(), format)
+
+
+@app.post("/api/research/control")
+def research_control(req: ResearchControl):
+    from .research import LAB
+
+    if req.intensity:
+        LAB.set_setting("intensity", req.intensity)
+    if req.running is True:
+        LAB.start(engine)
+    elif req.running is False:
+        LAB.stop()
+    return LAB.status(engine(), "Doubles")
+
+
+@app.get("/api/research/teams")
+def research_teams(format: Format = "Doubles", bucket: str | None = None, archetype: str | None = None,
+                   limit: int = Query(24, ge=1, le=60)):
+    from .research import LAB
+
+    return {"teams": LAB.leaderboard(engine(), format, bucket or None, archetype or None, limit)}
+
+
+@app.get("/api/research/insights")
+def research_insights(format: Format = "Doubles"):
+    from .research import LAB
+
+    return LAB.insights(engine(), format)
 
 
 @app.get("/api/parties")
