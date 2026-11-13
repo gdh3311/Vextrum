@@ -295,7 +295,7 @@ class AutoTeamRequest(BaseModel):
     tune: Literal["off", "quick", "standard", "deep"] = "standard"
     rankers: bool = True
     originality: Literal["meta", "balanced", "unique"] = "balanced"
-    engine: Literal["v1", "v2", "v3", "v4", "v5"] = "v5"
+    engine: Literal["v1", "v2", "v3", "v4", "v5", "v6"] = "v6"
 
 
 @app.post("/api/team/build")

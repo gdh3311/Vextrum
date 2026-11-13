@@ -97,6 +97,10 @@ class GoldenMechanicsTest(unittest.TestCase):
         self.assertEqual(len(megas), 2)
         b = simulation.Battle(e, "Doubles", megas + [e.default_set("rillaboom", "Doubles")],
                               [e.default_set("incineroar", "Doubles")], 1, log=False)
+        # 메가 후보는 기본 폼으로 시작하고, 턴 시작에 필드의 한 마리만 진화한다 (배틀당 1회)
+        self.assertEqual(sum(bool(f.mon["mega"]) for f in b.teams[0]), 0)
+        b._mega_turn()
+        b._mega_turn()
         self.assertEqual(sum(bool(f.mon["mega"]) for f in b.teams[0]), 1)
         meta, _ = auto_team._pool(e, "Doubles")
         a = auto_team._candidate(e, "Doubles", meta, {**e.default_set("garchomp", "Doubles"), "item": "Life Orb"})

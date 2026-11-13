@@ -1,0 +1,2762 @@
+{
+ "poke:balanced": {
+  "rate": 0.875,
+  "ci": [
+   73.9,
+   94.5
+  ],
+  "games": 40,
+  "byStrategy": {
+   "tailwind": [
+    4,
+    6
+   ],
+   "psychic": [
+    4,
+    5
+   ],
+   "setup": [
+    5,
+    6
+   ],
+   "sun": [
+    5,
+    6
+   ],
+   "balance": [
+    6,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ],
+   "trickroom": [
+    6,
+    6
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.74,
+    "win": 87.2
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.67,
+    "win": 85.2
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.81,
+    "win": 85.2
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.65,
+    "win": 92.3
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.48,
+    "win": 85.7
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.4,
+    "win": 90.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.8,
+   "spread_move_unanswered": 0.6,
+   "terrain_or_weather_lost": 0.2,
+   "lead_matchup_lost": 0.2
+  },
+  "lossCauses": {
+   "psychic": 0.2
+  },
+  "megas": {
+   "golisopod": 6,
+   "dragonite": 8,
+   "both:dragonite": 1
+  }
+ },
+ "poke:aggressive": {
+  "rate": 0.875,
+  "ci": [
+   73.9,
+   94.5
+  ],
+  "games": 40,
+  "byStrategy": {
+   "tailwind": [
+    4,
+    6
+   ],
+   "psychic": [
+    4,
+    5
+   ],
+   "setup": [
+    5,
+    6
+   ],
+   "sun": [
+    5,
+    6
+   ],
+   "balance": [
+    6,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ],
+   "trickroom": [
+    6,
+    6
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.77,
+    "win": 87.2
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.63,
+    "win": 81.5
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.85,
+    "win": 88.9
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.54,
+    "win": 92.3
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.52,
+    "win": 85.7
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.5,
+    "win": 90.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.8,
+   "spread_move_unanswered": 0.6,
+   "lead_matchup_lost": 0.4,
+   "terrain_or_weather_lost": 0.2
+  },
+  "lossCauses": {
+   "psychic": 0.2
+  },
+  "megas": {
+   "golisopod": 6,
+   "dragonite": 8,
+   "both:dragonite": 1
+  }
+ },
+ "poke:defensive": {
+  "rate": 0.85,
+  "ci": [
+   70.9,
+   92.9
+  ],
+  "games": 40,
+  "byStrategy": {
+   "sun": [
+    4,
+    6
+   ],
+   "tailwind": [
+    4,
+    6
+   ],
+   "psychic": [
+    4,
+    5
+   ],
+   "setup": [
+    5,
+    6
+   ],
+   "balance": [
+    6,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ],
+   "trickroom": [
+    6,
+    6
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.74,
+    "win": 84.6
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.63,
+    "win": 81.5
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.81,
+    "win": 85.2
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.62,
+    "win": 88.5
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.52,
+    "win": 81.0
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.5,
+    "win": 90.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.833,
+   "spread_move_unanswered": 0.667,
+   "lead_matchup_lost": 0.333,
+   "terrain_or_weather_lost": 0.167
+  },
+  "lossCauses": {
+   "psychic": 0.167
+  },
+  "megas": {
+   "dragonite": 8,
+   "golisopod": 6,
+   "both:dragonite": 1
+  }
+ },
+ "poke:setup": {
+  "rate": 0.875,
+  "ci": [
+   73.9,
+   94.5
+  ],
+  "games": 40,
+  "byStrategy": {
+   "tailwind": [
+    4,
+    6
+   ],
+   "psychic": [
+    4,
+    5
+   ],
+   "setup": [
+    5,
+    6
+   ],
+   "sun": [
+    5,
+    6
+   ],
+   "balance": [
+    6,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ],
+   "trickroom": [
+    6,
+    6
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.74,
+    "win": 87.2
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.67,
+    "win": 85.2
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.81,
+    "win": 85.2
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.65,
+    "win": 92.3
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.48,
+    "win": 85.7
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.4,
+    "win": 90.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.8,
+   "spread_move_unanswered": 0.6,
+   "terrain_or_weather_lost": 0.2,
+   "lead_matchup_lost": 0.2
+  },
+  "lossCauses": {
+   "psychic": 0.2
+  },
+  "megas": {
+   "golisopod": 6,
+   "dragonite": 8,
+   "both:dragonite": 1
+  }
+ },
+ "poke:pivot": {
+  "rate": 0.875,
+  "ci": [
+   73.9,
+   94.5
+  ],
+  "games": 40,
+  "byStrategy": {
+   "tailwind": [
+    4,
+    6
+   ],
+   "psychic": [
+    4,
+    5
+   ],
+   "setup": [
+    5,
+    6
+   ],
+   "sun": [
+    5,
+    6
+   ],
+   "balance": [
+    6,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ],
+   "trickroom": [
+    6,
+    6
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.74,
+    "win": 87.2
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.67,
+    "win": 85.2
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.81,
+    "win": 85.2
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.65,
+    "win": 92.3
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.48,
+    "win": 85.7
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.4,
+    "win": 90.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.8,
+   "spread_move_unanswered": 0.6,
+   "terrain_or_weather_lost": 0.2,
+   "lead_matchup_lost": 0.2
+  },
+  "lossCauses": {
+   "psychic": 0.2
+  },
+  "megas": {
+   "golisopod": 6,
+   "dragonite": 8,
+   "both:dragonite": 1
+  }
+ },
+ "poke:counter": {
+  "rate": 0.975,
+  "ci": [
+   87.1,
+   99.6
+  ],
+  "games": 40,
+  "byStrategy": {
+   "psychic": [
+    4,
+    5
+   ],
+   "balance": [
+    6,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ],
+   "setup": [
+    6,
+    6
+   ],
+   "sun": [
+    6,
+    6
+   ],
+   "tailwind": [
+    6,
+    6
+   ],
+   "trickroom": [
+    6,
+    6
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.85,
+    "win": 97.4
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.67,
+    "win": 96.3
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.96,
+    "win": 100.0
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.77,
+    "win": 96.2
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.48,
+    "win": 100.0
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.45,
+    "win": 95.0
+   }
+  },
+  "lossTags": {
+   "terrain_or_weather_lost": 1.0,
+   "spread_move_unanswered": 1.0,
+   "speed_control_failed": 1.0,
+   "lead_matchup_lost": 1.0
+  },
+  "lossCauses": {
+   "psychic": 1.0
+  },
+  "megas": {
+   "golisopod": 5,
+   "dragonite": 9,
+   "both:dragonite": 1
+  }
+ },
+ "great:balanced": {
+  "rate": 0.775,
+  "ci": [
+   62.5,
+   87.7
+  ],
+  "games": 40,
+  "byStrategy": {
+   "psychic": [
+    3,
+    5
+   ],
+   "tailwind": [
+    4,
+    6
+   ],
+   "trickroom": [
+    4,
+    6
+   ],
+   "balance": [
+    5,
+    6
+   ],
+   "setup": [
+    5,
+    6
+   ],
+   "sun": [
+    5,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.59,
+    "win": 76.9
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.85,
+    "win": 70.4
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.67,
+    "win": 92.6
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.65,
+    "win": 73.1
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.57,
+    "win": 76.2
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.55,
+    "win": 75.0
+   }
+  },
+  "lossTags": {
+   "lead_matchup_lost": 0.889,
+   "speed_control_failed": 0.778,
+   "spread_move_unanswered": 0.444,
+   "terrain_or_weather_lost": 0.333,
+   "trick_room_unanswered": 0.222
+  },
+  "lossCauses": {
+   "psychic": 0.444,
+   "trickroom": 0.222,
+   "tailwind": 0.222,
+   "setup": 0.111
+  },
+  "megas": {
+   "golisopod": 7,
+   "dragonite": 8
+  }
+ },
+ "great:aggressive": {
+  "rate": 0.787,
+  "ci": [
+   63.9,
+   88.6
+  ],
+  "games": 40,
+  "byStrategy": {
+   "psychic": [
+    3,
+    5
+   ],
+   "setup": [
+    4,
+    6
+   ],
+   "tailwind": [
+    4,
+    6
+   ],
+   "trickroom": [
+    4,
+    6
+   ],
+   "sun": [
+    5,
+    6
+   ],
+   "balance": [
+    6,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.67,
+    "win": 79.5
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.48,
+    "win": 77.8
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.67,
+    "win": 81.5
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.77,
+    "win": 73.1
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.81,
+    "win": 71.4
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.4,
+    "win": 80.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.875,
+   "lead_matchup_lost": 0.75,
+   "priority_unanswered": 0.125,
+   "opponent_tailwind_unanswered": 0.125,
+   "terrain_or_weather_lost": 0.125
+  },
+  "lossCauses": {
+   "psychic": 0.25,
+   "trickroom": 0.125,
+   "tailwind": 0.125
+  },
+  "megas": {
+   "golisopod": 8,
+   "dragonite": 7
+  }
+ },
+ "great:defensive": {
+  "rate": 0.725,
+  "ci": [
+   57.2,
+   83.9
+  ],
+  "games": 40,
+  "byStrategy": {
+   "tailwind": [
+    3,
+    6
+   ],
+   "psychic": [
+    3,
+    5
+   ],
+   "setup": [
+    4,
+    6
+   ],
+   "rain": [
+    4,
+    5
+   ],
+   "balance": [
+    5,
+    6
+   ],
+   "sun": [
+    5,
+    6
+   ],
+   "trickroom": [
+    5,
+    6
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.56,
+    "win": 71.8
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.85,
+    "win": 63.0
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.85,
+    "win": 85.2
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.62,
+    "win": 73.1
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.33,
+    "win": 66.7
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.45,
+    "win": 75.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.818,
+   "lead_matchup_lost": 0.818,
+   "spread_move_unanswered": 0.364,
+   "terrain_or_weather_lost": 0.273,
+   "trick_room_unanswered": 0.182
+  },
+  "lossCauses": {
+   "psychic": 0.364,
+   "tailwind": 0.273,
+   "trickroom": 0.182,
+   "rain": 0.091
+  },
+  "megas": {
+   "dragonite": 7,
+   "golisopod": 8
+  }
+ },
+ "great:setup": {
+  "rate": 0.825,
+  "ci": [
+   68.0,
+   91.3
+  ],
+  "games": 40,
+  "byStrategy": {
+   "setup": [
+    4,
+    6
+   ],
+   "psychic": [
+    4,
+    5
+   ],
+   "balance": [
+    5,
+    6
+   ],
+   "sun": [
+    5,
+    6
+   ],
+   "tailwind": [
+    5,
+    6
+   ],
+   "trickroom": [
+    5,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.72,
+    "win": 84.6
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.74,
+    "win": 77.8
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.78,
+    "win": 88.9
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.69,
+    "win": 76.9
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.29,
+    "win": 76.2
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.6,
+    "win": 90.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.857,
+   "lead_matchup_lost": 0.714,
+   "spread_move_unanswered": 0.571,
+   "terrain_or_weather_lost": 0.286,
+   "priority_unanswered": 0.286
+  },
+  "lossCauses": {
+   "psychic": 0.286,
+   "tailwind": 0.286,
+   "trickroom": 0.286,
+   "setup": 0.143
+  },
+  "megas": {
+   "golisopod": 7,
+   "dragonite": 7,
+   "both:dragonite": 1
+  }
+ },
+ "great:pivot": {
+  "rate": 0.75,
+  "ci": [
+   59.8,
+   85.8
+  ],
+  "games": 40,
+  "byStrategy": {
+   "tailwind": [
+    3,
+    6
+   ],
+   "psychic": [
+    3,
+    5
+   ],
+   "trickroom": [
+    4,
+    6
+   ],
+   "balance": [
+    5,
+    6
+   ],
+   "setup": [
+    5,
+    6
+   ],
+   "sun": [
+    5,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.56,
+    "win": 74.4
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.85,
+    "win": 70.4
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.74,
+    "win": 88.9
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.65,
+    "win": 69.2
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.43,
+    "win": 71.4
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.55,
+    "win": 75.0
+   }
+  },
+  "lossTags": {
+   "lead_matchup_lost": 0.9,
+   "speed_control_failed": 0.8,
+   "spread_move_unanswered": 0.4,
+   "terrain_or_weather_lost": 0.3,
+   "trick_room_unanswered": 0.2
+  },
+  "lossCauses": {
+   "psychic": 0.4,
+   "tailwind": 0.3,
+   "trickroom": 0.2,
+   "setup": 0.1
+  },
+  "megas": {
+   "dragonite": 7,
+   "golisopod": 8
+  }
+ },
+ "great:counter": {
+  "rate": 0.738,
+  "ci": [
+   58.5,
+   84.9
+  ],
+  "games": 40,
+  "byStrategy": {
+   "psychic": [
+    2,
+    5
+   ],
+   "sun": [
+    4,
+    6
+   ],
+   "tailwind": [
+    4,
+    6
+   ],
+   "trickroom": [
+    4,
+    6
+   ],
+   "balance": [
+    5,
+    6
+   ],
+   "setup": [
+    5,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.79,
+    "win": 71.8
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.59,
+    "win": 63.0
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.59,
+    "win": 88.9
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.69,
+    "win": 69.2
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.48,
+    "win": 71.4
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.45,
+    "win": 70.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.8,
+   "lead_matchup_lost": 0.8,
+   "terrain_or_weather_lost": 0.3,
+   "spread_move_unanswered": 0.3,
+   "trick_room_unanswered": 0.2
+  },
+  "lossCauses": {
+   "psychic": 0.4,
+   "trickroom": 0.2,
+   "tailwind": 0.1,
+   "sun": 0.1
+  },
+  "megas": {
+   "golisopod": 7,
+   "dragonite": 8
+  }
+ },
+ "ultra:balanced": {
+  "rate": 0.825,
+  "ci": [
+   68.0,
+   91.3
+  ],
+  "games": 40,
+  "byStrategy": {
+   "psychic": [
+    3,
+    5
+   ],
+   "balance": [
+    4,
+    6
+   ],
+   "tailwind": [
+    4,
+    6
+   ],
+   "trickroom": [
+    5,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ],
+   "setup": [
+    6,
+    6
+   ],
+   "sun": [
+    6,
+    6
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.64,
+    "win": 82.1
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.48,
+    "win": 74.1
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 1.0,
+    "win": 96.3
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.62,
+    "win": 80.8
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.76,
+    "win": 90.5
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.4,
+    "win": 70.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 1.0,
+   "lead_matchup_lost": 0.714,
+   "terrain_or_weather_lost": 0.429,
+   "spread_move_unanswered": 0.286,
+   "trick_room_unanswered": 0.143
+  },
+  "lossCauses": {
+   "psychic": 0.571,
+   "trickroom": 0.143
+  },
+  "megas": {
+   "golisopod": 6,
+   "dragonite": 9
+  }
+ },
+ "ultra:aggressive": {
+  "rate": 0.875,
+  "ci": [
+   73.9,
+   94.5
+  ],
+  "games": 40,
+  "byStrategy": {
+   "trickroom": [
+    4,
+    6
+   ],
+   "psychic": [
+    4,
+    5
+   ],
+   "setup": [
+    5,
+    6
+   ],
+   "tailwind": [
+    5,
+    6
+   ],
+   "balance": [
+    6,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ],
+   "sun": [
+    6,
+    6
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.67,
+    "win": 87.2
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.48,
+    "win": 85.2
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 1.04,
+    "win": 92.6
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.73,
+    "win": 88.5
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.43,
+    "win": 85.7
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.4,
+    "win": 85.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.8,
+   "lead_matchup_lost": 0.6,
+   "spread_move_unanswered": 0.4,
+   "terrain_or_weather_lost": 0.2,
+   "trick_room_unanswered": 0.2
+  },
+  "lossCauses": {
+   "psychic": 0.4,
+   "trickroom": 0.2
+  },
+  "megas": {
+   "dragonite": 10,
+   "golisopod": 5
+  }
+ },
+ "ultra:defensive": {
+  "rate": 0.775,
+  "ci": [
+   62.5,
+   87.7
+  ],
+  "games": 40,
+  "byStrategy": {
+   "balance": [
+    4,
+    6
+   ],
+   "tailwind": [
+    4,
+    6
+   ],
+   "trickroom": [
+    4,
+    6
+   ],
+   "psychic": [
+    4,
+    5
+   ],
+   "setup": [
+    5,
+    6
+   ],
+   "sun": [
+    5,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.59,
+    "win": 76.9
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.52,
+    "win": 70.4
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.96,
+    "win": 88.9
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.54,
+    "win": 76.9
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.86,
+    "win": 76.2
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.45,
+    "win": 75.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 1.0,
+   "lead_matchup_lost": 0.889,
+   "priority_unanswered": 0.333,
+   "trick_room_unanswered": 0.222,
+   "terrain_or_weather_lost": 0.222
+  },
+  "lossCauses": {
+   "psychic": 0.333,
+   "trickroom": 0.222,
+   "tailwind": 0.111
+  },
+  "megas": {
+   "dragonite": 9,
+   "golisopod": 6
+  }
+ },
+ "ultra:setup": {
+  "rate": 0.775,
+  "ci": [
+   62.5,
+   87.7
+  ],
+  "games": 40,
+  "byStrategy": {
+   "psychic": [
+    3,
+    5
+   ],
+   "balance": [
+    4,
+    6
+   ],
+   "sun": [
+    4,
+    6
+   ],
+   "trickroom": [
+    4,
+    6
+   ],
+   "tailwind": [
+    5,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ],
+   "setup": [
+    6,
+    6
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.59,
+    "win": 76.9
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.56,
+    "win": 70.4
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 1.04,
+    "win": 85.2
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.54,
+    "win": 80.8
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.52,
+    "win": 71.4
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.5,
+    "win": 80.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.889,
+   "lead_matchup_lost": 0.778,
+   "spread_move_unanswered": 0.333,
+   "terrain_or_weather_lost": 0.222,
+   "setup_window_allowed": 0.222
+  },
+  "lossCauses": {
+   "psychic": 0.444,
+   "tailwind": 0.222,
+   "setup": 0.222,
+   "trickroom": 0.222
+  },
+  "megas": {
+   "golisopod": 6,
+   "dragonite": 9
+  }
+ },
+ "ultra:pivot": {
+  "rate": 0.825,
+  "ci": [
+   68.0,
+   91.3
+  ],
+  "games": 40,
+  "byStrategy": {
+   "psychic": [
+    3,
+    5
+   ],
+   "balance": [
+    4,
+    6
+   ],
+   "tailwind": [
+    4,
+    6
+   ],
+   "trickroom": [
+    5,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ],
+   "setup": [
+    6,
+    6
+   ],
+   "sun": [
+    6,
+    6
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.62,
+    "win": 82.1
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.44,
+    "win": 74.1
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 1.0,
+    "win": 96.3
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.58,
+    "win": 80.8
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.9,
+    "win": 90.5
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.45,
+    "win": 70.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 1.0,
+   "lead_matchup_lost": 0.714,
+   "terrain_or_weather_lost": 0.429,
+   "spread_move_unanswered": 0.286,
+   "trick_room_unanswered": 0.143
+  },
+  "lossCauses": {
+   "psychic": 0.571,
+   "trickroom": 0.143
+  },
+  "megas": {
+   "golisopod": 6,
+   "dragonite": 9
+  }
+ },
+ "ultra:counter": {
+  "rate": 0.825,
+  "ci": [
+   68.0,
+   91.3
+  ],
+  "games": 40,
+  "byStrategy": {
+   "tailwind": [
+    4,
+    6
+   ],
+   "psychic": [
+    4,
+    5
+   ],
+   "balance": [
+    5,
+    6
+   ],
+   "setup": [
+    5,
+    6
+   ],
+   "sun": [
+    5,
+    6
+   ],
+   "trickroom": [
+    5,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.74,
+    "win": 82.1
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.52,
+    "win": 74.1
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 1.0,
+    "win": 96.3
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.69,
+    "win": 80.8
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.43,
+    "win": 81.0
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.4,
+    "win": 80.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 1.0,
+   "lead_matchup_lost": 0.714,
+   "spread_move_unanswered": 0.429,
+   "terrain_or_weather_lost": 0.286,
+   "opponent_tailwind_unanswered": 0.143
+  },
+  "lossCauses": {
+   "psychic": 0.429,
+   "tailwind": 0.143,
+   "trickroom": 0.143
+  },
+  "megas": {
+   "dragonite": 9,
+   "golisopod": 6
+  }
+ },
+ "master:balanced": {
+  "rate": 0.762,
+  "ci": [
+   61.1,
+   86.8
+  ],
+  "games": 40,
+  "byStrategy": {
+   "tailwind": [
+    3,
+    6
+   ],
+   "psychic": [
+    3,
+    5
+   ],
+   "setup": [
+    4,
+    6
+   ],
+   "trickroom": [
+    4,
+    6
+   ],
+   "rain": [
+    4,
+    5
+   ],
+   "balance": [
+    6,
+    6
+   ],
+   "sun": [
+    6,
+    6
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.67,
+    "win": 74.4
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.74,
+    "win": 74.1
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.78,
+    "win": 77.8
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.5,
+    "win": 76.9
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.43,
+    "win": 81.0
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.05,
+    "win": 65.0
+   }
+  },
+  "lossTags": {
+   "lead_matchup_lost": 0.889,
+   "speed_control_failed": 0.778,
+   "opponent_tailwind_unanswered": 0.333,
+   "spread_move_unanswered": 0.333,
+   "priority_unanswered": 0.111
+  },
+  "lossCauses": {
+   "tailwind": 0.556,
+   "psychic": 0.333,
+   "rain": 0.111
+  },
+  "megas": {
+   "dragonite": 10,
+   "golisopod": 5
+  }
+ },
+ "master:aggressive": {
+  "rate": 0.713,
+  "ci": [
+   55.9,
+   82.9
+  ],
+  "games": 40,
+  "byStrategy": {
+   "tailwind": [
+    2,
+    6
+   ],
+   "trickroom": [
+    3,
+    6
+   ],
+   "psychic": [
+    3,
+    5
+   ],
+   "setup": [
+    4,
+    6
+   ],
+   "rain": [
+    4,
+    5
+   ],
+   "balance": [
+    6,
+    6
+   ],
+   "sun": [
+    6,
+    6
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.59,
+    "win": 69.2
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.7,
+    "win": 70.4
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.74,
+    "win": 70.4
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.54,
+    "win": 73.1
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.38,
+    "win": 71.4
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.1,
+    "win": 65.0
+   }
+  },
+  "lossTags": {
+   "lead_matchup_lost": 0.818,
+   "speed_control_failed": 0.727,
+   "opponent_tailwind_unanswered": 0.273,
+   "spread_move_unanswered": 0.273,
+   "priority_unanswered": 0.091
+  },
+  "lossCauses": {
+   "tailwind": 0.455,
+   "psychic": 0.273,
+   "rain": 0.091
+  },
+  "megas": {
+   "dragonite": 9,
+   "golisopod": 6
+  }
+ },
+ "master:defensive": {
+  "rate": 0.688,
+  "ci": [
+   53.3,
+   80.9
+  ],
+  "games": 40,
+  "byStrategy": {
+   "tailwind": [
+    3,
+    6
+   ],
+   "rain": [
+    3,
+    5
+   ],
+   "psychic": [
+    3,
+    5
+   ],
+   "setup": [
+    4,
+    6
+   ],
+   "trickroom": [
+    4,
+    6
+   ],
+   "balance": [
+    5,
+    6
+   ],
+   "sun": [
+    5,
+    6
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.62,
+    "win": 66.7
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.52,
+    "win": 66.7
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.93,
+    "win": 74.1
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.54,
+    "win": 65.4
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.19,
+    "win": 71.4
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.0,
+    "win": 60.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.917,
+   "lead_matchup_lost": 0.917,
+   "spread_move_unanswered": 0.417,
+   "opponent_tailwind_unanswered": 0.25,
+   "priority_unanswered": 0.25
+  },
+  "lossCauses": {
+   "tailwind": 0.5,
+   "psychic": 0.333,
+   "rain": 0.167,
+   "setup": 0.083
+  },
+  "megas": {
+   "dragonite": 10,
+   "golisopod": 5
+  }
+ },
+ "master:setup": {
+  "rate": 0.738,
+  "ci": [
+   58.5,
+   84.9
+  ],
+  "games": 40,
+  "byStrategy": {
+   "tailwind": [
+    3,
+    6
+   ],
+   "psychic": [
+    3,
+    5
+   ],
+   "setup": [
+    4,
+    6
+   ],
+   "trickroom": [
+    4,
+    6
+   ],
+   "rain": [
+    4,
+    5
+   ],
+   "sun": [
+    5,
+    6
+   ],
+   "balance": [
+    6,
+    6
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.67,
+    "win": 71.8
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.74,
+    "win": 70.4
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.81,
+    "win": 77.8
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.58,
+    "win": 73.1
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.19,
+    "win": 76.2
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 0.95,
+    "win": 65.0
+   }
+  },
+  "lossTags": {
+   "lead_matchup_lost": 0.9,
+   "speed_control_failed": 0.8,
+   "opponent_tailwind_unanswered": 0.3,
+   "spread_move_unanswered": 0.3,
+   "priority_unanswered": 0.2
+  },
+  "lossCauses": {
+   "tailwind": 0.5,
+   "psychic": 0.3,
+   "rain": 0.1
+  },
+  "megas": {
+   "dragonite": 10,
+   "golisopod": 5
+  }
+ },
+ "master:pivot": {
+  "rate": 0.738,
+  "ci": [
+   58.5,
+   84.9
+  ],
+  "games": 40,
+  "byStrategy": {
+   "psychic": [
+    2,
+    5
+   ],
+   "tailwind": [
+    3,
+    6
+   ],
+   "setup": [
+    4,
+    6
+   ],
+   "rain": [
+    4,
+    5
+   ],
+   "sun": [
+    5,
+    6
+   ],
+   "trickroom": [
+    5,
+    6
+   ],
+   "balance": [
+    6,
+    6
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.69,
+    "win": 71.8
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.67,
+    "win": 70.4
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.78,
+    "win": 81.5
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.5,
+    "win": 69.2
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.43,
+    "win": 81.0
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 0.9,
+    "win": 60.0
+   }
+  },
+  "lossTags": {
+   "lead_matchup_lost": 0.9,
+   "speed_control_failed": 0.8,
+   "spread_move_unanswered": 0.5,
+   "opponent_tailwind_unanswered": 0.3,
+   "terrain_or_weather_lost": 0.2
+  },
+  "lossCauses": {
+   "tailwind": 0.5,
+   "psychic": 0.3,
+   "rain": 0.1
+  },
+  "megas": {
+   "golisopod": 5,
+   "dragonite": 10
+  }
+ },
+ "master:counter": {
+  "rate": 0.662,
+  "ci": [
+   50.8,
+   78.9
+  ],
+  "games": 40,
+  "byStrategy": {
+   "tailwind": [
+    2,
+    6
+   ],
+   "psychic": [
+    2,
+    5
+   ],
+   "setup": [
+    3,
+    6
+   ],
+   "trickroom": [
+    3,
+    6
+   ],
+   "sun": [
+    5,
+    6
+   ],
+   "balance": [
+    6,
+    6
+   ],
+   "rain": [
+    5,
+    5
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 97.5,
+    "lead": 20,
+    "koPerGame": 0.49,
+    "win": 64.1
+   },
+   "sylveon": {
+    "pick": 67.5,
+    "lead": 0,
+    "koPerGame": 0.78,
+    "win": 59.3
+   },
+   "chandelure": {
+    "pick": 67.5,
+    "lead": 18,
+    "koPerGame": 0.81,
+    "win": 66.7
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 14,
+    "koPerGame": 0.46,
+    "win": 73.1
+   },
+   "dragonite": {
+    "pick": 52.5,
+    "lead": 17,
+    "koPerGame": 1.24,
+    "win": 61.9
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 11,
+    "koPerGame": 1.1,
+    "win": 65.0
+   }
+  },
+  "lossTags": {
+   "lead_matchup_lost": 0.923,
+   "speed_control_failed": 0.846,
+   "spread_move_unanswered": 0.308,
+   "opponent_tailwind_unanswered": 0.231,
+   "priority_unanswered": 0.154
+  },
+  "lossCauses": {
+   "tailwind": 0.308,
+   "psychic": 0.308
+  },
+  "megas": {
+   "dragonite": 8,
+   "golisopod": 7
+  }
+ },
+ "champion:balanced": {
+  "rate": 0.729,
+  "ci": [
+   52.9,
+   86.6
+  ],
+  "games": 24,
+  "byStrategy": {
+   "rain": [
+    2,
+    4
+   ],
+   "trickroom": [
+    2,
+    4
+   ],
+   "balance": [
+    2,
+    4
+   ],
+   "tailwind": [
+    2,
+    3
+   ],
+   "psychic": [
+    3,
+    3
+   ],
+   "setup": [
+    3,
+    3
+   ],
+   "sun": [
+    3,
+    3
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 95.8,
+    "lead": 11,
+    "koPerGame": 0.74,
+    "win": 69.6
+   },
+   "chandelure": {
+    "pick": 75.0,
+    "lead": 13,
+    "koPerGame": 0.89,
+    "win": 77.8
+   },
+   "sylveon": {
+    "pick": 70.8,
+    "lead": 0,
+    "koPerGame": 0.76,
+    "win": 76.5
+   },
+   "dragonite": {
+    "pick": 62.5,
+    "lead": 11,
+    "koPerGame": 1.33,
+    "win": 73.3
+   },
+   "rillaboom": {
+    "pick": 54.2,
+    "lead": 7,
+    "koPerGame": 0.31,
+    "win": 61.5
+   },
+   "golisopod": {
+    "pick": 41.7,
+    "lead": 6,
+    "koPerGame": 1.0,
+    "win": 60.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.833,
+   "lead_matchup_lost": 0.833,
+   "spread_move_unanswered": 0.333,
+   "opponent_tailwind_unanswered": 0.167,
+   "setup_window_allowed": 0.167
+  },
+  "lossCauses": {
+   "tailwind": 0.333,
+   "psychic": 0.333,
+   "rain": 0.333,
+   "setup": 0.167
+  },
+  "megas": {
+   "golisopod": 4,
+   "dragonite": 10
+  }
+ },
+ "champion:aggressive": {
+  "rate": 0.708,
+  "ci": [
+   50.8,
+   85.1
+  ],
+  "games": 24,
+  "byStrategy": {
+   "tailwind": [
+    1,
+    3
+   ],
+   "rain": [
+    2,
+    4
+   ],
+   "trickroom": [
+    2,
+    4
+   ],
+   "setup": [
+    2,
+    3
+   ],
+   "balance": [
+    4,
+    4
+   ],
+   "psychic": [
+    3,
+    3
+   ],
+   "sun": [
+    3,
+    3
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 95.8,
+    "lead": 11,
+    "koPerGame": 0.74,
+    "win": 73.9
+   },
+   "chandelure": {
+    "pick": 75.0,
+    "lead": 13,
+    "koPerGame": 0.94,
+    "win": 72.2
+   },
+   "sylveon": {
+    "pick": 70.8,
+    "lead": 0,
+    "koPerGame": 0.76,
+    "win": 76.5
+   },
+   "dragonite": {
+    "pick": 62.5,
+    "lead": 11,
+    "koPerGame": 1.2,
+    "win": 66.7
+   },
+   "rillaboom": {
+    "pick": 54.2,
+    "lead": 7,
+    "koPerGame": 0.38,
+    "win": 61.5
+   },
+   "golisopod": {
+    "pick": 41.7,
+    "lead": 6,
+    "koPerGame": 1.1,
+    "win": 70.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.714,
+   "lead_matchup_lost": 0.714,
+   "opponent_tailwind_unanswered": 0.286,
+   "trick_room_unanswered": 0.143,
+   "priority_unanswered": 0.143
+  },
+  "lossCauses": {
+   "tailwind": 0.286,
+   "psychic": 0.286,
+   "rain": 0.286,
+   "trickroom": 0.143,
+   "setup": 0.143
+  },
+  "megas": {
+   "dragonite": 9,
+   "golisopod": 5
+  }
+ },
+ "champion:defensive": {
+  "rate": 0.625,
+  "ci": [
+   42.7,
+   78.8
+  ],
+  "games": 24,
+  "byStrategy": {
+   "balance": [
+    2,
+    4
+   ],
+   "rain": [
+    2,
+    4
+   ],
+   "psychic": [
+    2,
+    3
+   ],
+   "setup": [
+    2,
+    3
+   ],
+   "sun": [
+    2,
+    3
+   ],
+   "tailwind": [
+    2,
+    3
+   ],
+   "trickroom": [
+    3,
+    4
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 95.8,
+    "lead": 11,
+    "koPerGame": 0.74,
+    "win": 65.2
+   },
+   "chandelure": {
+    "pick": 75.0,
+    "lead": 13,
+    "koPerGame": 0.72,
+    "win": 72.2
+   },
+   "sylveon": {
+    "pick": 70.8,
+    "lead": 0,
+    "koPerGame": 0.65,
+    "win": 64.7
+   },
+   "dragonite": {
+    "pick": 62.5,
+    "lead": 11,
+    "koPerGame": 1.33,
+    "win": 60.0
+   },
+   "rillaboom": {
+    "pick": 54.2,
+    "lead": 7,
+    "koPerGame": 0.38,
+    "win": 46.2
+   },
+   "golisopod": {
+    "pick": 41.7,
+    "lead": 6,
+    "koPerGame": 1.2,
+    "win": 60.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.889,
+   "lead_matchup_lost": 0.778,
+   "setup_window_allowed": 0.444,
+   "priority_unanswered": 0.333,
+   "spread_move_unanswered": 0.333
+  },
+  "lossCauses": {
+   "setup": 0.444,
+   "psychic": 0.333,
+   "tailwind": 0.222,
+   "rain": 0.222,
+   "trickroom": 0.111
+  },
+  "megas": {
+   "dragonite": 8,
+   "golisopod": 6
+  }
+ },
+ "champion:setup": {
+  "rate": 0.667,
+  "ci": [
+   46.7,
+   82.0
+  ],
+  "games": 24,
+  "byStrategy": {
+   "rain": [
+    2,
+    4
+   ],
+   "trickroom": [
+    2,
+    4
+   ],
+   "psychic": [
+    2,
+    3
+   ],
+   "setup": [
+    2,
+    3
+   ],
+   "tailwind": [
+    2,
+    3
+   ],
+   "balance": [
+    3,
+    4
+   ],
+   "sun": [
+    3,
+    3
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 95.8,
+    "lead": 11,
+    "koPerGame": 0.78,
+    "win": 69.6
+   },
+   "chandelure": {
+    "pick": 75.0,
+    "lead": 13,
+    "koPerGame": 0.72,
+    "win": 72.2
+   },
+   "sylveon": {
+    "pick": 70.8,
+    "lead": 0,
+    "koPerGame": 0.47,
+    "win": 70.6
+   },
+   "dragonite": {
+    "pick": 62.5,
+    "lead": 11,
+    "koPerGame": 1.6,
+    "win": 66.7
+   },
+   "rillaboom": {
+    "pick": 54.2,
+    "lead": 7,
+    "koPerGame": 0.31,
+    "win": 53.8
+   },
+   "golisopod": {
+    "pick": 41.7,
+    "lead": 6,
+    "koPerGame": 0.9,
+    "win": 60.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.875,
+   "lead_matchup_lost": 0.875,
+   "setup_window_allowed": 0.25,
+   "spread_move_unanswered": 0.25,
+   "priority_unanswered": 0.25
+  },
+  "lossCauses": {
+   "tailwind": 0.375,
+   "psychic": 0.375,
+   "setup": 0.25,
+   "rain": 0.25
+  },
+  "megas": {
+   "golisopod": 4,
+   "dragonite": 10
+  }
+ },
+ "champion:pivot": {
+  "rate": 0.708,
+  "ci": [
+   50.8,
+   85.1
+  ],
+  "games": 24,
+  "byStrategy": {
+   "rain": [
+    1,
+    4
+   ],
+   "trickroom": [
+    2,
+    4
+   ],
+   "psychic": [
+    2,
+    3
+   ],
+   "tailwind": [
+    2,
+    3
+   ],
+   "balance": [
+    4,
+    4
+   ],
+   "setup": [
+    3,
+    3
+   ],
+   "sun": [
+    3,
+    3
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 95.8,
+    "lead": 11,
+    "koPerGame": 0.57,
+    "win": 69.6
+   },
+   "chandelure": {
+    "pick": 75.0,
+    "lead": 13,
+    "koPerGame": 0.94,
+    "win": 77.8
+   },
+   "sylveon": {
+    "pick": 70.8,
+    "lead": 0,
+    "koPerGame": 0.71,
+    "win": 76.5
+   },
+   "dragonite": {
+    "pick": 62.5,
+    "lead": 11,
+    "koPerGame": 1.53,
+    "win": 73.3
+   },
+   "rillaboom": {
+    "pick": 54.2,
+    "lead": 7,
+    "koPerGame": 0.38,
+    "win": 61.5
+   },
+   "golisopod": {
+    "pick": 41.7,
+    "lead": 6,
+    "koPerGame": 1.0,
+    "win": 60.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.857,
+   "lead_matchup_lost": 0.714,
+   "spread_move_unanswered": 0.429,
+   "setup_window_allowed": 0.286,
+   "priority_unanswered": 0.286
+  },
+  "lossCauses": {
+   "psychic": 0.429,
+   "rain": 0.429,
+   "tailwind": 0.286,
+   "setup": 0.286
+  },
+  "megas": {
+   "dragonite": 11,
+   "golisopod": 3
+  }
+ },
+ "champion:counter": {
+  "rate": 0.771,
+  "ci": [
+   57.3,
+   89.4
+  ],
+  "games": 24,
+  "byStrategy": {
+   "trickroom": [
+    2,
+    4
+   ],
+   "balance": [
+    2,
+    4
+   ],
+   "setup": [
+    2,
+    3
+   ],
+   "tailwind": [
+    2,
+    3
+   ],
+   "psychic": [
+    3,
+    3
+   ],
+   "rain": [
+    4,
+    4
+   ],
+   "sun": [
+    3,
+    3
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 95.8,
+    "lead": 11,
+    "koPerGame": 0.74,
+    "win": 78.3
+   },
+   "chandelure": {
+    "pick": 75.0,
+    "lead": 13,
+    "koPerGame": 0.72,
+    "win": 88.9
+   },
+   "sylveon": {
+    "pick": 70.8,
+    "lead": 0,
+    "koPerGame": 0.47,
+    "win": 64.7
+   },
+   "dragonite": {
+    "pick": 62.5,
+    "lead": 11,
+    "koPerGame": 1.67,
+    "win": 73.3
+   },
+   "rillaboom": {
+    "pick": 54.2,
+    "lead": 7,
+    "koPerGame": 0.46,
+    "win": 69.2
+   },
+   "golisopod": {
+    "pick": 41.7,
+    "lead": 6,
+    "koPerGame": 1.4,
+    "win": 70.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 1.0,
+   "lead_matchup_lost": 1.0,
+   "trick_room_unanswered": 0.4,
+   "opponent_tailwind_unanswered": 0.2,
+   "setup_window_allowed": 0.2
+  },
+  "lossCauses": {
+   "tailwind": 0.4,
+   "psychic": 0.4,
+   "trickroom": 0.4,
+   "setup": 0.2
+  },
+  "megas": {
+   "golisopod": 6,
+   "dragonite": 8
+  }
+ }
+}

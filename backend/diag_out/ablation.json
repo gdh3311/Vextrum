@@ -1,0 +1,870 @@
+{
+ "team": [
+  "golisopod",
+  "chandelure",
+  "rillaboom",
+  "garchomp",
+  "dragonite",
+  "sylveon"
+ ],
+ "draftScore": 318.683,
+ "variants": [
+  {
+   "slot": 0,
+   "out": "golisopod",
+   "in": "sneasler",
+   "item": "White Herb",
+   "draftDelta": 18.898,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.733,
+    "diff": 0.042,
+    "low": -0.078,
+    "high": 0.161,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "psychic": 0.125,
+    "balance": 0.111,
+    "trickroom": -0.111,
+    "rain": 0.125,
+    "sun": 0.0,
+    "setup": 0.0,
+    "tailwind": 0.111
+   },
+   "validation": {
+    "base": 0.663,
+    "variant": 0.633,
+    "diff": -0.03,
+    "low": -0.114,
+    "high": 0.054,
+    "n": 150
+   }
+  },
+  {
+   "slot": 0,
+   "out": "golisopod",
+   "in": "rotomheat",
+   "item": "Sitrus Berry",
+   "draftDelta": 18.821,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.7,
+    "diff": 0.008,
+    "low": -0.128,
+    "high": 0.145,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "setup": -0.222,
+    "tailwind": -0.222,
+    "psychic": 0.125,
+    "sun": -0.125,
+    "trickroom": 0.0,
+    "rain": 0.25,
+    "balance": 0.333
+   }
+  },
+  {
+   "slot": 0,
+   "out": "golisopod",
+   "in": "excadrill",
+   "item": "Life Orb",
+   "draftDelta": 18.548,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.55,
+    "diff": -0.142,
+    "low": -0.293,
+    "high": 0.009,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "rain": -0.25,
+    "balance": -0.111,
+    "tailwind": -0.333,
+    "psychic": 0.0,
+    "setup": -0.222,
+    "sun": 0.0,
+    "trickroom": 0.0
+   }
+  },
+  {
+   "slot": 1,
+   "out": "chandelure",
+   "in": "rotomheat",
+   "item": "Sitrus Berry",
+   "draftDelta": 11.57,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.567,
+    "diff": -0.125,
+    "low": -0.25,
+    "high": -0.0,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "rain": -0.375,
+    "balance": -0.111,
+    "tailwind": -0.333,
+    "psychic": 0.0,
+    "sun": 0.0,
+    "setup": 0.0,
+    "trickroom": 0.0
+   }
+  },
+  {
+   "slot": 1,
+   "out": "chandelure",
+   "in": "talonflame",
+   "item": "Sharp Beak",
+   "draftDelta": 9.383,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.592,
+    "diff": -0.1,
+    "low": -0.249,
+    "high": 0.049,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "rain": -0.5,
+    "psychic": -0.125,
+    "sun": -0.125,
+    "setup": -0.111,
+    "tailwind": -0.111,
+    "trickroom": -0.111,
+    "balance": 0.222
+   },
+   "validation": {
+    "base": 0.663,
+    "variant": 0.603,
+    "diff": -0.06,
+    "low": -0.153,
+    "high": 0.033,
+    "n": 150
+   }
+  },
+  {
+   "slot": 1,
+   "out": "chandelure",
+   "in": "pyroar",
+   "item": "Charcoal",
+   "draftDelta": 9.314,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.533,
+    "diff": -0.158,
+    "low": -0.297,
+    "high": -0.02,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "rain": -0.375,
+    "tailwind": -0.333,
+    "psychic": 0.0,
+    "setup": -0.222,
+    "balance": 0.0,
+    "sun": -0.125,
+    "trickroom": -0.111
+   }
+  },
+  {
+   "slot": 2,
+   "out": "rillaboom",
+   "in": "pawmot",
+   "item": "Life Orb",
+   "draftDelta": 8.944,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.633,
+    "diff": -0.058,
+    "low": -0.206,
+    "high": 0.089,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "balance": 0.0,
+    "psychic": 0.125,
+    "rain": 0.0,
+    "sun": -0.125,
+    "setup": -0.111,
+    "tailwind": -0.111,
+    "trickroom": -0.111
+   },
+   "validation": {
+    "base": 0.663,
+    "variant": 0.723,
+    "diff": 0.06,
+    "low": -0.02,
+    "high": 0.14,
+    "n": 150
+   }
+  },
+  {
+   "slot": 2,
+   "out": "rillaboom",
+   "in": "sneasler",
+   "item": "White Herb",
+   "draftDelta": 7.611,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.55,
+    "diff": -0.142,
+    "low": -0.278,
+    "high": -0.006,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "setup": -0.444,
+    "rain": -0.25,
+    "psychic": 0.0,
+    "balance": 0.0,
+    "trickroom": -0.222,
+    "sun": 0.0,
+    "tailwind": 0.0
+   }
+  },
+  {
+   "slot": 2,
+   "out": "rillaboom",
+   "in": "annihilape",
+   "item": "Leftovers",
+   "draftDelta": 6.602,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.592,
+    "diff": -0.1,
+    "low": -0.231,
+    "high": 0.031,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "rain": -0.5,
+    "psychic": -0.125,
+    "setup": -0.222,
+    "balance": 0.111,
+    "trickroom": -0.111,
+    "sun": 0.0,
+    "tailwind": 0.111
+   }
+  },
+  {
+   "slot": 3,
+   "out": "garchomp",
+   "in": "floetteeternal",
+   "item": "Choice Scarf",
+   "draftDelta": 1.78,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.65,
+    "diff": -0.042,
+    "low": -0.17,
+    "high": 0.087,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "psychic": -0.125,
+    "setup": -0.222,
+    "rain": 0.0,
+    "balance": 0.111,
+    "tailwind": -0.111,
+    "trickroom": 0.0,
+    "sun": 0.125
+   }
+  },
+  {
+   "slot": 3,
+   "out": "garchomp",
+   "in": "annihilape",
+   "item": "Choice Scarf",
+   "draftDelta": -1.238,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.675,
+    "diff": -0.017,
+    "low": -0.154,
+    "high": 0.121,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "rain": -0.375,
+    "setup": -0.333,
+    "balance": 0.111,
+    "psychic": 0.25,
+    "tailwind": 0.0,
+    "sun": 0.125,
+    "trickroom": 0.111
+   },
+   "validation": {
+    "base": 0.663,
+    "variant": 0.577,
+    "diff": -0.087,
+    "low": -0.175,
+    "high": 0.002,
+    "n": 150
+   }
+  },
+  {
+   "slot": 3,
+   "out": "garchomp",
+   "in": "basculegion",
+   "item": "Choice Scarf",
+   "draftDelta": -2.209,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.633,
+    "diff": -0.058,
+    "low": -0.209,
+    "high": 0.093,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "psychic": 0.0,
+    "balance": 0.0,
+    "setup": -0.222,
+    "rain": 0.0,
+    "tailwind": -0.111,
+    "trickroom": -0.111,
+    "sun": 0.125
+   }
+  },
+  {
+   "slot": 4,
+   "out": "dragonite",
+   "in": "rotomheat",
+   "item": "Sitrus Berry",
+   "draftDelta": 19.052,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.617,
+    "diff": -0.075,
+    "low": -0.208,
+    "high": 0.058,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "balance": -0.222,
+    "rain": -0.25,
+    "setup": -0.333,
+    "psychic": 0.125,
+    "tailwind": -0.111,
+    "trickroom": 0.0,
+    "sun": 0.125
+   }
+  },
+  {
+   "slot": 4,
+   "out": "dragonite",
+   "in": "talonflame",
+   "item": "Sharp Beak",
+   "draftDelta": 13.056,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.625,
+    "diff": -0.067,
+    "low": -0.22,
+    "high": 0.087,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "rain": -0.375,
+    "psychic": 0.0,
+    "tailwind": -0.222,
+    "trickroom": -0.222,
+    "sun": -0.125,
+    "setup": 0.0,
+    "balance": 0.222
+   }
+  },
+  {
+   "slot": 4,
+   "out": "dragonite",
+   "in": "salamence",
+   "item": "Life Orb",
+   "draftDelta": 12.378,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.642,
+    "diff": -0.05,
+    "low": -0.199,
+    "high": 0.099,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "balance": -0.222,
+    "setup": -0.333,
+    "rain": -0.125,
+    "psychic": 0.25,
+    "sun": 0.0,
+    "tailwind": 0.0,
+    "trickroom": 0.0
+   },
+   "validation": {
+    "base": 0.663,
+    "variant": 0.54,
+    "diff": -0.123,
+    "low": -0.216,
+    "high": -0.031,
+    "n": 150
+   }
+  },
+  {
+   "slot": 5,
+   "out": "sylveon",
+   "in": "sneasler",
+   "item": "White Herb",
+   "draftDelta": 10.953,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.558,
+    "diff": -0.133,
+    "low": -0.261,
+    "high": -0.006,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "rain": -0.375,
+    "trickroom": -0.333,
+    "balance": -0.111,
+    "psychic": 0.125,
+    "sun": -0.125,
+    "tailwind": -0.111,
+    "setup": 0.0
+   }
+  },
+  {
+   "slot": 5,
+   "out": "sylveon",
+   "in": "pawmot",
+   "item": "Life Orb",
+   "draftDelta": 10.698,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.675,
+    "diff": -0.017,
+    "low": -0.152,
+    "high": 0.119,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "balance": -0.222,
+    "trickroom": -0.222,
+    "psychic": 0.125,
+    "sun": -0.125,
+    "tailwind": 0.0,
+    "rain": 0.25,
+    "setup": 0.111
+   },
+   "validation": {
+    "base": 0.663,
+    "variant": 0.63,
+    "diff": -0.033,
+    "low": -0.118,
+    "high": 0.051,
+    "n": 150
+   }
+  },
+  {
+   "slot": 5,
+   "out": "sylveon",
+   "in": "excadrill",
+   "item": "Life Orb",
+   "draftDelta": 10.086,
+   "screen": {
+    "base": 0.692,
+    "variant": 0.583,
+    "diff": -0.108,
+    "low": -0.22,
+    "high": 0.004,
+    "n": 60
+   },
+   "byStrategyDelta": {
+    "balance": -0.111,
+    "psychic": 0.0,
+    "trickroom": -0.222,
+    "rain": 0.0,
+    "sun": -0.125,
+    "setup": -0.111,
+    "tailwind": -0.111
+   }
+  }
+ ],
+ "base": {
+  "screen": {
+   "rate": 0.692,
+   "ci": [
+    56.6,
+    79.4
+   ],
+   "games": 60,
+   "byStrategy": {
+    "psychic": [
+     4,
+     8
+    ],
+    "balance": [
+     5,
+     9
+    ],
+    "rain": [
+     5,
+     8
+    ],
+    "sun": [
+     6,
+     8
+    ],
+    "setup": [
+     7,
+     9
+    ],
+    "tailwind": [
+     7,
+     9
+    ],
+    "trickroom": [
+     7,
+     9
+    ]
+   },
+   "members": {
+    "garchomp": {
+     "pick": 83.3,
+     "lead": 20,
+     "koPerGame": 0.56,
+     "win": 70.0
+    },
+    "rillaboom": {
+     "pick": 78.3,
+     "lead": 30,
+     "koPerGame": 0.55,
+     "win": 70.2
+    },
+    "chandelure": {
+     "pick": 75.0,
+     "lead": 24,
+     "koPerGame": 0.8,
+     "win": 68.9
+    },
+    "dragonite": {
+     "pick": 65.0,
+     "lead": 36,
+     "koPerGame": 1.51,
+     "win": 69.2
+    },
+    "sylveon": {
+     "pick": 61.7,
+     "lead": 0,
+     "koPerGame": 0.62,
+     "win": 64.9
+    },
+    "golisopod": {
+     "pick": 36.7,
+     "lead": 10,
+     "koPerGame": 0.91,
+     "win": 63.6
+    }
+   },
+   "lossTags": {
+    "speed_control_failed": 0.889,
+    "lead_matchup_lost": 0.611,
+    "spread_move_unanswered": 0.389,
+    "terrain_or_weather_lost": 0.333,
+    "priority_unanswered": 0.222
+   },
+   "lossCauses": {
+    "psychic": 0.278,
+    "grassy": 0.167,
+    "tailwind": 0.167,
+    "rain": 0.111,
+    "trickroom": 0.111
+   }
+  },
+  "validation": {
+   "rate": 0.663,
+   "ci": [
+    58.4,
+    73.4
+   ],
+   "games": 150,
+   "byStrategy": {
+    "psychic": [
+     11,
+     21
+    ],
+    "setup": [
+     11,
+     21
+    ],
+    "rain": [
+     13,
+     22
+    ],
+    "trickroom": [
+     14,
+     22
+    ],
+    "tailwind": [
+     15,
+     21
+    ],
+    "balance": [
+     15,
+     21
+    ],
+    "sun": [
+     19,
+     22
+    ]
+   },
+   "members": {
+    "garchomp": {
+     "pick": 92.0,
+     "lead": 61,
+     "koPerGame": 0.56,
+     "win": 64.5
+    },
+    "rillaboom": {
+     "pick": 74.7,
+     "lead": 58,
+     "koPerGame": 0.43,
+     "win": 64.3
+    },
+    "chandelure": {
+     "pick": 72.7,
+     "lead": 62,
+     "koPerGame": 0.7,
+     "win": 69.7
+    },
+    "sylveon": {
+     "pick": 60.0,
+     "lead": 7,
+     "koPerGame": 0.68,
+     "win": 63.3
+    },
+    "dragonite": {
+     "pick": 57.3,
+     "lead": 77,
+     "koPerGame": 1.63,
+     "win": 70.9
+    },
+    "golisopod": {
+     "pick": 43.3,
+     "lead": 35,
+     "koPerGame": 1.02,
+     "win": 56.9
+    }
+   },
+   "lossTags": {
+    "lead_matchup_lost": 0.816,
+    "speed_control_failed": 0.796,
+    "spread_move_unanswered": 0.429,
+    "terrain_or_weather_lost": 0.286,
+    "priority_unanswered": 0.204
+   },
+   "lossCauses": {
+    "psychic": 0.265,
+    "trickroom": 0.163,
+    "tailwind": 0.122,
+    "rain": 0.122,
+    "grassy": 0.122
+   }
+  }
+ },
+ "spearmanDraftVsBattle": 0.067,
+ "A_policyOnly": {
+  "plan": {},
+  "adopted": 0,
+  "evidence": [
+   {
+    "family": "sun",
+    "label": "쾌청",
+    "pick": [
+     "dragonite",
+     "garchomp",
+     "chandelure",
+     "rillaboom"
+    ],
+    "mixed": false,
+    "share": 0.15,
+    "screenDiff": 0.0,
+    "diff": 0.0,
+    "low": 0.0,
+    "high": 0.0,
+    "games": 20,
+    "tried": 4,
+    "adopted": false
+   },
+   {
+    "family": "psychic",
+    "label": "사이코필드",
+    "pick": [
+     "chandelure",
+     "golisopod",
+     "garchomp",
+     "sylveon"
+    ],
+    "mixed": false,
+    "share": 0.142,
+    "screenDiff": 0.0,
+    "diff": 0.0,
+    "low": 0.0,
+    "high": 0.0,
+    "games": 20,
+    "tried": 4,
+    "adopted": false
+   },
+   {
+    "family": "trickroom",
+    "label": "트릭룸",
+    "pick": [
+     "chandelure",
+     "dragonite",
+     "garchomp",
+     "rillaboom"
+    ],
+    "mixed": false,
+    "share": 0.133,
+    "screenDiff": 0.0,
+    "diff": 0.0,
+    "low": 0.0,
+    "high": 0.0,
+    "games": 20,
+    "tried": 4,
+    "adopted": false
+   },
+   {
+    "family": "tailwind",
+    "label": "순풍",
+    "pick": [
+     "chandelure",
+     "dragonite",
+     "garchomp",
+     "rillaboom"
+    ],
+    "mixed": false,
+    "share": 0.117,
+    "screenDiff": 0.0,
+    "diff": 0.0,
+    "low": 0.0,
+    "high": 0.0,
+    "games": 20,
+    "tried": 4,
+    "adopted": false
+   },
+   {
+    "family": "mix:tailwind|trickroom",
+    "label": "순풍 / 트릭룸 혼합",
+    "pick": [
+     "dragonite",
+     "garchomp",
+     "chandelure",
+     "sylveon"
+    ],
+    "mixed": true,
+    "share": 0.108,
+    "screenDiff": 0.0,
+    "diff": 0.0,
+    "low": 0.0,
+    "high": 0.0,
+    "games": 20,
+    "tried": 4,
+    "adopted": false
+   },
+   {
+    "family": "mix:psychic|trickroom",
+    "label": "사이코필드 / 트릭룸 혼합",
+    "pick": [
+     "dragonite",
+     "garchomp",
+     "chandelure",
+     "sylveon"
+    ],
+    "mixed": true,
+    "share": 0.083,
+    "screenDiff": 0.0,
+    "diff": 0.0,
+    "low": 0.0,
+    "high": 0.0,
+    "games": 20,
+    "tried": 4,
+    "adopted": false
+   }
+  ],
+  "holdout": {
+   "base": 0.707,
+   "variant": 0.707,
+   "diff": 0.0,
+   "low": 0.0,
+   "high": 0.0,
+   "n": 150
+  }
+ },
+ "B_setsOnly": {
+  "changes": [],
+  "info": {
+   "tried": 30,
+   "screenRuns": 60,
+   "confirmRuns": 240,
+   "screened": 4,
+   "base": 0.817,
+   "tuned": 0.802
+  },
+  "holdout": {
+   "base": 0.707,
+   "variant": 0.707,
+   "diff": 0.0,
+   "low": 0.0,
+   "high": 0.0,
+   "n": 150
+  }
+ },
+ "C_swapPlusPolicy": {
+  "swap": [
+   "rillaboom",
+   "pawmot"
+  ],
+  "plan": {},
+  "swapOnly": {
+   "base": 0.707,
+   "variant": 0.71,
+   "diff": 0.003,
+   "low": -0.088,
+   "high": 0.094,
+   "n": 150
+  },
+  "swapAndPolicy": {
+   "base": 0.707,
+   "variant": 0.71,
+   "diff": 0.003,
+   "low": -0.088,
+   "high": 0.094,
+   "n": 150
+  }
+ },
+ "megaStoneRemoved": {
+  "golisopod": {
+   "newItem": "Life Orb",
+   "base": 0.663,
+   "variant": 0.65,
+   "diff": -0.013,
+   "low": -0.08,
+   "high": 0.053,
+   "n": 150
+  },
+  "dragonite": {
+   "newItem": "Life Orb",
+   "base": 0.663,
+   "variant": 0.65,
+   "diff": -0.013,
+   "low": -0.101,
+   "high": 0.075,
+   "n": 150
+  }
+ },
+ "megaUsage": {
+  "golisopod": 10,
+  "dragonite": 29
+ }
+}

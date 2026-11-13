@@ -1,0 +1,861 @@
+{
+ "balance": {
+  "label": "균형형",
+  "rate": 0.558,
+  "ci": [
+   43.3,
+   67.7
+  ],
+  "games": 60,
+  "byStrategy": {
+   "balance": [
+    31,
+    60
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 90.0,
+    "lead": 26,
+    "koPerGame": 0.56,
+    "win": 53.7
+   },
+   "sylveon": {
+    "pick": 75.0,
+    "lead": 4,
+    "koPerGame": 0.58,
+    "win": 48.9
+   },
+   "chandelure": {
+    "pick": 68.3,
+    "lead": 24,
+    "koPerGame": 0.63,
+    "win": 53.7
+   },
+   "rillaboom": {
+    "pick": 66.7,
+    "lead": 24,
+    "koPerGame": 0.35,
+    "win": 50.0
+   },
+   "dragonite": {
+    "pick": 53.3,
+    "lead": 28,
+    "koPerGame": 1.47,
+    "win": 59.4
+   },
+   "golisopod": {
+    "pick": 46.7,
+    "lead": 14,
+    "koPerGame": 1.04,
+    "win": 42.9
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.917,
+   "lead_matchup_lost": 0.833,
+   "spread_move_unanswered": 0.208,
+   "priority_unanswered": 0.208,
+   "terrain_or_weather_lost": 0.167
+  },
+  "lossCauses": {
+   "tailwind": 0.25,
+   "grassy": 0.167,
+   "setup": 0.083,
+   "psychic": 0.042,
+   "electric": 0.042
+  },
+  "megas": {
+   "dragonite": 12
+  },
+  "picks": [
+   {
+    "leads": [
+     "chandelure",
+     "dragonite"
+    ],
+    "back": [
+     "garchomp",
+     "sylveon"
+    ],
+    "runs": 6,
+    "win": 5,
+    "opening": [
+     "Heat Wave",
+     "Tailwind"
+    ]
+   },
+   {
+    "leads": [
+     "dragonite",
+     "rillaboom"
+    ],
+    "back": [
+     "garchomp",
+     "sylveon"
+    ],
+    "runs": 6,
+    "win": 4,
+    "opening": [
+     "Tailwind"
+    ]
+   }
+  ]
+ },
+ "tailwind": {
+  "label": "순풍",
+  "rate": 0.8,
+  "ci": [
+   68.2,
+   88.2
+  ],
+  "games": 60,
+  "byStrategy": {
+   "tailwind": [
+    48,
+    60
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 96.7,
+    "lead": 22,
+    "koPerGame": 0.67,
+    "win": 79.3
+   },
+   "chandelure": {
+    "pick": 75.0,
+    "lead": 27,
+    "koPerGame": 0.89,
+    "win": 82.2
+   },
+   "sylveon": {
+    "pick": 71.7,
+    "lead": 3,
+    "koPerGame": 0.56,
+    "win": 81.4
+   },
+   "dragonite": {
+    "pick": 63.3,
+    "lead": 37,
+    "koPerGame": 1.45,
+    "win": 84.2
+   },
+   "rillaboom": {
+    "pick": 56.7,
+    "lead": 22,
+    "koPerGame": 0.35,
+    "win": 76.5
+   },
+   "golisopod": {
+    "pick": 36.7,
+    "lead": 9,
+    "koPerGame": 1.41,
+    "win": 72.7
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.917,
+   "lead_matchup_lost": 0.917,
+   "spread_move_unanswered": 0.333,
+   "setup_window_allowed": 0.167,
+   "trick_room_unanswered": 0.083
+  },
+  "lossCauses": {
+   "tailwind": 0.417,
+   "setup": 0.167,
+   "psychic": 0.083,
+   "snow": 0.083,
+   "trickroom": 0.083
+  },
+  "megas": {
+   "dragonite": 18
+  },
+  "picks": [
+   {
+    "leads": [
+     "chandelure",
+     "dragonite"
+    ],
+    "back": [
+     "garchomp",
+     "sylveon"
+    ],
+    "runs": 10,
+    "win": 9,
+    "opening": [
+     "Heat Wave",
+     "Heat Wave"
+    ]
+   },
+   {
+    "leads": [
+     "dragonite",
+     "garchomp"
+    ],
+    "back": [
+     "chandelure",
+     "sylveon"
+    ],
+    "runs": 8,
+    "win": 8,
+    "opening": [
+     "Dragon Claw",
+     "Dragon Pulse"
+    ]
+   }
+  ]
+ },
+ "trickroom": {
+  "label": "트릭룸",
+  "rate": 0.75,
+  "ci": [
+   62.8,
+   84.2
+  ],
+  "games": 60,
+  "byStrategy": {
+   "trickroom": [
+    44,
+    60
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 90.0,
+    "lead": 17,
+    "koPerGame": 0.78,
+    "win": 74.1
+   },
+   "chandelure": {
+    "pick": 81.7,
+    "lead": 28,
+    "koPerGame": 0.76,
+    "win": 77.6
+   },
+   "rillaboom": {
+    "pick": 70.0,
+    "lead": 24,
+    "koPerGame": 0.31,
+    "win": 73.8
+   },
+   "dragonite": {
+    "pick": 66.7,
+    "lead": 38,
+    "koPerGame": 1.57,
+    "win": 77.5
+   },
+   "sylveon": {
+    "pick": 56.7,
+    "lead": 2,
+    "koPerGame": 0.71,
+    "win": 64.7
+   },
+   "golisopod": {
+    "pick": 35.0,
+    "lead": 11,
+    "koPerGame": 1.33,
+    "win": 66.7
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.929,
+   "lead_matchup_lost": 0.786,
+   "trick_room_unanswered": 0.643,
+   "spread_move_unanswered": 0.214,
+   "priority_unanswered": 0.214
+  },
+  "lossCauses": {
+   "trickroom": 0.643,
+   "psychic": 0.143,
+   "setup": 0.071
+  },
+  "megas": {
+   "dragonite": 18
+  },
+  "picks": [
+   {
+    "leads": [
+     "chandelure",
+     "dragonite"
+    ],
+    "back": [
+     "garchomp",
+     "sylveon"
+    ],
+    "runs": 11,
+    "win": 7,
+    "opening": [
+     "Shadow Ball",
+     "Dragon Pulse"
+    ]
+   },
+   {
+    "leads": [
+     "chandelure",
+     "dragonite"
+    ],
+    "back": [
+     "garchomp",
+     "rillaboom"
+    ],
+    "runs": 7,
+    "win": 7,
+    "opening": [
+     "Heat Wave",
+     "Dragon Pulse"
+    ]
+   }
+  ]
+ },
+ "rain": {
+  "label": "비",
+  "rate": 0.6,
+  "ci": [
+   47.4,
+   71.4
+  ],
+  "games": 60,
+  "byStrategy": {
+   "rain": [
+    36,
+    60
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 93.3,
+    "lead": 12,
+    "koPerGame": 0.79,
+    "win": 62.5
+   },
+   "dragonite": {
+    "pick": 83.3,
+    "lead": 48,
+    "koPerGame": 1.3,
+    "win": 58.0
+   },
+   "rillaboom": {
+    "pick": 75.0,
+    "lead": 28,
+    "koPerGame": 0.76,
+    "win": 57.8
+   },
+   "sylveon": {
+    "pick": 65.0,
+    "lead": 1,
+    "koPerGame": 0.33,
+    "win": 61.5
+   },
+   "chandelure": {
+    "pick": 65.0,
+    "lead": 25,
+    "koPerGame": 0.44,
+    "win": 59.0
+   },
+   "golisopod": {
+    "pick": 18.3,
+    "lead": 6,
+    "koPerGame": 1.18,
+    "win": 63.6
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.708,
+   "lead_matchup_lost": 0.667,
+   "spread_move_unanswered": 0.333,
+   "opponent_tailwind_unanswered": 0.125,
+   "damage_balance_issue": 0.083
+  },
+  "lossCauses": {
+   "rain": 0.875,
+   "tailwind": 0.417,
+   "screens": 0.167,
+   "electric": 0.083,
+   "setup": 0.083
+  },
+  "megas": {
+   "dragonite": 23
+  },
+  "picks": [
+   {
+    "leads": [
+     "dragonite",
+     "rillaboom"
+    ],
+    "back": [
+     "garchomp",
+     "sylveon"
+    ],
+    "runs": 13,
+    "win": 7,
+    "opening": [
+     "Tailwind",
+     "Wood Hammer"
+    ]
+   },
+   {
+    "leads": [
+     "chandelure",
+     "dragonite"
+    ],
+    "back": [
+     "garchomp",
+     "rillaboom"
+    ],
+    "runs": 10,
+    "win": 7,
+    "opening": [
+     "Shadow Ball",
+     "Dragon Pulse"
+    ]
+   }
+  ]
+ },
+ "sun": {
+  "label": "쾌청",
+  "rate": 0.8,
+  "ci": [
+   68.2,
+   88.2
+  ],
+  "games": 60,
+  "byStrategy": {
+   "sun": [
+    48,
+    60
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 98.3,
+    "lead": 36,
+    "koPerGame": 0.63,
+    "win": 79.7
+   },
+   "chandelure": {
+    "pick": 83.3,
+    "lead": 29,
+    "koPerGame": 1.04,
+    "win": 82.0
+   },
+   "dragonite": {
+    "pick": 73.3,
+    "lead": 32,
+    "koPerGame": 1.77,
+    "win": 90.9
+   },
+   "sylveon": {
+    "pick": 60.0,
+    "lead": 3,
+    "koPerGame": 0.5,
+    "win": 83.3
+   },
+   "rillaboom": {
+    "pick": 58.3,
+    "lead": 13,
+    "koPerGame": 0.2,
+    "win": 74.3
+   },
+   "golisopod": {
+    "pick": 26.7,
+    "lead": 7,
+    "koPerGame": 0.56,
+    "win": 50.0
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 1.0,
+   "lead_matchup_lost": 0.583,
+   "spread_move_unanswered": 0.417,
+   "opponent_tailwind_unanswered": 0.167,
+   "priority_unanswered": 0.083
+  },
+  "lossCauses": {
+   "sun": 0.667,
+   "psychic": 0.167,
+   "tailwind": 0.167,
+   "trickroom": 0.083,
+   "setup": 0.083
+  },
+  "megas": {
+   "dragonite": 13
+  },
+  "picks": [
+   {
+    "leads": [
+     "dragonite",
+     "garchomp"
+    ],
+    "back": [
+     "chandelure",
+     "rillaboom"
+    ],
+    "runs": 7,
+    "win": 7,
+    "opening": [
+     "Rock Slide",
+     "Heat Wave"
+    ]
+   },
+   {
+    "leads": [
+     "chandelure",
+     "dragonite"
+    ],
+    "back": [
+     "garchomp",
+     "sylveon"
+    ],
+    "runs": 6,
+    "win": 6,
+    "opening": [
+     "Heat Wave",
+     "Heat Wave"
+    ]
+   }
+  ]
+ },
+ "psychic": {
+  "label": "사이코필드",
+  "rate": 0.675,
+  "ci": [
+   54.9,
+   78.0
+  ],
+  "games": 60,
+  "byStrategy": {
+   "psychic": [
+    39,
+    60
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 95.0,
+    "lead": 23,
+    "koPerGame": 0.86,
+    "win": 64.9
+   },
+   "chandelure": {
+    "pick": 78.3,
+    "lead": 29,
+    "koPerGame": 0.55,
+    "win": 68.1
+   },
+   "rillaboom": {
+    "pick": 71.7,
+    "lead": 25,
+    "koPerGame": 0.42,
+    "win": 65.1
+   },
+   "sylveon": {
+    "pick": 55.0,
+    "lead": 2,
+    "koPerGame": 0.64,
+    "win": 60.6
+   },
+   "golisopod": {
+    "pick": 50.0,
+    "lead": 16,
+    "koPerGame": 1.13,
+    "win": 66.7
+   },
+   "dragonite": {
+    "pick": 50.0,
+    "lead": 25,
+    "koPerGame": 1.37,
+    "win": 63.3
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.833,
+   "lead_matchup_lost": 0.778,
+   "terrain_or_weather_lost": 0.778,
+   "spread_move_unanswered": 0.556,
+   "trick_room_unanswered": 0.222
+  },
+  "lossCauses": {
+   "psychic": 1.0,
+   "trickroom": 0.222,
+   "grassy": 0.111,
+   "electric": 0.056,
+   "setup": 0.056
+  },
+  "megas": {
+   "dragonite": 13
+  },
+  "picks": [
+   {
+    "leads": [
+     "chandelure",
+     "dragonite"
+    ],
+    "back": [
+     "garchomp",
+     "sylveon"
+    ],
+    "runs": 7,
+    "win": 4,
+    "opening": [
+     "Shadow Ball",
+     "Dragon Pulse"
+    ]
+   },
+   {
+    "leads": [
+     "dragonite",
+     "rillaboom"
+    ],
+    "back": [
+     "garchomp",
+     "sylveon"
+    ],
+    "runs": 6,
+    "win": 4,
+    "opening": [
+     "Tailwind",
+     "Grassy Glide"
+    ]
+   }
+  ]
+ },
+ "setup": {
+  "label": "랭크업",
+  "rate": 0.733,
+  "ci": [
+   61.0,
+   82.9
+  ],
+  "games": 60,
+  "byStrategy": {
+   "setup": [
+    44,
+    60
+   ]
+  },
+  "members": {
+   "garchomp": {
+    "pick": 93.3,
+    "lead": 15,
+    "koPerGame": 0.86,
+    "win": 71.4
+   },
+   "chandelure": {
+    "pick": 75.0,
+    "lead": 18,
+    "koPerGame": 0.44,
+    "win": 80.0
+   },
+   "rillaboom": {
+    "pick": 65.0,
+    "lead": 32,
+    "koPerGame": 0.33,
+    "win": 69.2
+   },
+   "sylveon": {
+    "pick": 65.0,
+    "lead": 6,
+    "koPerGame": 0.64,
+    "win": 71.8
+   },
+   "dragonite": {
+    "pick": 63.3,
+    "lead": 36,
+    "koPerGame": 1.42,
+    "win": 76.3
+   },
+   "golisopod": {
+    "pick": 38.3,
+    "lead": 13,
+    "koPerGame": 1.48,
+    "win": 69.6
+   }
+  },
+  "lossTags": {
+   "speed_control_failed": 0.688,
+   "lead_matchup_lost": 0.688,
+   "setup_window_allowed": 0.438,
+   "terrain_or_weather_lost": 0.188,
+   "spread_move_unanswered": 0.188
+  },
+  "lossCauses": {
+   "setup": 0.438,
+   "trickroom": 0.188,
+   "tailwind": 0.125,
+   "grassy": 0.125,
+   "electric": 0.125
+  },
+  "megas": {
+   "dragonite": 16
+  },
+  "picks": [
+   {
+    "leads": [
+     "dragonite",
+     "rillaboom"
+    ],
+    "back": [
+     "garchomp",
+     "sylveon"
+    ],
+    "runs": 9,
+    "win": 5,
+    "opening": [
+     "Dragon Pulse",
+     "Wood Hammer"
+    ]
+   },
+   {
+    "leads": [
+     "chandelure",
+     "dragonite"
+    ],
+    "back": [
+     "garchomp",
+     "sylveon"
+    ],
+    "runs": 7,
+    "win": 5,
+    "opening": [
+     "Heat Wave",
+     "Heat Wave"
+    ]
+   }
+  ]
+ },
+ "_policy": {
+  "plan": {
+   "tailwind": [
+    "chandelure",
+    "dragonite",
+    "garchomp",
+    "sylveon"
+   ]
+  },
+  "evidence": [
+   {
+    "family": "sun",
+    "label": "쾌청",
+    "pick": [
+     "dragonite",
+     "garchomp",
+     "chandelure",
+     "sylveon"
+    ],
+    "mixed": false,
+    "share": 0.15,
+    "screenDiff": 0.0,
+    "diff": 0.0,
+    "low": 0.0,
+    "high": 0.0,
+    "games": 20,
+    "tried": 4,
+    "adopted": false
+   },
+   {
+    "family": "psychic",
+    "label": "사이코필드",
+    "pick": [
+     "chandelure",
+     "golisopod",
+     "garchomp",
+     "rillaboom"
+    ],
+    "mixed": false,
+    "share": 0.142,
+    "screenDiff": 0.05,
+    "diff": 0.0,
+    "low": -0.06,
+    "high": 0.06,
+    "games": 80,
+    "tried": 4,
+    "adopted": false
+   },
+   {
+    "family": "trickroom",
+    "label": "트릭룸",
+    "pick": [
+     "dragonite",
+     "sylveon",
+     "chandelure",
+     "rillaboom"
+    ],
+    "mixed": false,
+    "share": 0.133,
+    "screenDiff": -0.025,
+    "diff": -0.025,
+    "low": -0.074,
+    "high": 0.024,
+    "games": 20,
+    "tried": 4,
+    "adopted": false
+   },
+   {
+    "family": "tailwind",
+    "label": "순풍",
+    "pick": [
+     "chandelure",
+     "dragonite",
+     "garchomp",
+     "sylveon"
+    ],
+    "mixed": false,
+    "share": 0.117,
+    "screenDiff": 0.05,
+    "diff": 0.025,
+    "low": -0.009,
+    "high": 0.059,
+    "games": 80,
+    "tried": 4,
+    "adopted": true
+   },
+   {
+    "family": "mix:tailwind|trickroom",
+    "label": "순풍 / 트릭룸 혼합",
+    "pick": [
+     "dragonite",
+     "rillaboom",
+     "chandelure",
+     "sylveon"
+    ],
+    "mixed": true,
+    "share": 0.108,
+    "screenDiff": 0.0,
+    "diff": 0.0,
+    "low": 0.0,
+    "high": 0.0,
+    "games": 20,
+    "tried": 4,
+    "adopted": false
+   },
+   {
+    "family": "mix:psychic|trickroom",
+    "label": "사이코필드 / 트릭룸 혼합",
+    "pick": [
+     "chandelure",
+     "golisopod",
+     "garchomp",
+     "rillaboom"
+    ],
+    "mixed": true,
+    "share": 0.083,
+    "screenDiff": 0.0,
+    "diff": 0.0,
+    "low": 0.0,
+    "high": 0.0,
+    "games": 20,
+    "tried": 4,
+    "adopted": false
+   }
+  ],
+  "holdout": {
+   "base": 0.717,
+   "variant": 0.71,
+   "diff": -0.007,
+   "low": -0.041,
+   "high": 0.028,
+   "n": 150
+  }
+ }
+}

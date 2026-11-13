@@ -1,0 +1,472 @@
+{
+ "moves": {
+  "total": 266,
+  "missing": [
+   {
+    "name": "Perish Song",
+    "share": 0.27
+   },
+   {
+    "name": "Trick",
+    "share": 0.17
+   },
+   {
+    "name": "Instruct",
+    "share": 0.17
+   },
+   {
+    "name": "Revival Blessing",
+    "share": 0.11
+   },
+   {
+    "name": "Speed Swap",
+    "share": 0.08
+   },
+   {
+    "name": "Focus Energy",
+    "share": 0.05
+   },
+   {
+    "name": "Quash",
+    "share": 0.04
+   },
+   {
+    "name": "Beat Up",
+    "share": 0.03
+   },
+   {
+    "name": "Dragon Cheer",
+    "share": 0.03
+   },
+   {
+    "name": "Octolock",
+    "share": 0.03
+   },
+   {
+    "name": "Magic Powder",
+    "share": 0.03
+   },
+   {
+    "name": "Soak",
+    "share": 0.03
+   },
+   {
+    "name": "Psych Up",
+    "share": 0.02
+   },
+   {
+    "name": "Skill Swap",
+    "share": 0.02
+   },
+   {
+    "name": "Minimize",
+    "share": 0.02
+   },
+   {
+    "name": "Endure",
+    "share": 0.01
+   },
+   {
+    "name": "Fissure",
+    "share": 0.01
+   },
+   {
+    "name": "Shed Tail",
+    "share": 0.01
+   },
+   {
+    "name": "Horn Drill",
+    "share": 0.0
+   },
+   {
+    "name": "Metal Burst",
+    "share": 0.0
+   }
+  ],
+  "missingShare": 1.1
+ },
+ "abilities": {
+  "total": 125,
+  "missing": [
+   {
+    "name": "Cursed Body",
+    "share": 1.9
+   },
+   {
+    "name": "Unnerve",
+    "share": 1.45
+   },
+   {
+    "name": "Emergency Exit",
+    "share": 1.31
+   },
+   {
+    "name": "Flower Veil",
+    "share": 1.2
+   },
+   {
+    "name": "Poison Touch",
+    "share": 0.83
+   },
+   {
+    "name": "Cloud Nine",
+    "share": 0.81
+   },
+   {
+    "name": "Trace",
+    "share": 0.72
+   },
+   {
+    "name": "Illusion",
+    "share": 0.71
+   },
+   {
+    "name": "Justified",
+    "share": 0.69
+   },
+   {
+    "name": "Moxie",
+    "share": 0.65
+   },
+   {
+    "name": "Moody",
+    "share": 0.56
+   },
+   {
+    "name": "Rain Dish",
+    "share": 0.55
+   },
+   {
+    "name": "Frisk",
+    "share": 0.48
+   },
+   {
+    "name": "Solar Power",
+    "share": 0.45
+   },
+   {
+    "name": "Pickpocket",
+    "share": 0.41
+   },
+   {
+    "name": "Damp",
+    "share": 0.37
+   },
+   {
+    "name": "Telepathy",
+    "share": 0.32
+   },
+   {
+    "name": "Pressure",
+    "share": 0.29
+   },
+   {
+    "name": "Snow Cloak",
+    "share": 0.21
+   },
+   {
+    "name": "Magician",
+    "share": 0.08
+   },
+   {
+    "name": "Steadfast",
+    "share": 0.08
+   },
+   {
+    "name": "Bulletproof",
+    "share": 0.08
+   },
+   {
+    "name": "Reckless",
+    "share": 0.05
+   },
+   {
+    "name": "Ice Body",
+    "share": 0.04
+   },
+   {
+    "name": "Rivalry",
+    "share": 0.03
+   },
+   {
+    "name": "Anger Point",
+    "share": 0.03
+   },
+   {
+    "name": "Cute Charm",
+    "share": 0.03
+   },
+   {
+    "name": "Healer",
+    "share": 0.03
+   },
+   {
+    "name": "Symbiosis",
+    "share": 0.02
+   },
+   {
+    "name": "Stalwart",
+    "share": 0.02
+   },
+   {
+    "name": "Berserk",
+    "share": 0.02
+   },
+   {
+    "name": "Heatproof",
+    "share": 0.01
+   },
+   {
+    "name": "Natural Cure",
+    "share": 0.01
+   },
+   {
+    "name": "Anticipation",
+    "share": 0.01
+   },
+   {
+    "name": "Cud Chew",
+    "share": 0.0
+   },
+   {
+    "name": "Light Metal",
+    "share": 0.0
+   },
+   {
+    "name": "Shed Skin",
+    "share": 0.0
+   },
+   {
+    "name": "Marvel Scale",
+    "share": 0.0
+   },
+   {
+    "name": "Opportunist",
+    "share": 0.0
+   },
+   {
+    "name": "Keen Eye",
+    "share": 0.0
+   },
+   {
+    "name": "Cheek Pouch",
+    "share": 0.0
+   },
+   {
+    "name": "Stall",
+    "share": 0.0
+   }
+  ],
+  "missingShare": 14.4
+ },
+ "items": {
+  "total": 116,
+  "missing": [
+   {
+    "name": "Eject Button",
+    "share": 0.25
+   },
+   {
+    "name": "Quick Claw",
+    "share": 0.16
+   },
+   {
+    "name": "Iron Ball",
+    "share": 0.14
+   },
+   {
+    "name": "Leppa Berry",
+    "share": 0.04
+   },
+   {
+    "name": "Red Card",
+    "share": 0.03
+   },
+   {
+    "name": "Big Root",
+    "share": 0.02
+   },
+   {
+    "name": "Shell Bell",
+    "share": 0.01
+   },
+   {
+    "name": "Metronome",
+    "share": 0.0
+   }
+  ],
+  "missingShare": 0.7
+ },
+ "damagingMovesWithoutSpecialCode": [
+  {
+   "name": "Dragon Pulse",
+   "share": 1.16
+  },
+  {
+   "name": "High Horsepower",
+   "share": 1.06
+  },
+  {
+   "name": "Dazzling Gleam",
+   "share": 0.84
+  },
+  {
+   "name": "Aura Sphere",
+   "share": 0.74
+  },
+  {
+   "name": "Dragon Claw",
+   "share": 0.7
+  },
+  {
+   "name": "Stomping Tantrum",
+   "share": 0.59
+  },
+  {
+   "name": "Muddy Water",
+   "share": 0.56
+  },
+  {
+   "name": "Power Gem",
+   "share": 0.55
+  },
+  {
+   "name": "Throat Chop",
+   "share": 0.48
+  },
+  {
+   "name": "Eruption",
+   "share": 0.48
+  },
+  {
+   "name": "Last Respects",
+   "share": 0.48
+  },
+  {
+   "name": "Aqua Jet",
+   "share": 0.48
+  },
+  {
+   "name": "Ancient Power",
+   "share": 0.38
+  },
+  {
+   "name": "Triple Axel",
+   "share": 0.37
+  },
+  {
+   "name": "Psychic Fangs",
+   "share": 0.31
+  },
+  {
+   "name": "Dual Wingbeat",
+   "share": 0.3
+  },
+  {
+   "name": "Darkest Lariat",
+   "share": 0.29
+  },
+  {
+   "name": "Shadow Sneak",
+   "share": 0.25
+  },
+  {
+   "name": "Bullet Punch",
+   "share": 0.25
+  },
+  {
+   "name": "Extreme Speed",
+   "share": 0.24
+  },
+  {
+   "name": "Hyper Beam",
+   "share": 0.2
+  },
+  {
+   "name": "Water Spout",
+   "share": 0.2
+  },
+  {
+   "name": "Quick Attack",
+   "share": 0.19
+  },
+  {
+   "name": "Ice Shard",
+   "share": 0.18
+  },
+  {
+   "name": "Sacred Sword",
+   "share": 0.18
+  },
+  {
+   "name": "Glaive Rush",
+   "share": 0.17
+  },
+  {
+   "name": "Hydro Pump",
+   "share": 0.17
+  },
+  {
+   "name": "Phantom Force",
+   "share": 0.15
+  },
+  {
+   "name": "Rock Blast",
+   "share": 0.15
+  },
+  {
+   "name": "X-Scissor",
+   "share": 0.15
+  },
+  {
+   "name": "Double Shock",
+   "share": 0.14
+  },
+  {
+   "name": "Power Whip",
+   "share": 0.14
+  },
+  {
+   "name": "Bug Bite",
+   "share": 0.13
+  },
+  {
+   "name": "Mach Punch",
+   "share": 0.13
+  },
+  {
+   "name": "Rage Fist",
+   "share": 0.12
+  },
+  {
+   "name": "Bullet Seed",
+   "share": 0.12
+  },
+  {
+   "name": "Steel Roller",
+   "share": 0.11
+  },
+  {
+   "name": "Population Bomb",
+   "share": 0.11
+  },
+  {
+   "name": "Terrain Pulse",
+   "share": 0.1
+  },
+  {
+   "name": "Dragon Darts",
+   "share": 0.09
+  }
+ ],
+ "untranslated": {
+  "moves": [],
+  "abilities": [],
+  "items": []
+ },
+ "untranslatedCount": {
+  "moves": 0,
+  "abilities": 0,
+  "items": 0
+ }
+}

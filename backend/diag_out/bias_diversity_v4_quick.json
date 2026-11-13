@@ -1,0 +1,573 @@
+{
+ "teams": 37,
+ "spearman": {
+  "build_vs_hyperFresh": 0.488,
+  "hyper_vs_master": 0.632,
+  "hyper_vs_champion": 0.598,
+  "master_vs_champion": 0.74,
+  "build_vs_champion": 0.381
+ },
+ "mean": {
+  "build": 0.742,
+  "hyperFresh": 0.744,
+  "master": 0.524,
+  "champion": 0.511
+ },
+ "rows": [
+  {
+   "ids": [
+    "aurorus",
+    "kingambit",
+    "garchomp",
+    "dragonite",
+    "gholdengo",
+    "milotic"
+   ],
+   "originality": "meta",
+   "build": 0.875,
+   "hyper": 0.833,
+   "master": 0.683,
+   "champion": 0.625
+  },
+  {
+   "ids": [
+    "milotic",
+    "sylveon",
+    "garchomp",
+    "kingambit",
+    "dragonite",
+    "charizard"
+   ],
+   "originality": "meta",
+   "build": 0.775,
+   "hyper": 0.867,
+   "master": 0.708,
+   "champion": 0.708
+  },
+  {
+   "ids": [
+    "talonflame",
+    "whimsicott",
+    "basculegion",
+    "garchomp",
+    "floetteeternal",
+    "kingambit"
+   ],
+   "originality": "meta",
+   "build": 0.637,
+   "hyper": 0.767,
+   "master": 0.425,
+   "champion": 0.333
+  },
+  {
+   "ids": [
+    "basculegion",
+    "sneasler",
+    "talonflame",
+    "garchomp",
+    "kingambit",
+    "dragonite"
+   ],
+   "originality": "meta",
+   "build": 0.75,
+   "hyper": 0.767,
+   "master": 0.458,
+   "champion": 0.333
+  },
+  {
+   "ids": [
+    "salamence",
+    "basculegion",
+    "sneasler",
+    "garchomp",
+    "kingambit",
+    "gengar"
+   ],
+   "originality": "meta",
+   "build": 0.662,
+   "hyper": 0.683,
+   "master": 0.45,
+   "champion": 0.396
+  },
+  {
+   "ids": [
+    "salamence",
+    "basculegion",
+    "sneasler",
+    "dragonite",
+    "kingambit",
+    "rillaboom"
+   ],
+   "originality": "meta",
+   "build": 0.675,
+   "hyper": 0.675,
+   "master": 0.308,
+   "champion": 0.542
+  },
+  {
+   "ids": [
+    "dragonite",
+    "chandelure",
+    "golisopod",
+    "milotic",
+    "gholdengo",
+    "garchomp"
+   ],
+   "originality": "meta",
+   "build": 0.85,
+   "hyper": 0.833,
+   "master": 0.717,
+   "champion": 0.708
+  },
+  {
+   "ids": [
+    "basculegion",
+    "pelipper",
+    "sneasler",
+    "garchomp",
+    "kingambit",
+    "dragonite"
+   ],
+   "originality": "meta",
+   "build": 0.9,
+   "hyper": 0.692,
+   "master": 0.417,
+   "champion": 0.333
+  },
+  {
+   "ids": [
+    "basculegion",
+    "klefki",
+    "dragonite",
+    "kingambit",
+    "sneasler",
+    "rillaboom"
+   ],
+   "originality": "meta",
+   "build": 0.775,
+   "hyper": 0.65,
+   "master": 0.417,
+   "champion": 0.458
+  },
+  {
+   "ids": [
+    "charizard",
+    "incineroar",
+    "garchomp",
+    "kingambit",
+    "rillaboom",
+    "sneasler"
+   ],
+   "originality": "meta",
+   "build": 0.838,
+   "hyper": 0.733,
+   "master": 0.533,
+   "champion": 0.458
+  },
+  {
+   "ids": [
+    "dragonite",
+    "garchomp",
+    "gholdengo",
+    "charizard",
+    "chandelure",
+    "kingambit"
+   ],
+   "originality": "meta",
+   "build": 0.825,
+   "hyper": 0.892,
+   "master": 0.733,
+   "champion": 0.833
+  },
+  {
+   "ids": [
+    "chandelure",
+    "garchomp",
+    "dragonite",
+    "kingambit",
+    "absol",
+    "golisopod"
+   ],
+   "originality": "meta",
+   "build": 0.875,
+   "hyper": 0.75,
+   "master": 0.658,
+   "champion": 0.75
+  },
+  {
+   "ids": [
+    "chandelure",
+    "garchomp",
+    "dragonite",
+    "kingambit",
+    "gholdengo",
+    "golisopod"
+   ],
+   "originality": "meta",
+   "build": 0.875,
+   "hyper": 0.9,
+   "master": 0.725,
+   "champion": 0.833
+  },
+  {
+   "ids": [
+    "golisopod",
+    "chandelure",
+    "rillaboom",
+    "garchomp",
+    "dragonite",
+    "sylveon"
+   ],
+   "originality": "meta",
+   "build": 0.875,
+   "hyper": 0.917,
+   "master": 0.65,
+   "champion": 0.625
+  },
+  {
+   "ids": [
+    "excadrill",
+    "hippowdon",
+    "basculegion",
+    "dragonite",
+    "kingambit",
+    "sneasler"
+   ],
+   "originality": "meta",
+   "build": 0.875,
+   "hyper": 0.7,
+   "master": 0.425,
+   "champion": 0.458
+  },
+  {
+   "ids": [
+    "dragonite",
+    "excadrill",
+    "tyranitar",
+    "basculegion",
+    "sneasler",
+    "rillaboom"
+   ],
+   "originality": "meta",
+   "build": 0.7,
+   "hyper": 0.733,
+   "master": 0.533,
+   "champion": 0.458
+  },
+  {
+   "ids": [
+    "chandelure",
+    "garchomp",
+    "dragonite",
+    "kingambit",
+    "gholdengo",
+    "aurorus"
+   ],
+   "originality": "meta",
+   "build": 0.825,
+   "hyper": 0.85,
+   "master": 0.7,
+   "champion": 0.708
+  },
+  {
+   "ids": [
+    "golisopod",
+    "sneasler",
+    "hydreigon",
+    "garchomp",
+    "talonflame",
+    "clefable"
+   ],
+   "originality": "balanced",
+   "build": 0.825,
+   "hyper": 0.775,
+   "master": 0.383,
+   "champion": 0.583
+  },
+  {
+   "ids": [
+    "metagross",
+    "talonflame",
+    "floetteeternal",
+    "garchomp",
+    "incineroar",
+    "whimsicott"
+   ],
+   "originality": "balanced",
+   "build": 0.7,
+   "hyper": 0.65,
+   "master": 0.417,
+   "champion": 0.229
+  },
+  {
+   "ids": [
+    "salamence",
+    "arcaninehisui",
+    "sneasler",
+    "rillaboom",
+    "incineroar",
+    "hippowdon"
+   ],
+   "originality": "balanced",
+   "build": 0.75,
+   "hyper": 0.817,
+   "master": 0.433,
+   "champion": 0.312
+  },
+  {
+   "ids": [
+    "basculegion",
+    "klefki",
+    "dragonite",
+    "kingambit",
+    "whimsicott",
+    "talonflame"
+   ],
+   "originality": "balanced",
+   "build": 0.625,
+   "hyper": 0.775,
+   "master": 0.358,
+   "champion": 0.396
+  },
+  {
+   "ids": [
+    "basculegion",
+    "leafeon",
+    "dragonite",
+    "kingambit",
+    "whimsicott",
+    "indeedeef"
+   ],
+   "originality": "balanced",
+   "build": 0.625,
+   "hyper": 0.567,
+   "master": 0.333,
+   "champion": 0.208
+  },
+  {
+   "ids": [
+    "vivillonfancy",
+    "klefki",
+    "salamence",
+    "sneasler",
+    "incineroar",
+    "garchomp"
+   ],
+   "originality": "balanced",
+   "build": 0.6,
+   "hyper": 0.6,
+   "master": 0.417,
+   "champion": 0.375
+  },
+  {
+   "ids": [
+    "delphox",
+    "whimsicott",
+    "kingambit",
+    "garchomp",
+    "incineroar",
+    "rillaboom"
+   ],
+   "originality": "balanced",
+   "build": 0.675,
+   "hyper": 0.683,
+   "master": 0.575,
+   "champion": 0.333
+  },
+  {
+   "ids": [
+    "metagross",
+    "arcaninehisui",
+    "vivillonfancy",
+    "rillaboom",
+    "sneasler",
+    "garchomp"
+   ],
+   "originality": "balanced",
+   "build": 0.613,
+   "hyper": 0.75,
+   "master": 0.5,
+   "champion": 0.479
+  },
+  {
+   "ids": [
+    "salamence",
+    "excadrill",
+    "tyranitar",
+    "rillaboom",
+    "sneasler",
+    "arcaninehisui"
+   ],
+   "originality": "balanced",
+   "build": 0.725,
+   "hyper": 0.717,
+   "master": 0.45,
+   "champion": 0.583
+  },
+  {
+   "ids": [
+    "dragonite",
+    "excadrill",
+    "tyranitar",
+    "basculegion",
+    "sneasler",
+    "whimsicott"
+   ],
+   "originality": "balanced",
+   "build": 0.7,
+   "hyper": 0.583,
+   "master": 0.525,
+   "champion": 0.375
+  },
+  {
+   "ids": [
+    "salamence",
+    "excadrill",
+    "tyranitar",
+    "basculegion",
+    "rillaboom",
+    "milotic"
+   ],
+   "originality": "balanced",
+   "build": 0.675,
+   "hyper": 0.742,
+   "master": 0.425,
+   "champion": 0.25
+  },
+  {
+   "ids": [
+    "aurorus",
+    "kingambit",
+    "garchomp",
+    "dragonite",
+    "salamence",
+    "milotic"
+   ],
+   "originality": "balanced",
+   "build": 0.875,
+   "hyper": 0.775,
+   "master": 0.583,
+   "champion": 0.625
+  },
+  {
+   "ids": [
+    "primarina",
+    "incineroar",
+    "sinistcha",
+    "garchomp",
+    "charizard",
+    "whimsicott"
+   ],
+   "originality": "balanced",
+   "build": 0.613,
+   "hyper": 0.758,
+   "master": 0.617,
+   "champion": 0.625
+  },
+  {
+   "ids": [
+    "milotic",
+    "chandelure",
+    "sylveon",
+    "garchomp",
+    "dragonite",
+    "klefki"
+   ],
+   "originality": "unique",
+   "build": 0.762,
+   "hyper": 0.767,
+   "master": 0.717,
+   "champion": 0.667
+  },
+  {
+   "ids": [
+    "dragonite",
+    "garchomp",
+    "gholdengo",
+    "charizard",
+    "chandelure",
+    "golisopod"
+   ],
+   "originality": "unique",
+   "build": 0.775,
+   "hyper": 0.883,
+   "master": 0.783,
+   "champion": 0.833
+  },
+  {
+   "ids": [
+    "staraptor",
+    "arcaninehisui",
+    "sinistcha",
+    "excadrill",
+    "milotic",
+    "rillaboom"
+   ],
+   "originality": "unique",
+   "build": 0.55,
+   "hyper": 0.692,
+   "master": 0.483,
+   "champion": 0.458
+  },
+  {
+   "ids": [
+    "salamence",
+    "excadrill",
+    "tyranitar",
+    "rillaboom",
+    "arcaninehisui",
+    "clefable"
+   ],
+   "originality": "unique",
+   "build": 0.675,
+   "hyper": 0.733,
+   "master": 0.55,
+   "champion": 0.625
+  },
+  {
+   "ids": [
+    "milotic",
+    "hydreigon",
+    "pelipper",
+    "excadrill",
+    "staraptor",
+    "sinistcha"
+   ],
+   "originality": "unique",
+   "build": 0.637,
+   "hyper": 0.667,
+   "master": 0.417,
+   "champion": 0.583
+  },
+  {
+   "ids": [
+    "vivillonfancy",
+    "politoed",
+    "arcaninehisui",
+    "rillaboom",
+    "metagross",
+    "sneasler"
+   ],
+   "originality": "unique",
+   "build": 0.838,
+   "hyper": 0.758,
+   "master": 0.417,
+   "champion": 0.375
+  },
+  {
+   "ids": [
+    "talonflame",
+    "abomasnow",
+    "froslass",
+    "taurospaldeaaqua",
+    "garchomp",
+    "rotomwash"
+   ],
+   "originality": "unique",
+   "build": 0.637,
+   "hyper": 0.608,
+   "master": 0.467,
+   "champion": 0.417
+  }
+ ]
+}

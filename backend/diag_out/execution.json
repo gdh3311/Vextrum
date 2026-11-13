@@ -1,0 +1,896 @@
+{
+ "target": {
+  "roles": {
+   "tailwind": {
+    "setters": [
+     "dragonite"
+    ],
+    "payoffs": [
+     "garchomp"
+    ]
+   },
+   "trickroom": {
+    "setters": [
+     "chandelure"
+    ],
+    "payoffs": [
+     "golisopod",
+     "sylveon"
+    ]
+   }
+  },
+  "games": 60,
+  "win": 0.758,
+  "koBeforeMovePerGame": 1.47,
+  "modes": {
+   "tailwind": {
+    "setterBroughtRate": 0.7,
+    "setterAndPayoffRate": 0.567,
+    "activationRateWhenSetterBrought": 0.429,
+    "meanActivationTurn": 3.11,
+    "winWhenActivated": 0.778,
+    "winWhenSetterBroughtButNotActivated": 0.75,
+    "koBeforeMoveActivated": 1.0,
+    "koBeforeMoveNotActivated": 1.75,
+    "counts": {
+     "games": 60,
+     "setterBrought": 42,
+     "bothBrought": 34,
+     "activated": 18,
+     "activatedTurnSum": 56,
+     "winWhenActivated": 14.0,
+     "winWhenNotActivated": 18.0,
+     "koBeforeMoveActivated": 18,
+     "koBeforeMoveNot": 42
+    }
+   },
+   "trickroom": {
+    "setterBroughtRate": 0.817,
+    "setterAndPayoffRate": 0.583,
+    "activationRateWhenSetterBrought": 0.061,
+    "meanActivationTurn": 4.33,
+    "winWhenActivated": 1.0,
+    "winWhenSetterBroughtButNotActivated": 0.728,
+    "koBeforeMoveActivated": 0.67,
+    "koBeforeMoveNotActivated": 1.5,
+    "counts": {
+     "games": 60,
+     "setterBrought": 49,
+     "bothBrought": 35,
+     "activated": 3,
+     "activatedTurnSum": 13,
+     "winWhenActivated": 3.0,
+     "winWhenNotActivated": 33.5,
+     "koBeforeMoveActivated": 2,
+     "koBeforeMoveNot": 69
+    }
+   }
+  }
+ },
+ "diversity": [
+  {
+   "ids": [
+    "aurorus",
+    "kingambit",
+    "garchomp",
+    "dragonite",
+    "gholdengo",
+    "milotic"
+   ],
+   "originality": "meta",
+   "roles": {
+    "tailwind": {
+     "setters": [
+      "dragonite"
+     ],
+     "payoffs": [
+      "garchomp"
+     ]
+    }
+   },
+   "games": 30,
+   "win": 0.633,
+   "koBeforeMovePerGame": 1.87,
+   "modes": {
+    "tailwind": {
+     "setterBroughtRate": 1.0,
+     "setterAndPayoffRate": 0.9,
+     "activationRateWhenSetterBrought": 0.433,
+     "meanActivationTurn": 2.69,
+     "winWhenActivated": 0.615,
+     "winWhenSetterBroughtButNotActivated": 0.647,
+     "koBeforeMoveActivated": 1.92,
+     "koBeforeMoveNotActivated": 1.82,
+     "counts": {
+      "games": 30,
+      "setterBrought": 30,
+      "bothBrought": 27,
+      "activated": 13,
+      "activatedTurnSum": 35,
+      "winWhenActivated": 8.0,
+      "winWhenNotActivated": 11.0,
+      "koBeforeMoveActivated": 25,
+      "koBeforeMoveNot": 31
+     }
+    }
+   }
+  },
+  {
+   "ids": [
+    "milotic",
+    "sylveon",
+    "garchomp",
+    "kingambit",
+    "dragonite",
+    "charizard"
+   ],
+   "originality": "meta",
+   "roles": {
+    "tailwind": {
+     "setters": [
+      "dragonite"
+     ],
+     "payoffs": [
+      "garchomp"
+     ]
+    }
+   },
+   "games": 30,
+   "win": 0.783,
+   "koBeforeMovePerGame": 1.2,
+   "modes": {
+    "tailwind": {
+     "setterBroughtRate": 0.6,
+     "setterAndPayoffRate": 0.5,
+     "activationRateWhenSetterBrought": 0.278,
+     "meanActivationTurn": 3.2,
+     "winWhenActivated": 0.7,
+     "winWhenSetterBroughtButNotActivated": 0.846,
+     "koBeforeMoveActivated": 1.2,
+     "koBeforeMoveNotActivated": 1.08,
+     "counts": {
+      "games": 30,
+      "setterBrought": 18,
+      "bothBrought": 15,
+      "activated": 5,
+      "activatedTurnSum": 16,
+      "winWhenActivated": 3.5,
+      "winWhenNotActivated": 11.0,
+      "koBeforeMoveActivated": 6,
+      "koBeforeMoveNot": 14
+     }
+    }
+   }
+  },
+  {
+   "ids": [
+    "talonflame",
+    "whimsicott",
+    "basculegion",
+    "garchomp",
+    "floetteeternal",
+    "kingambit"
+   ],
+   "originality": "meta",
+   "roles": {
+    "tailwind": {
+     "setters": [
+      "talonflame",
+      "whimsicott"
+     ],
+     "payoffs": [
+      "basculegion"
+     ]
+    }
+   },
+   "games": 30,
+   "win": 0.483,
+   "koBeforeMovePerGame": 1.27,
+   "modes": {
+    "tailwind": {
+     "setterBroughtRate": 1.0,
+     "setterAndPayoffRate": 0.767,
+     "activationRateWhenSetterBrought": 0.167,
+     "meanActivationTurn": 2.6,
+     "winWhenActivated": 0.9,
+     "winWhenSetterBroughtButNotActivated": 0.4,
+     "koBeforeMoveActivated": 0.8,
+     "koBeforeMoveNotActivated": 1.36,
+     "counts": {
+      "games": 30,
+      "setterBrought": 30,
+      "bothBrought": 23,
+      "activated": 5,
+      "activatedTurnSum": 13,
+      "winWhenActivated": 4.5,
+      "winWhenNotActivated": 10.0,
+      "koBeforeMoveActivated": 4,
+      "koBeforeMoveNot": 34
+     }
+    }
+   }
+  },
+  {
+   "ids": [
+    "basculegion",
+    "sneasler",
+    "talonflame",
+    "garchomp",
+    "kingambit",
+    "dragonite"
+   ],
+   "originality": "meta",
+   "roles": {
+    "tailwind": {
+     "setters": [
+      "talonflame",
+      "dragonite"
+     ],
+     "payoffs": [
+      "basculegion",
+      "sneasler"
+     ]
+    }
+   },
+   "games": 30,
+   "win": 0.317,
+   "koBeforeMovePerGame": 1.83,
+   "modes": {
+    "tailwind": {
+     "setterBroughtRate": 1.0,
+     "setterAndPayoffRate": 0.867,
+     "activationRateWhenSetterBrought": 0.233,
+     "meanActivationTurn": 2.86,
+     "winWhenActivated": 0.286,
+     "winWhenSetterBroughtButNotActivated": 0.326,
+     "koBeforeMoveActivated": 1.86,
+     "koBeforeMoveNotActivated": 1.83,
+     "counts": {
+      "games": 30,
+      "setterBrought": 30,
+      "bothBrought": 26,
+      "activated": 7,
+      "activatedTurnSum": 20,
+      "winWhenActivated": 2.0,
+      "winWhenNotActivated": 7.5,
+      "koBeforeMoveActivated": 13,
+      "koBeforeMoveNot": 42
+     }
+    }
+   }
+  },
+  {
+   "ids": [
+    "salamence",
+    "basculegion",
+    "sneasler",
+    "garchomp",
+    "kingambit",
+    "gengar"
+   ],
+   "originality": "meta",
+   "roles": {
+    "tailwind": {
+     "setters": [
+      "salamence"
+     ],
+     "payoffs": [
+      "basculegion",
+      "sneasler",
+      "gengar"
+     ]
+    }
+   },
+   "games": 30,
+   "win": 0.367,
+   "koBeforeMovePerGame": 1.9,
+   "modes": {
+    "tailwind": {
+     "setterBroughtRate": 1.0,
+     "setterAndPayoffRate": 1.0,
+     "activationRateWhenSetterBrought": 0.067,
+     "meanActivationTurn": 3.0,
+     "winWhenActivated": 0.5,
+     "winWhenSetterBroughtButNotActivated": 0.357,
+     "koBeforeMoveActivated": 1.0,
+     "koBeforeMoveNotActivated": 1.96,
+     "counts": {
+      "games": 30,
+      "setterBrought": 30,
+      "bothBrought": 30,
+      "activated": 2,
+      "activatedTurnSum": 6,
+      "winWhenActivated": 1.0,
+      "winWhenNotActivated": 10.0,
+      "koBeforeMoveActivated": 2,
+      "koBeforeMoveNot": 55
+     }
+    }
+   }
+  },
+  {
+   "ids": [
+    "salamence",
+    "basculegion",
+    "sneasler",
+    "dragonite",
+    "kingambit",
+    "rillaboom"
+   ],
+   "originality": "meta",
+   "roles": {
+    "tailwind": {
+     "setters": [
+      "salamence",
+      "dragonite"
+     ],
+     "payoffs": [
+      "basculegion",
+      "sneasler"
+     ]
+    }
+   },
+   "games": 30,
+   "win": 0.6,
+   "koBeforeMovePerGame": 1.63,
+   "modes": {
+    "tailwind": {
+     "setterBroughtRate": 1.0,
+     "setterAndPayoffRate": 0.933,
+     "activationRateWhenSetterBrought": 0.167,
+     "meanActivationTurn": 3.0,
+     "winWhenActivated": 0.8,
+     "winWhenSetterBroughtButNotActivated": 0.56,
+     "koBeforeMoveActivated": 1.2,
+     "koBeforeMoveNotActivated": 1.72,
+     "counts": {
+      "games": 30,
+      "setterBrought": 30,
+      "bothBrought": 28,
+      "activated": 5,
+      "activatedTurnSum": 15,
+      "winWhenActivated": 4.0,
+      "winWhenNotActivated": 14.0,
+      "koBeforeMoveActivated": 6,
+      "koBeforeMoveNot": 43
+     }
+    }
+   }
+  },
+  {
+   "ids": [
+    "dragonite",
+    "chandelure",
+    "golisopod",
+    "milotic",
+    "gholdengo",
+    "garchomp"
+   ],
+   "originality": "meta",
+   "roles": {
+    "tailwind": {
+     "setters": [
+      "dragonite"
+     ],
+     "payoffs": [
+      "garchomp"
+     ]
+    }
+   },
+   "games": 30,
+   "win": 0.567,
+   "koBeforeMovePerGame": 1.77,
+   "modes": {
+    "tailwind": {
+     "setterBroughtRate": 1.0,
+     "setterAndPayoffRate": 0.767,
+     "activationRateWhenSetterBrought": 0.233,
+     "meanActivationTurn": 2.86,
+     "winWhenActivated": 0.714,
+     "winWhenSetterBroughtButNotActivated": 0.522,
+     "koBeforeMoveActivated": 1.43,
+     "koBeforeMoveNotActivated": 1.87,
+     "counts": {
+      "games": 30,
+      "setterBrought": 30,
+      "bothBrought": 23,
+      "activated": 7,
+      "activatedTurnSum": 20,
+      "winWhenActivated": 5.0,
+      "winWhenNotActivated": 12.0,
+      "koBeforeMoveActivated": 10,
+      "koBeforeMoveNot": 43
+     }
+    }
+   }
+  },
+  {
+   "ids": [
+    "basculegion",
+    "pelipper",
+    "sneasler",
+    "garchomp",
+    "kingambit",
+    "dragonite"
+   ],
+   "originality": "meta",
+   "roles": {
+    "tailwind": {
+     "setters": [
+      "pelipper",
+      "dragonite"
+     ],
+     "payoffs": [
+      "basculegion",
+      "sneasler"
+     ]
+    }
+   },
+   "games": 30,
+   "win": 0.467,
+   "koBeforeMovePerGame": 1.9,
+   "modes": {
+    "tailwind": {
+     "setterBroughtRate": 1.0,
+     "setterAndPayoffRate": 0.967,
+     "activationRateWhenSetterBrought": 0.2,
+     "meanActivationTurn": 3.33,
+     "winWhenActivated": 0.667,
+     "winWhenSetterBroughtButNotActivated": 0.417,
+     "koBeforeMoveActivated": 1.67,
+     "koBeforeMoveNotActivated": 1.96,
+     "counts": {
+      "games": 30,
+      "setterBrought": 30,
+      "bothBrought": 29,
+      "activated": 6,
+      "activatedTurnSum": 20,
+      "winWhenActivated": 4.0,
+      "winWhenNotActivated": 10.0,
+      "koBeforeMoveActivated": 10,
+      "koBeforeMoveNot": 47
+     }
+    }
+   }
+  },
+  {
+   "ids": [
+    "basculegion",
+    "klefki",
+    "dragonite",
+    "kingambit",
+    "sneasler",
+    "rillaboom"
+   ],
+   "originality": "meta",
+   "roles": {
+    "tailwind": {
+     "setters": [
+      "dragonite"
+     ],
+     "payoffs": [
+      "basculegion",
+      "sneasler"
+     ]
+    }
+   },
+   "games": 30,
+   "win": 0.517,
+   "koBeforeMovePerGame": 1.4,
+   "modes": {
+    "tailwind": {
+     "setterBroughtRate": 1.0,
+     "setterAndPayoffRate": 1.0,
+     "activationRateWhenSetterBrought": 0.233,
+     "meanActivationTurn": 3.0,
+     "winWhenActivated": 0.571,
+     "winWhenSetterBroughtButNotActivated": 0.5,
+     "koBeforeMoveActivated": 1.14,
+     "koBeforeMoveNotActivated": 1.48,
+     "counts": {
+      "games": 30,
+      "setterBrought": 30,
+      "bothBrought": 30,
+      "activated": 7,
+      "activatedTurnSum": 21,
+      "winWhenActivated": 4.0,
+      "winWhenNotActivated": 11.5,
+      "koBeforeMoveActivated": 8,
+      "koBeforeMoveNot": 34
+     }
+    }
+   }
+  },
+  {
+   "ids": [
+    "charizard",
+    "incineroar",
+    "garchomp",
+    "kingambit",
+    "rillaboom",
+    "sneasler"
+   ],
+   "originality": "meta",
+   "roles": {},
+   "games": 30,
+   "win": 0.55,
+   "koBeforeMovePerGame": 1.17,
+   "modes": {}
+  },
+  {
+   "ids": [
+    "dragonite",
+    "garchomp",
+    "gholdengo",
+    "charizard",
+    "chandelure",
+    "kingambit"
+   ],
+   "originality": "meta",
+   "roles": {
+    "tailwind": {
+     "setters": [
+      "dragonite"
+     ],
+     "payoffs": [
+      "garchomp"
+     ]
+    }
+   },
+   "games": 30,
+   "win": 0.767,
+   "koBeforeMovePerGame": 1.53,
+   "modes": {
+    "tailwind": {
+     "setterBroughtRate": 0.733,
+     "setterAndPayoffRate": 0.7,
+     "activationRateWhenSetterBrought": 0.455,
+     "meanActivationTurn": 2.8,
+     "winWhenActivated": 0.7,
+     "winWhenSetterBroughtButNotActivated": 0.667,
+     "koBeforeMoveActivated": 1.5,
+     "koBeforeMoveNotActivated": 1.92,
+     "counts": {
+      "games": 30,
+      "setterBrought": 22,
+      "bothBrought": 21,
+      "activated": 10,
+      "activatedTurnSum": 28,
+      "winWhenActivated": 7.0,
+      "winWhenNotActivated": 8.0,
+      "koBeforeMoveActivated": 15,
+      "koBeforeMoveNot": 23
+     }
+    }
+   }
+  },
+  {
+   "ids": [
+    "chandelure",
+    "garchomp",
+    "dragonite",
+    "kingambit",
+    "absol",
+    "golisopod"
+   ],
+   "originality": "meta",
+   "roles": {
+    "tailwind": {
+     "setters": [
+      "dragonite"
+     ],
+     "payoffs": [
+      "garchomp",
+      "absol"
+     ]
+    },
+    "trickroom": {
+     "setters": [
+      "chandelure"
+     ],
+     "payoffs": [
+      "kingambit",
+      "golisopod"
+     ]
+    }
+   },
+   "games": 30,
+   "win": 0.633,
+   "koBeforeMovePerGame": 1.7,
+   "modes": {
+    "tailwind": {
+     "setterBroughtRate": 0.733,
+     "setterAndPayoffRate": 0.6,
+     "activationRateWhenSetterBrought": 0.318,
+     "meanActivationTurn": 3.43,
+     "winWhenActivated": 0.571,
+     "winWhenSetterBroughtButNotActivated": 0.733,
+     "koBeforeMoveActivated": 1.43,
+     "koBeforeMoveNotActivated": 1.67,
+     "counts": {
+      "games": 30,
+      "setterBrought": 22,
+      "bothBrought": 18,
+      "activated": 7,
+      "activatedTurnSum": 24,
+      "winWhenActivated": 4.0,
+      "winWhenNotActivated": 11.0,
+      "koBeforeMoveActivated": 10,
+      "koBeforeMoveNot": 25
+     }
+    },
+    "trickroom": {
+     "setterBroughtRate": 0.867,
+     "setterAndPayoffRate": 0.767,
+     "activationRateWhenSetterBrought": 0.038,
+     "meanActivationTurn": 3.0,
+     "winWhenActivated": 1.0,
+     "winWhenSetterBroughtButNotActivated": 0.6,
+     "koBeforeMoveActivated": 2.0,
+     "koBeforeMoveNotActivated": 1.72,
+     "counts": {
+      "games": 30,
+      "setterBrought": 26,
+      "bothBrought": 23,
+      "activated": 1,
+      "activatedTurnSum": 3,
+      "winWhenActivated": 1.0,
+      "winWhenNotActivated": 15.0,
+      "koBeforeMoveActivated": 2,
+      "koBeforeMoveNot": 43
+     }
+    }
+   }
+  },
+  {
+   "ids": [
+    "chandelure",
+    "garchomp",
+    "dragonite",
+    "kingambit",
+    "gholdengo",
+    "golisopod"
+   ],
+   "originality": "meta",
+   "roles": {
+    "tailwind": {
+     "setters": [
+      "dragonite"
+     ],
+     "payoffs": [
+      "garchomp"
+     ]
+    },
+    "trickroom": {
+     "setters": [
+      "chandelure"
+     ],
+     "payoffs": [
+      "kingambit",
+      "golisopod"
+     ]
+    }
+   },
+   "games": 30,
+   "win": 0.633,
+   "koBeforeMovePerGame": 1.43,
+   "modes": {
+    "tailwind": {
+     "setterBroughtRate": 1.0,
+     "setterAndPayoffRate": 0.7,
+     "activationRateWhenSetterBrought": 0.333,
+     "meanActivationTurn": 2.8,
+     "winWhenActivated": 0.5,
+     "winWhenSetterBroughtButNotActivated": 0.7,
+     "koBeforeMoveActivated": 1.3,
+     "koBeforeMoveNotActivated": 1.5,
+     "counts": {
+      "games": 30,
+      "setterBrought": 30,
+      "bothBrought": 21,
+      "activated": 10,
+      "activatedTurnSum": 28,
+      "winWhenActivated": 5.0,
+      "winWhenNotActivated": 14.0,
+      "koBeforeMoveActivated": 13,
+      "koBeforeMoveNot": 30
+     }
+    },
+    "trickroom": {
+     "setterBroughtRate": 0.633,
+     "setterAndPayoffRate": 0.567,
+     "activationRateWhenSetterBrought": 0.0,
+     "meanActivationTurn": null,
+     "winWhenActivated": null,
+     "winWhenSetterBroughtButNotActivated": 0.579,
+     "koBeforeMoveActivated": null,
+     "koBeforeMoveNotActivated": 1.47,
+     "counts": {
+      "games": 30,
+      "setterBrought": 19,
+      "bothBrought": 17,
+      "activated": 0,
+      "activatedTurnSum": 0,
+      "winWhenActivated": 0,
+      "winWhenNotActivated": 11.0,
+      "koBeforeMoveActivated": 0,
+      "koBeforeMoveNot": 28
+     }
+    }
+   }
+  },
+  {
+   "ids": [
+    "golisopod",
+    "chandelure",
+    "rillaboom",
+    "garchomp",
+    "dragonite",
+    "sylveon"
+   ],
+   "originality": "meta",
+   "roles": {
+    "tailwind": {
+     "setters": [
+      "dragonite"
+     ],
+     "payoffs": [
+      "garchomp"
+     ]
+    },
+    "trickroom": {
+     "setters": [
+      "chandelure"
+     ],
+     "payoffs": [
+      "golisopod",
+      "sylveon"
+     ]
+    }
+   },
+   "games": 30,
+   "win": 0.7,
+   "koBeforeMovePerGame": 1.27,
+   "modes": {
+    "tailwind": {
+     "setterBroughtRate": 0.7,
+     "setterAndPayoffRate": 0.567,
+     "activationRateWhenSetterBrought": 0.333,
+     "meanActivationTurn": 2.86,
+     "winWhenActivated": 0.714,
+     "winWhenSetterBroughtButNotActivated": 0.714,
+     "koBeforeMoveActivated": 1.57,
+     "koBeforeMoveNotActivated": 1.21,
+     "counts": {
+      "games": 30,
+      "setterBrought": 21,
+      "bothBrought": 17,
+      "activated": 7,
+      "activatedTurnSum": 20,
+      "winWhenActivated": 5.0,
+      "winWhenNotActivated": 10.0,
+      "koBeforeMoveActivated": 11,
+      "koBeforeMoveNot": 17
+     }
+    },
+    "trickroom": {
+     "setterBroughtRate": 0.733,
+     "setterAndPayoffRate": 0.6,
+     "activationRateWhenSetterBrought": 0.045,
+     "meanActivationTurn": 4.0,
+     "winWhenActivated": 0.0,
+     "winWhenSetterBroughtButNotActivated": 0.714,
+     "koBeforeMoveActivated": 2.0,
+     "koBeforeMoveNotActivated": 1.38,
+     "counts": {
+      "games": 30,
+      "setterBrought": 22,
+      "bothBrought": 18,
+      "activated": 1,
+      "activatedTurnSum": 4,
+      "winWhenActivated": 0.0,
+      "winWhenNotActivated": 15.0,
+      "koBeforeMoveActivated": 2,
+      "koBeforeMoveNot": 29
+     }
+    }
+   }
+  },
+  {
+   "ids": [
+    "excadrill",
+    "hippowdon",
+    "basculegion",
+    "dragonite",
+    "kingambit",
+    "sneasler"
+   ],
+   "originality": "meta",
+   "roles": {
+    "tailwind": {
+     "setters": [
+      "dragonite"
+     ],
+     "payoffs": [
+      "basculegion",
+      "sneasler"
+     ]
+    }
+   },
+   "games": 30,
+   "win": 0.4,
+   "koBeforeMovePerGame": 1.93,
+   "modes": {
+    "tailwind": {
+     "setterBroughtRate": 1.0,
+     "setterAndPayoffRate": 1.0,
+     "activationRateWhenSetterBrought": 0.167,
+     "meanActivationTurn": 3.0,
+     "winWhenActivated": 0.8,
+     "winWhenSetterBroughtButNotActivated": 0.32,
+     "koBeforeMoveActivated": 1.8,
+     "koBeforeMoveNotActivated": 1.96,
+     "counts": {
+      "games": 30,
+      "setterBrought": 30,
+      "bothBrought": 30,
+      "activated": 5,
+      "activatedTurnSum": 15,
+      "winWhenActivated": 4.0,
+      "winWhenNotActivated": 8.0,
+      "koBeforeMoveActivated": 9,
+      "koBeforeMoveNot": 49
+     }
+    }
+   }
+  },
+  {
+   "ids": [
+    "dragonite",
+    "excadrill",
+    "tyranitar",
+    "basculegion",
+    "sneasler",
+    "rillaboom"
+   ],
+   "originality": "meta",
+   "roles": {
+    "tailwind": {
+     "setters": [
+      "dragonite"
+     ],
+     "payoffs": [
+      "basculegion",
+      "sneasler"
+     ]
+    }
+   },
+   "games": 30,
+   "win": 0.3,
+   "koBeforeMovePerGame": 2.13,
+   "modes": {
+    "tailwind": {
+     "setterBroughtRate": 1.0,
+     "setterAndPayoffRate": 1.0,
+     "activationRateWhenSetterBrought": 0.3,
+     "meanActivationTurn": 2.67,
+     "winWhenActivated": 0.333,
+     "winWhenSetterBroughtButNotActivated": 0.286,
+     "koBeforeMoveActivated": 1.78,
+     "koBeforeMoveNotActivated": 2.29,
+     "counts": {
+      "games": 30,
+      "setterBrought": 30,
+      "bothBrought": 30,
+      "activated": 9,
+      "activatedTurnSum": 24,
+      "winWhenActivated": 3.0,
+      "winWhenNotActivated": 6.0,
+      "koBeforeMoveActivated": 16,
+      "koBeforeMoveNot": 48
+     }
+    }
+   }
+  }
+ ]
+}

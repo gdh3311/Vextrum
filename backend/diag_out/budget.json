@@ -1,0 +1,2205 @@
+{
+ "quick": [
+  {
+   "styles": [],
+   "seconds": 37.0,
+   "stages": {
+    "research": {
+     "seconds": 0.31,
+     "battles": 0
+    },
+    "draft": {
+     "seconds": 10.32,
+     "battles": 0
+    },
+    "screen": {
+     "seconds": 1.74,
+     "battles": 750
+    },
+    "refine": {
+     "seconds": 2.47,
+     "battles": 322
+    },
+    "final": {
+     "seconds": 22.13,
+     "battles": 616
+    },
+    "report": {
+     "seconds": 0.02,
+     "battles": 0
+    }
+   },
+   "teams": [
+    [
+     {
+      "id": "chandelure",
+      "moves": [
+       "Shadow Ball",
+       "Heat Wave",
+       "Protect",
+       "Trick Room"
+      ],
+      "item": "Focus Sash",
+      "ability": "Flash Fire",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "garchomp",
+      "moves": [
+       "Rock Slide",
+       "Dragon Claw",
+       "Earthquake",
+       "Stomping Tantrum"
+      ],
+      "item": "Choice Scarf",
+      "ability": "Rough Skin",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 1,
+       "spa": 0,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "dragonite",
+      "moves": [
+       "Protect",
+       "Dragon Pulse",
+       "Tailwind",
+       "Heat Wave"
+      ],
+      "item": "Dragoninite",
+      "ability": "Multiscale",
+      "nature": "Timid",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": "Mega Dragonite"
+     },
+     {
+      "id": "kingambit",
+      "moves": [
+       "Kowtow Cleave",
+       "Sucker Punch",
+       "Iron Head",
+       "Protect"
+      ],
+      "item": "Chople Berry",
+      "ability": "Supreme Overlord",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 2,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "absol",
+      "moves": [
+       "Night Slash",
+       "Close Combat",
+       "Protect",
+       "Psycho Cut"
+      ],
+      "item": "Absolite Z",
+      "ability": "Justified",
+      "nature": "Jolly",
+      "points": {
+       "hp": 2,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": "Mega Absol Z"
+     },
+     {
+      "id": "golisopod",
+      "moves": [
+       "Leech Life",
+       "Iron Head",
+       "Protect",
+       "Sucker Punch"
+      ],
+      "item": "Life Orb",
+      "ability": "Emergency Exit",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 1,
+       "spa": 0,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     }
+    ]
+   ],
+   "ids": [
+    [
+     "chandelure",
+     "garchomp",
+     "dragonite",
+     "kingambit",
+     "absol",
+     "golisopod"
+    ]
+   ]
+  },
+  {
+   "styles": [
+    "rain"
+   ],
+   "seconds": 26.4,
+   "stages": {
+    "research": {
+     "seconds": 0.18,
+     "battles": 0
+    },
+    "draft": {
+     "seconds": 1.64,
+     "battles": 0
+    },
+    "screen": {
+     "seconds": 0.81,
+     "battles": 640
+    },
+    "refine": {
+     "seconds": 1.51,
+     "battles": 231
+    },
+    "final": {
+     "seconds": 22.2,
+     "battles": 528
+    },
+    "report": {
+     "seconds": 0.08,
+     "battles": 0
+    }
+   },
+   "teams": [
+    [
+     {
+      "id": "basculegion",
+      "moves": [
+       "Last Respects",
+       "Aqua Jet",
+       "Wave Crash",
+       "Flip Turn"
+      ],
+      "item": "Choice Scarf",
+      "ability": "Adaptability",
+      "nature": "Adamant",
+      "points": {
+       "hp": 2,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "klefki",
+      "moves": [
+       "Light Screen",
+       "Reflect",
+       "Dazzling Gleam",
+       "Rain Dance"
+      ],
+      "item": "Light Clay",
+      "ability": "Prankster",
+      "nature": "Bold",
+      "points": {
+       "hp": 29,
+       "atk": 0,
+       "def": 11,
+       "spa": 0,
+       "spd": 26,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "dragonite",
+      "moves": [
+       "Protect",
+       "Dragon Pulse",
+       "Tailwind",
+       "Heat Wave"
+      ],
+      "item": "Dragoninite",
+      "ability": "Multiscale",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": "Mega Dragonite"
+     },
+     {
+      "id": "kingambit",
+      "moves": [
+       "Kowtow Cleave",
+       "Sucker Punch",
+       "Iron Head",
+       "Protect"
+      ],
+      "item": "Life Orb",
+      "ability": "Defiant",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 2,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "whimsicott",
+      "moves": [
+       "Tailwind",
+       "Moonblast",
+       "Encore",
+       "Protect"
+      ],
+      "item": "Fairy Feather",
+      "ability": "Prankster",
+      "nature": "Timid",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "talonflame",
+      "moves": [
+       "Tailwind",
+       "Flare Blitz",
+       "Protect",
+       "Brave Bird"
+      ],
+      "item": "Sharp Beak",
+      "ability": "Gale Wings",
+      "nature": "Jolly",
+      "points": {
+       "hp": 2,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     }
+    ],
+    [
+     {
+      "id": "basculegion",
+      "moves": [
+       "Last Respects",
+       "Aqua Jet",
+       "Wave Crash",
+       "Flip Turn"
+      ],
+      "item": "Choice Scarf",
+      "ability": "Adaptability",
+      "nature": "Adamant",
+      "points": {
+       "hp": 2,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "leafeon",
+      "moves": [
+       "Knock Off",
+       "Detect",
+       "Solar Blade",
+       "Rain Dance"
+      ],
+      "item": "Life Orb",
+      "ability": "Chlorophyll",
+      "nature": "Adamant",
+      "points": {
+       "hp": 2,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "dragonite",
+      "moves": [
+       "Protect",
+       "Dragon Pulse",
+       "Tailwind",
+       "Heat Wave"
+      ],
+      "item": "Dragoninite",
+      "ability": "Multiscale",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": "Mega Dragonite"
+     },
+     {
+      "id": "kingambit",
+      "moves": [
+       "Kowtow Cleave",
+       "Sucker Punch",
+       "Iron Head",
+       "Protect"
+      ],
+      "item": "Chople Berry",
+      "ability": "Defiant",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 2,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "whimsicott",
+      "moves": [
+       "Tailwind",
+       "Moonblast",
+       "Encore",
+       "Protect"
+      ],
+      "item": "Fairy Feather",
+      "ability": "Prankster",
+      "nature": "Timid",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "indeedeef",
+      "moves": [
+       "Follow Me",
+       "Psychic",
+       "Helping Hand",
+       "Trick Room"
+      ],
+      "item": "Rocky Helmet",
+      "ability": "Psychic Surge",
+      "nature": "Bold",
+      "points": {
+       "hp": 32,
+       "atk": 0,
+       "def": 32,
+       "spa": 0,
+       "spd": 2,
+       "spe": 0
+      },
+      "mega": null
+     }
+    ],
+    [
+     {
+      "id": "vivillonfancy",
+      "moves": [
+       "Hurricane",
+       "Pollen Puff",
+       "Struggle Bug",
+       "Bug Buzz"
+      ],
+      "item": "Choice Scarf",
+      "ability": "Compound Eyes",
+      "nature": "Timid",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "klefki",
+      "moves": [
+       "Light Screen",
+       "Reflect",
+       "Dazzling Gleam",
+       "Rain Dance"
+      ],
+      "item": "Light Clay",
+      "ability": "Prankster",
+      "nature": "Bold",
+      "points": {
+       "hp": 29,
+       "atk": 0,
+       "def": 11,
+       "spa": 0,
+       "spd": 26,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "salamence",
+      "moves": [
+       "Protect",
+       "Hyper Voice",
+       "Draco Meteor",
+       "Tailwind"
+      ],
+      "item": "Salamencite",
+      "ability": "Intimidate",
+      "nature": "Timid",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": "Mega Salamence"
+     },
+     {
+      "id": "sneasler",
+      "moves": [
+       "Close Combat",
+       "Dire Claw",
+       "Protect",
+       "Fake Out"
+      ],
+      "item": "White Herb",
+      "ability": "Unburden",
+      "nature": "Adamant",
+      "points": {
+       "hp": 2,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "incineroar",
+      "moves": [
+       "Fake Out",
+       "Flare Blitz",
+       "Parting Shot",
+       "Darkest Lariat"
+      ],
+      "item": "Chople Berry",
+      "ability": "Intimidate",
+      "nature": "Careful",
+      "points": {
+       "hp": 32,
+       "atk": 0,
+       "def": 14,
+       "spa": 0,
+       "spd": 20,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "garchomp",
+      "moves": [
+       "Protect",
+       "Rock Slide",
+       "Dragon Claw",
+       "Earthquake"
+      ],
+      "item": "Life Orb",
+      "ability": "Rough Skin",
+      "nature": "Adamant",
+      "points": {
+       "hp": 2,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     }
+    ]
+   ],
+   "ids": [
+    [
+     "basculegion",
+     "klefki",
+     "dragonite",
+     "kingambit",
+     "whimsicott",
+     "talonflame"
+    ],
+    [
+     "basculegion",
+     "leafeon",
+     "dragonite",
+     "kingambit",
+     "whimsicott",
+     "indeedeef"
+    ],
+    [
+     "vivillonfancy",
+     "klefki",
+     "salamence",
+     "sneasler",
+     "incineroar",
+     "garchomp"
+    ]
+   ]
+  },
+  {
+   "styles": [
+    "trickroom"
+   ],
+   "seconds": 26.6,
+   "stages": {
+    "research": {
+     "seconds": 0.16,
+     "battles": 0
+    },
+    "draft": {
+     "seconds": 1.83,
+     "battles": 0
+    },
+    "screen": {
+     "seconds": 0.88,
+     "battles": 650
+    },
+    "refine": {
+     "seconds": 1.74,
+     "battles": 217
+    },
+    "final": {
+     "seconds": 21.94,
+     "battles": 616
+    },
+    "report": {
+     "seconds": 0.02,
+     "battles": 0
+    }
+   },
+   "teams": [
+    [
+     {
+      "id": "chandelure",
+      "moves": [
+       "Shadow Ball",
+       "Heat Wave",
+       "Protect",
+       "Trick Room"
+      ],
+      "item": "Focus Sash",
+      "ability": "Flash Fire",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "garchomp",
+      "moves": [
+       "Rock Slide",
+       "Dragon Claw",
+       "Earthquake",
+       "Stomping Tantrum"
+      ],
+      "item": "Choice Scarf",
+      "ability": "Rough Skin",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 1,
+       "spa": 0,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "dragonite",
+      "moves": [
+       "Protect",
+       "Dragon Pulse",
+       "Tailwind",
+       "Heat Wave"
+      ],
+      "item": "Dragoninite",
+      "ability": "Multiscale",
+      "nature": "Timid",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": "Mega Dragonite"
+     },
+     {
+      "id": "kingambit",
+      "moves": [
+       "Kowtow Cleave",
+       "Sucker Punch",
+       "Iron Head",
+       "Protect"
+      ],
+      "item": "Chople Berry",
+      "ability": "Supreme Overlord",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 2,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "absol",
+      "moves": [
+       "Night Slash",
+       "Close Combat",
+       "Protect",
+       "Psycho Cut"
+      ],
+      "item": "Absolite Z",
+      "ability": "Justified",
+      "nature": "Jolly",
+      "points": {
+       "hp": 2,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": "Mega Absol Z"
+     },
+     {
+      "id": "golisopod",
+      "moves": [
+       "Leech Life",
+       "Iron Head",
+       "Protect",
+       "Sucker Punch"
+      ],
+      "item": "Life Orb",
+      "ability": "Emergency Exit",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 1,
+       "spa": 0,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     }
+    ]
+   ],
+   "ids": [
+    [
+     "chandelure",
+     "garchomp",
+     "dragonite",
+     "kingambit",
+     "absol",
+     "golisopod"
+    ]
+   ]
+  },
+  {
+   "styles": [
+    "tailwind"
+   ],
+   "seconds": 26.1,
+   "stages": {
+    "research": {
+     "seconds": 0.17,
+     "battles": 0
+    },
+    "draft": {
+     "seconds": 1.68,
+     "battles": 0
+    },
+    "screen": {
+     "seconds": 0.95,
+     "battles": 760
+    },
+    "refine": {
+     "seconds": 1.93,
+     "battles": 280
+    },
+    "final": {
+     "seconds": 21.32,
+     "battles": 528
+    },
+    "report": {
+     "seconds": 0.07,
+     "battles": 0
+    }
+   },
+   "teams": [
+    [
+     {
+      "id": "aurorus",
+      "moves": [
+       "Protect",
+       "Ancient Power",
+       "Freeze-Dry",
+       "Blizzard"
+      ],
+      "item": "Focus Sash",
+      "ability": "Snow Warning",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "kingambit",
+      "moves": [
+       "Kowtow Cleave",
+       "Sucker Punch",
+       "Iron Head",
+       "Protect"
+      ],
+      "item": "Chople Berry",
+      "ability": "Defiant",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 1,
+       "spa": 0,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "garchomp",
+      "moves": [
+       "Rock Slide",
+       "Dragon Claw",
+       "Earthquake",
+       "Stomping Tantrum"
+      ],
+      "item": "Choice Scarf",
+      "ability": "Rough Skin",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 1,
+       "spa": 0,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "dragonite",
+      "moves": [
+       "Protect",
+       "Dragon Pulse",
+       "Tailwind",
+       "Heat Wave"
+      ],
+      "item": "Dragoninite",
+      "ability": "Multiscale",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": "Mega Dragonite"
+     },
+     {
+      "id": "gholdengo",
+      "moves": [
+       "Make It Rain",
+       "Shadow Ball",
+       "Protect",
+       "Nasty Plot"
+      ],
+      "item": "Metal Coat",
+      "ability": "Good as Gold",
+      "nature": "Modest",
+      "points": {
+       "hp": 27,
+       "atk": 0,
+       "def": 12,
+       "spa": 0,
+       "spd": 17,
+       "spe": 10
+      },
+      "mega": null
+     },
+     {
+      "id": "milotic",
+      "moves": [
+       "Protect",
+       "Scald",
+       "Ice Beam",
+       "Recover"
+      ],
+      "item": "Sitrus Berry",
+      "ability": "Competitive",
+      "nature": "Calm",
+      "points": {
+       "hp": 32,
+       "atk": 0,
+       "def": 17,
+       "spa": 8,
+       "spd": 5,
+       "spe": 4
+      },
+      "mega": null
+     }
+    ],
+    [
+     {
+      "id": "dragonite",
+      "moves": [
+       "Protect",
+       "Dragon Pulse",
+       "Tailwind",
+       "Heat Wave"
+      ],
+      "item": "Dragoninite",
+      "ability": "Multiscale",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": "Mega Dragonite"
+     },
+     {
+      "id": "garchomp",
+      "moves": [
+       "Rock Slide",
+       "Dragon Claw",
+       "Earthquake",
+       "Stomping Tantrum"
+      ],
+      "item": "Choice Scarf",
+      "ability": "Rough Skin",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 1,
+       "spa": 0,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "gholdengo",
+      "moves": [
+       "Make It Rain",
+       "Shadow Ball",
+       "Protect",
+       "Nasty Plot"
+      ],
+      "item": "Metal Coat",
+      "ability": "Good as Gold",
+      "nature": "Modest",
+      "points": {
+       "hp": 32,
+       "atk": 0,
+       "def": 1,
+       "spa": 32,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "charizard",
+      "moves": [
+       "Protect",
+       "Heat Wave",
+       "Weather Ball",
+       "Solar Beam"
+      ],
+      "item": "Charizardite Y",
+      "ability": "Blaze",
+      "nature": "Modest",
+      "points": {
+       "hp": 32,
+       "atk": 0,
+       "def": 1,
+       "spa": 32,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": "Mega Charizard Y"
+     },
+     {
+      "id": "chandelure",
+      "moves": [
+       "Shadow Ball",
+       "Heat Wave",
+       "Protect",
+       "Trick Room"
+      ],
+      "item": "Focus Sash",
+      "ability": "Flash Fire",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "kingambit",
+      "moves": [
+       "Kowtow Cleave",
+       "Sucker Punch",
+       "Iron Head",
+       "Protect"
+      ],
+      "item": "Chople Berry",
+      "ability": "Defiant",
+      "nature": "Jolly",
+      "points": {
+       "hp": 2,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     }
+    ],
+    [
+     {
+      "id": "dragonite",
+      "moves": [
+       "Protect",
+       "Dragon Pulse",
+       "Tailwind",
+       "Heat Wave"
+      ],
+      "item": "Dragoninite",
+      "ability": "Multiscale",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": "Mega Dragonite"
+     },
+     {
+      "id": "chandelure",
+      "moves": [
+       "Shadow Ball",
+       "Heat Wave",
+       "Protect",
+       "Trick Room"
+      ],
+      "item": "Focus Sash",
+      "ability": "Flash Fire",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "golisopod",
+      "moves": [
+       "Leech Life",
+       "Iron Head",
+       "Protect",
+       "Sucker Punch"
+      ],
+      "item": "Life Orb",
+      "ability": "Emergency Exit",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 2,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "milotic",
+      "moves": [
+       "Protect",
+       "Scald",
+       "Ice Beam",
+       "Recover"
+      ],
+      "item": "Leftovers",
+      "ability": "Competitive",
+      "nature": "Calm",
+      "points": {
+       "hp": 32,
+       "atk": 0,
+       "def": 17,
+       "spa": 8,
+       "spd": 5,
+       "spe": 4
+      },
+      "mega": null
+     },
+     {
+      "id": "gholdengo",
+      "moves": [
+       "Make It Rain",
+       "Shadow Ball",
+       "Protect",
+       "Nasty Plot"
+      ],
+      "item": "Metal Coat",
+      "ability": "Good as Gold",
+      "nature": "Modest",
+      "points": {
+       "hp": 27,
+       "atk": 0,
+       "def": 12,
+       "spa": 0,
+       "spd": 17,
+       "spe": 10
+      },
+      "mega": null
+     },
+     {
+      "id": "garchomp",
+      "moves": [
+       "Rock Slide",
+       "Dragon Claw",
+       "Earthquake",
+       "Stomping Tantrum"
+      ],
+      "item": "Choice Scarf",
+      "ability": "Rough Skin",
+      "nature": "Jolly",
+      "points": {
+       "hp": 2,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     }
+    ]
+   ],
+   "ids": [
+    [
+     "aurorus",
+     "kingambit",
+     "garchomp",
+     "dragonite",
+     "gholdengo",
+     "milotic"
+    ],
+    [
+     "dragonite",
+     "garchomp",
+     "gholdengo",
+     "charizard",
+     "chandelure",
+     "kingambit"
+    ],
+    [
+     "dragonite",
+     "chandelure",
+     "golisopod",
+     "milotic",
+     "gholdengo",
+     "garchomp"
+    ]
+   ]
+  }
+ ],
+ "standard": [
+  {
+   "styles": [],
+   "seconds": 58.8,
+   "stages": {
+    "research": {
+     "seconds": 0.17,
+     "battles": 0
+    },
+    "draft": {
+     "seconds": 11.56,
+     "battles": 0
+    },
+    "screen": {
+     "seconds": 2.36,
+     "battles": 1816
+    },
+    "refine": {
+     "seconds": 5.01,
+     "battles": 1330
+    },
+    "final": {
+     "seconds": 39.65,
+     "battles": 984
+    },
+    "report": {
+     "seconds": 0.03,
+     "battles": 0
+    }
+   },
+   "teams": [
+    [
+     {
+      "id": "chandelure",
+      "moves": [
+       "Shadow Ball",
+       "Heat Wave",
+       "Protect",
+       "Trick Room"
+      ],
+      "item": "Focus Sash",
+      "ability": "Flash Fire",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "garchomp",
+      "moves": [
+       "Rock Slide",
+       "Dragon Claw",
+       "Earthquake",
+       "Stomping Tantrum"
+      ],
+      "item": "Choice Scarf",
+      "ability": "Rough Skin",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 1,
+       "spa": 0,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "dragonite",
+      "moves": [
+       "Protect",
+       "Dragon Pulse",
+       "Tailwind",
+       "Heat Wave"
+      ],
+      "item": "Dragoninite",
+      "ability": "Multiscale",
+      "nature": "Timid",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": "Mega Dragonite"
+     },
+     {
+      "id": "kingambit",
+      "moves": [
+       "Kowtow Cleave",
+       "Sucker Punch",
+       "Iron Head",
+       "Protect"
+      ],
+      "item": "Chople Berry",
+      "ability": "Supreme Overlord",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 2,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "gholdengo",
+      "moves": [
+       "Make It Rain",
+       "Shadow Ball",
+       "Protect",
+       "Nasty Plot"
+      ],
+      "item": "Occa Berry",
+      "ability": "Good as Gold",
+      "nature": "Modest",
+      "points": {
+       "hp": 32,
+       "atk": 0,
+       "def": 1,
+       "spa": 32,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "golisopod",
+      "moves": [
+       "Leech Life",
+       "Iron Head",
+       "Protect",
+       "Sucker Punch"
+      ],
+      "item": "Life Orb",
+      "ability": "Emergency Exit",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 1,
+       "spa": 0,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     }
+    ]
+   ],
+   "ids": [
+    [
+     "chandelure",
+     "garchomp",
+     "dragonite",
+     "kingambit",
+     "gholdengo",
+     "golisopod"
+    ]
+   ]
+  },
+  {
+   "styles": [
+    "rain"
+   ],
+   "seconds": 50.7,
+   "stages": {
+    "research": {
+     "seconds": 0.17,
+     "battles": 0
+    },
+    "draft": {
+     "seconds": 1.79,
+     "battles": 0
+    },
+    "screen": {
+     "seconds": 1.97,
+     "battles": 1496
+    },
+    "refine": {
+     "seconds": 3.95,
+     "battles": 1169
+    },
+    "final": {
+     "seconds": 42.82,
+     "battles": 984
+    },
+    "report": {
+     "seconds": 0.03,
+     "battles": 0
+    }
+   },
+   "teams": [
+    [
+     {
+      "id": "blastoise",
+      "moves": [
+       "Water Spout",
+       "Protect",
+       "Shell Smash",
+       "Dark Pulse"
+      ],
+      "item": "Blastoisinite",
+      "ability": "Rain Dish",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": "Mega Blastoise"
+     },
+     {
+      "id": "pelipper",
+      "moves": [
+       "Hurricane",
+       "Weather Ball",
+       "Wide Guard",
+       "Tailwind"
+      ],
+      "item": "Focus Sash",
+      "ability": "Drizzle",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "garchomp",
+      "moves": [
+       "Rock Slide",
+       "Dragon Claw",
+       "Earthquake",
+       "Stomping Tantrum"
+      ],
+      "item": "Choice Scarf",
+      "ability": "Rough Skin",
+      "nature": "Adamant",
+      "points": {
+       "hp": 2,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "rotomheat",
+      "moves": [
+       "Overheat",
+       "Volt Switch",
+       "Discharge",
+       "Trick"
+      ],
+      "item": "Sitrus Berry",
+      "ability": "Levitate",
+      "nature": "Timid",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "sneasler",
+      "moves": [
+       "Close Combat",
+       "Dire Claw",
+       "Protect",
+       "Fake Out"
+      ],
+      "item": "White Herb",
+      "ability": "Unburden",
+      "nature": "Adamant",
+      "points": {
+       "hp": 2,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "kingambit",
+      "moves": [
+       "Kowtow Cleave",
+       "Sucker Punch",
+       "Iron Head",
+       "Protect"
+      ],
+      "item": "Life Orb",
+      "ability": "Defiant",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 2,
+       "spe": 0
+      },
+      "mega": null
+     }
+    ]
+   ],
+   "ids": [
+    [
+     "blastoise",
+     "pelipper",
+     "garchomp",
+     "rotomheat",
+     "sneasler",
+     "kingambit"
+    ]
+   ]
+  },
+  {
+   "styles": [
+    "trickroom"
+   ],
+   "seconds": 50.3,
+   "stages": {
+    "research": {
+     "seconds": 0.17,
+     "battles": 0
+    },
+    "draft": {
+     "seconds": 2.08,
+     "battles": 0
+    },
+    "screen": {
+     "seconds": 2.1,
+     "battles": 1508
+    },
+    "refine": {
+     "seconds": 4.08,
+     "battles": 1113
+    },
+    "final": {
+     "seconds": 41.81,
+     "battles": 984
+    },
+    "report": {
+     "seconds": 0.05,
+     "battles": 0
+    }
+   },
+   "teams": [
+    [
+     {
+      "id": "chandelure",
+      "moves": [
+       "Shadow Ball",
+       "Heat Wave",
+       "Protect",
+       "Trick Room"
+      ],
+      "item": "Focus Sash",
+      "ability": "Flash Fire",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "garchomp",
+      "moves": [
+       "Rock Slide",
+       "Dragon Claw",
+       "Earthquake",
+       "Stomping Tantrum"
+      ],
+      "item": "Choice Scarf",
+      "ability": "Rough Skin",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 1,
+       "spa": 0,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "dragonite",
+      "moves": [
+       "Protect",
+       "Dragon Pulse",
+       "Tailwind",
+       "Heat Wave"
+      ],
+      "item": "Dragoninite",
+      "ability": "Multiscale",
+      "nature": "Timid",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": "Mega Dragonite"
+     },
+     {
+      "id": "kingambit",
+      "moves": [
+       "Kowtow Cleave",
+       "Sucker Punch",
+       "Iron Head",
+       "Protect"
+      ],
+      "item": "Chople Berry",
+      "ability": "Supreme Overlord",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 2,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "gholdengo",
+      "moves": [
+       "Make It Rain",
+       "Shadow Ball",
+       "Protect",
+       "Nasty Plot"
+      ],
+      "item": "Occa Berry",
+      "ability": "Good as Gold",
+      "nature": "Modest",
+      "points": {
+       "hp": 32,
+       "atk": 0,
+       "def": 1,
+       "spa": 32,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "golisopod",
+      "moves": [
+       "Leech Life",
+       "Iron Head",
+       "Protect",
+       "Sucker Punch"
+      ],
+      "item": "Life Orb",
+      "ability": "Emergency Exit",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 1,
+       "spa": 0,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     }
+    ],
+    [
+     {
+      "id": "golisopod",
+      "moves": [
+       "Leech Life",
+       "Iron Head",
+       "Protect",
+       "Sucker Punch"
+      ],
+      "item": "Golisopite",
+      "ability": "Emergency Exit",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 2,
+       "spe": 0
+      },
+      "mega": "Mega Golisopod"
+     },
+     {
+      "id": "chandelure",
+      "moves": [
+       "Shadow Ball",
+       "Heat Wave",
+       "Protect",
+       "Trick Room"
+      ],
+      "item": "Focus Sash",
+      "ability": "Flash Fire",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "rillaboom",
+      "moves": [
+       "Grassy Glide",
+       "Fake Out",
+       "Wood Hammer",
+       "High Horsepower"
+      ],
+      "item": "Expert Belt",
+      "ability": "Grassy Surge",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 0,
+       "spe": 2
+      },
+      "mega": null
+     },
+     {
+      "id": "garchomp",
+      "moves": [
+       "Rock Slide",
+       "Dragon Claw",
+       "Earthquake",
+       "Stomping Tantrum"
+      ],
+      "item": "Choice Scarf",
+      "ability": "Rough Skin",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 1,
+       "spa": 0,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "dragonite",
+      "moves": [
+       "Protect",
+       "Dragon Pulse",
+       "Tailwind",
+       "Heat Wave"
+      ],
+      "item": "Dragoninite",
+      "ability": "Multiscale",
+      "nature": "Modest",
+      "points": {
+       "hp": 32,
+       "atk": 0,
+       "def": 1,
+       "spa": 32,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": "Mega Dragonite"
+     },
+     {
+      "id": "sylveon",
+      "moves": [
+       "Hyper Voice",
+       "Detect",
+       "Hyper Beam",
+       "Quick Attack"
+      ],
+      "item": "Fairy Feather",
+      "ability": "Pixilate",
+      "nature": "Modest",
+      "points": {
+       "hp": 32,
+       "atk": 0,
+       "def": 2,
+       "spa": 32,
+       "spd": 0,
+       "spe": 0
+      },
+      "mega": null
+     }
+    ]
+   ],
+   "ids": [
+    [
+     "chandelure",
+     "garchomp",
+     "dragonite",
+     "kingambit",
+     "gholdengo",
+     "golisopod"
+    ],
+    [
+     "golisopod",
+     "chandelure",
+     "rillaboom",
+     "garchomp",
+     "dragonite",
+     "sylveon"
+    ]
+   ]
+  },
+  {
+   "styles": [
+    "tailwind"
+   ],
+   "seconds": 46.9,
+   "stages": {
+    "research": {
+     "seconds": 0.16,
+     "battles": 0
+    },
+    "draft": {
+     "seconds": 1.83,
+     "battles": 0
+    },
+    "screen": {
+     "seconds": 2.05,
+     "battles": 1616
+    },
+    "refine": {
+     "seconds": 2.99,
+     "battles": 1127
+    },
+    "final": {
+     "seconds": 39.79,
+     "battles": 984
+    },
+    "report": {
+     "seconds": 0.06,
+     "battles": 0
+    }
+   },
+   "teams": [
+    [
+     {
+      "id": "chandelure",
+      "moves": [
+       "Shadow Ball",
+       "Heat Wave",
+       "Protect",
+       "Trick Room"
+      ],
+      "item": "Focus Sash",
+      "ability": "Flash Fire",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "garchomp",
+      "moves": [
+       "Rock Slide",
+       "Dragon Claw",
+       "Earthquake",
+       "Stomping Tantrum"
+      ],
+      "item": "Choice Scarf",
+      "ability": "Rough Skin",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 1,
+       "spa": 0,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "dragonite",
+      "moves": [
+       "Protect",
+       "Dragon Pulse",
+       "Tailwind",
+       "Heat Wave"
+      ],
+      "item": "Dragoninite",
+      "ability": "Multiscale",
+      "nature": "Timid",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": "Mega Dragonite"
+     },
+     {
+      "id": "kingambit",
+      "moves": [
+       "Kowtow Cleave",
+       "Sucker Punch",
+       "Iron Head",
+       "Protect"
+      ],
+      "item": "Chople Berry",
+      "ability": "Supreme Overlord",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 2,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "gholdengo",
+      "moves": [
+       "Make It Rain",
+       "Shadow Ball",
+       "Protect",
+       "Nasty Plot"
+      ],
+      "item": "Occa Berry",
+      "ability": "Good as Gold",
+      "nature": "Modest",
+      "points": {
+       "hp": 32,
+       "atk": 0,
+       "def": 1,
+       "spa": 32,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "golisopod",
+      "moves": [
+       "Leech Life",
+       "Iron Head",
+       "Protect",
+       "Sucker Punch"
+      ],
+      "item": "Life Orb",
+      "ability": "Emergency Exit",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 1,
+       "spa": 0,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     }
+    ],
+    [
+     {
+      "id": "golisopod",
+      "moves": [
+       "Leech Life",
+       "Iron Head",
+       "Protect",
+       "Sucker Punch"
+      ],
+      "item": "Golisopite",
+      "ability": "Emergency Exit",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 2,
+       "spe": 0
+      },
+      "mega": "Mega Golisopod"
+     },
+     {
+      "id": "chandelure",
+      "moves": [
+       "Shadow Ball",
+       "Heat Wave",
+       "Protect",
+       "Trick Room"
+      ],
+      "item": "Focus Sash",
+      "ability": "Flash Fire",
+      "nature": "Modest",
+      "points": {
+       "hp": 2,
+       "atk": 0,
+       "def": 0,
+       "spa": 32,
+       "spd": 0,
+       "spe": 32
+      },
+      "mega": null
+     },
+     {
+      "id": "rillaboom",
+      "moves": [
+       "Grassy Glide",
+       "Fake Out",
+       "Wood Hammer",
+       "High Horsepower"
+      ],
+      "item": "Expert Belt",
+      "ability": "Grassy Surge",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 0,
+       "spa": 0,
+       "spd": 0,
+       "spe": 2
+      },
+      "mega": null
+     },
+     {
+      "id": "garchomp",
+      "moves": [
+       "Rock Slide",
+       "Dragon Claw",
+       "Earthquake",
+       "Stomping Tantrum"
+      ],
+      "item": "Choice Scarf",
+      "ability": "Rough Skin",
+      "nature": "Adamant",
+      "points": {
+       "hp": 32,
+       "atk": 32,
+       "def": 1,
+       "spa": 0,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": null
+     },
+     {
+      "id": "dragonite",
+      "moves": [
+       "Protect",
+       "Dragon Pulse",
+       "Tailwind",
+       "Heat Wave"
+      ],
+      "item": "Dragoninite",
+      "ability": "Multiscale",
+      "nature": "Modest",
+      "points": {
+       "hp": 32,
+       "atk": 0,
+       "def": 1,
+       "spa": 32,
+       "spd": 1,
+       "spe": 0
+      },
+      "mega": "Mega Dragonite"
+     },
+     {
+      "id": "sylveon",
+      "moves": [
+       "Hyper Voice",
+       "Detect",
+       "Hyper Beam",
+       "Quick Attack"
+      ],
+      "item": "Fairy Feather",
+      "ability": "Pixilate",
+      "nature": "Modest",
+      "points": {
+       "hp": 32,
+       "atk": 0,
+       "def": 2,
+       "spa": 32,
+       "spd": 0,
+       "spe": 0
+      },
+      "mega": null
+     }
+    ]
+   ],
+   "ids": [
+    [
+     "chandelure",
+     "garchomp",
+     "dragonite",
+     "kingambit",
+     "gholdengo",
+     "golisopod"
+    ],
+    [
+     "golisopod",
+     "chandelure",
+     "rillaboom",
+     "garchomp",
+     "dragonite",
+     "sylveon"
+    ]
+   ]
+  }
+ ],
+ "holdout": {
+  "quick": 0.572,
+  "standard": 0.598,
+  "diff": 0.026,
+  "low": -0.031,
+  "high": 0.083
+ },
+ "seconds": {
+  "quick": 29.0,
+  "standard": 51.7
+ }
+}

@@ -533,6 +533,8 @@ def _rate(report):
 
 LEAGUE_RUNS = {"quick": 8, "standard": 16, "deep": 32}
 POLICY_TEAMS = 4
+SELECT_STYLES = ["balanced", "aggressive", "defensive", "setup", "pivot"]
+V6_SELECT_RUNS = {"quick": 48, "standard": 96, "deep": 160}
 
 
 def _league(report):
@@ -727,16 +729,19 @@ def regulation_warnings(e):
 def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: list[dict], *,
           exclude: Sequence[str] = (), objective: str = "win", depth: str = "standard", cpu: str = "ultra",
           joker: str = "allow", mega: str = "auto", core: str = "", tune: str = "off", rankers: bool = True,
-          originality: str = "balanced", engine: str = "v5", progress=None):
+          originality: str = "balanced", engine: str = "v6", progress=None):
     # 엔진: v1(단일 지표) · v2/v3(전략 우선·리그 검증) · v4(+선출 계획 공동 최적화·구조 변경·하한 판단)
     #       v5(+탐색 중 간이 선출 최적화·확률적 상대 전략 열쇠·선출 우선 반사실 비교)
     # 실험용 끄기 스위치: "v5-noquick-noseason-noseed" 처럼 붙인다 (기여도 분해 벤치용).
     engine, *off = engine.split("-")
     off = set(off)
     v5 = engine == "v5"
-    v4 = engine in ("v4", "v5")
+    # v6: v4 + 평가 편향 제거 — 선별 CPU 스타일 혼합, 최종 선택은 마스터볼 혼합 스타일의 별도 시드,
+    #     효과가 확인되지 않은 선출 최적화는 빼고 그 시간을 최종 선택 표본에 쓴다 (진단 보고서 5·7·10장).
+    v6 = engine == "v6"
+    v4 = engine in ("v4", "v5", "v6")
     label = engine
-    if engine in ("v3", "v4", "v5"):
+    if engine in ("v3", "v4", "v5", "v6"):
         engine = "v2"
     from . import parallel, roster_search
     from .progress import Progress
@@ -959,7 +964,9 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
     def measure(picks, runs, seed, difficulty="ultra", *, search=True):
         teams = [[c.set for c in roster] for _, roster in picks]
         policies = [plan_for(roster) for _, roster in picks] if plans else None
-        reports = parallel.compare_teams(e, fmt, teams, runs, seed, difficulty, policies=policies)
+        # v6: 하이퍼볼 '균형형' 한 가지(방어를 거의 안 쓰는 CPU)에 맞춘 팀이 뽑히지 않도록 스타일을 판마다 돌린다.
+        reports = parallel.compare_teams(e, fmt, teams, runs, seed, difficulty, policies=policies,
+                                         cpu_styles=SELECT_STYLES if v6 else None)
         if search and objective == "ranker" and rosters:
             ranks = parallel.versus_rankers_many(e, fmt, teams, 1, seed, difficulty)
             for report, ranker_result in zip(reports, ranks):
@@ -1088,8 +1095,14 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
             track.update(done=(index + 1) * 3)
         finalists = [(g, retuned.get(team_key(g, r), r), report) for g, r, report in finalists]
     track.update("final", total=1, spotlight=[c.id for c in finalists[0][1]], notes=[])
-    assessed = assess([(group, roster) for group, roster, _ in finalists], final_runs, seed=3146781,
-                      difficulty=cpu, search=False)
+    race_reports = {team_key(g, r): rep_ for g, r, rep_ in finalists}
+    if v6:
+        # 최종 선택: 탐색에 쓰지 않은 시드, 마스터볼 CPU 스타일 혼합, 더 많은 판
+        assessed = assess([(group, roster) for group, roster, _ in finalists], V6_SELECT_RUNS.get(depth, 64),
+                          seed=9_031_777, difficulty="master", search=False)
+    else:
+        assessed = assess([(group, roster) for group, roster, _ in finalists], final_runs, seed=3146781,
+                          difficulty=cpu, search=False)
     copy_rate = COPY_RATE.get(originality, 0.)
 
     def overlap(roster):
@@ -1115,7 +1128,8 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
         from . import policy as pick_policy
 
         track.update(notes=["선출 계획 최적화"])
-        tuned_rows = assessed[:POLICY_TEAMS] if v4 else []  # 비용 때문에 상위 후보만 (나머지는 기본 선출)
+        # 비용 때문에 상위 후보만 (나머지는 기본 선출). v6 은 보류 효과가 없어서(진단 5.1·7장) 생략한다.
+        tuned_rows = assessed[:POLICY_TEAMS] if v4 and not v6 else []
         with ThreadPoolExecutor(max_workers=max(1, min(4, len(tuned_rows)))) as pool_threads:
             final_plans = list(pool_threads.map(
                 lambda row: pick_policy.optimize(e, fmt, [c.set for c in row[1]], row[2], depth,
@@ -1140,7 +1154,8 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
 
         for (group, roster, report), m, c, p, (worst, st), (plan, proof) in zip(
                 assessed, master, champion, sanity, stress, final_plans):
-            leagues = {"하이퍼볼": report, "마스터볼": m, "챔피언": c, "몬스터볼": p}
+            leagues = {"하이퍼볼": race_reports.get(team_key(group, roster), report) if v6 else report,
+                       "마스터볼": m, "챔피언": c, "몬스터볼": p}
             metrics[team_key(group, roster)] = _metrics(e, fmt, roster, report, leagues, overlap(roster), strategy,
                                                         stress=(worst, st))
             name = lambda pid: next((x.resolved["ko"] or x.resolved["name"] for x in roster if x.id == pid), pid)
@@ -1263,7 +1278,7 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
                            "objective": objective, "depth": depth, "cpu": cpu, "joker": joker,
                            "mega": mega, "core": core, "tune": tune, "originality": originality,
                            "ignored": [STYLES[key].label for key in ignored],
-                           "rosterSearch": refinement, "engine": label if label in ("v3", "v4", "v5") else engine, "versions": _versions(e),
+                           "rosterSearch": refinement, "engine": label if label in ("v3", "v4", "v5", "v6") else engine, "versions": _versions(e),
                            "rankerGames": RANKER_GAMES.get(depth, 2) if ranker_reports else 0,
                            "dataWarnings": regulation_warnings(e)}}
 

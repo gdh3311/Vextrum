@@ -1,0 +1,267 @@
+{
+ "summary": {
+  "spearmanNormalVsSwapped": 0.116,
+  "mean": {
+   "normalWin": 0.576,
+   "swappedWin": 0.853,
+   "normalTW": 0.217,
+   "swappedTW": 0.174,
+   "normalTR": 0.012,
+   "swappedTR": 0.002
+  }
+ },
+ "teams": [
+  {
+   "ids": [
+    "aurorus",
+    "kingambit",
+    "garchomp",
+    "dragonite",
+    "gholdengo",
+    "milotic"
+   ],
+   "family": "tailwind",
+   "games": 30,
+   "normalWin": 0.6,
+   "normalTW": 0.333,
+   "normalTR": 0.0,
+   "swappedWin": 0.967,
+   "swappedTW": 0.333,
+   "swappedTR": 0.0
+  },
+  {
+   "ids": [
+    "milotic",
+    "sylveon",
+    "garchomp",
+    "kingambit",
+    "dragonite",
+    "charizard"
+   ],
+   "family": "tailwind",
+   "games": 30,
+   "normalWin": 0.567,
+   "normalTW": 0.167,
+   "normalTR": 0.0,
+   "swappedWin": 0.717,
+   "swappedTW": 0.133,
+   "swappedTR": 0.0
+  },
+  {
+   "ids": [
+    "talonflame",
+    "whimsicott",
+    "basculegion",
+    "garchomp",
+    "floetteeternal",
+    "kingambit"
+   ],
+   "family": "sun",
+   "games": 30,
+   "normalWin": 0.45,
+   "normalTW": 0.167,
+   "normalTR": 0.0,
+   "swappedWin": 0.817,
+   "swappedTW": 0.1,
+   "swappedTR": 0.0
+  },
+  {
+   "ids": [
+    "basculegion",
+    "sneasler",
+    "talonflame",
+    "garchomp",
+    "kingambit",
+    "dragonite"
+   ],
+   "family": "tailwind",
+   "games": 30,
+   "normalWin": 0.567,
+   "normalTW": 0.333,
+   "normalTR": 0.0,
+   "swappedWin": 0.833,
+   "swappedTW": 0.233,
+   "swappedTR": 0.0
+  },
+  {
+   "ids": [
+    "salamence",
+    "basculegion",
+    "sneasler",
+    "garchomp",
+    "kingambit",
+    "gengar"
+   ],
+   "family": "tailwind",
+   "games": 30,
+   "normalWin": 0.5,
+   "normalTW": 0.167,
+   "normalTR": 0.0,
+   "swappedWin": 0.767,
+   "swappedTW": 0.067,
+   "swappedTR": 0.0
+  },
+  {
+   "ids": [
+    "salamence",
+    "basculegion",
+    "sneasler",
+    "dragonite",
+    "kingambit",
+    "rillaboom"
+   ],
+   "family": "tailwind",
+   "games": 30,
+   "normalWin": 0.383,
+   "normalTW": 0.2,
+   "normalTR": 0.0,
+   "swappedWin": 0.9,
+   "swappedTW": 0.133,
+   "swappedTR": 0.0
+  },
+  {
+   "ids": [
+    "dragonite",
+    "chandelure",
+    "golisopod",
+    "milotic",
+    "gholdengo",
+    "garchomp"
+   ],
+   "family": "tailwind",
+   "games": 30,
+   "normalWin": 0.733,
+   "normalTW": 0.233,
+   "normalTR": 0.0,
+   "swappedWin": 0.75,
+   "swappedTW": 0.167,
+   "swappedTR": 0.0
+  },
+  {
+   "ids": [
+    "basculegion",
+    "pelipper",
+    "sneasler",
+    "garchomp",
+    "kingambit",
+    "dragonite"
+   ],
+   "family": "rain",
+   "games": 30,
+   "normalWin": 0.5,
+   "normalTW": 0.267,
+   "normalTR": 0.0,
+   "swappedWin": 0.9,
+   "swappedTW": 0.2,
+   "swappedTR": 0.0
+  },
+  {
+   "ids": [
+    "basculegion",
+    "klefki",
+    "dragonite",
+    "kingambit",
+    "sneasler",
+    "rillaboom"
+   ],
+   "family": "rain",
+   "games": 30,
+   "normalWin": 0.5,
+   "normalTW": 0.167,
+   "normalTR": 0.0,
+   "swappedWin": 0.75,
+   "swappedTW": 0.2,
+   "swappedTR": 0.0
+  },
+  {
+   "ids": [
+    "charizard",
+    "incineroar",
+    "garchomp",
+    "kingambit",
+    "rillaboom",
+    "sneasler"
+   ],
+   "family": "sun",
+   "games": 30,
+   "normalWin": 0.533,
+   "normalTW": 0.0,
+   "normalTR": 0.0,
+   "swappedWin": 0.917,
+   "swappedTW": 0.0,
+   "swappedTR": 0.0
+  },
+  {
+   "ids": [
+    "dragonite",
+    "garchomp",
+    "gholdengo",
+    "charizard",
+    "chandelure",
+    "kingambit"
+   ],
+   "family": "sun",
+   "games": 30,
+   "normalWin": 0.7,
+   "normalTW": 0.333,
+   "normalTR": 0.033,
+   "swappedWin": 0.883,
+   "swappedTW": 0.2,
+   "swappedTR": 0.0
+  },
+  {
+   "ids": [
+    "chandelure",
+    "garchomp",
+    "dragonite",
+    "kingambit",
+    "absol",
+    "golisopod"
+   ],
+   "family": "tailwind",
+   "games": 30,
+   "normalWin": 0.6,
+   "normalTW": 0.167,
+   "normalTR": 0.033,
+   "swappedWin": 0.9,
+   "swappedTW": 0.133,
+   "swappedTR": 0.033
+  },
+  {
+   "ids": [
+    "chandelure",
+    "garchomp",
+    "dragonite",
+    "kingambit",
+    "gholdengo",
+    "golisopod"
+   ],
+   "family": "tailwind",
+   "games": 30,
+   "normalWin": 0.8,
+   "normalTW": 0.333,
+   "normalTR": 0.033,
+   "swappedWin": 0.867,
+   "swappedTW": 0.333,
+   "swappedTR": 0.0
+  },
+  {
+   "ids": [
+    "golisopod",
+    "chandelure",
+    "rillaboom",
+    "garchomp",
+    "dragonite",
+    "sylveon"
+   ],
+   "family": "tailwind",
+   "games": 30,
+   "normalWin": 0.633,
+   "normalTW": 0.167,
+   "normalTR": 0.067,
+   "swappedWin": 0.967,
+   "swappedTW": 0.2,
+   "swappedTR": 0.0
+  }
+ ]
+}

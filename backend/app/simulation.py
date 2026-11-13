@@ -30,6 +30,10 @@ PRIORITY_BLOCK = {"Armor Tail", "Dazzling", "Queenly Majesty"}
 SPEED_DROP = {"Icy Wind", "Electroweb", "Rock Tomb", "Bulldoze", "Low Sweep"}
 PIVOT = {"U-turn", "Volt Switch", "Flip Turn", "Parting Shot", "Chilly Reception"}
 REACTIVE = {"Sucker Punch", "Thunderclap", "Upper Hand"}
+UNTRACEABLE = {"Trace", "Imposter", "Illusion", "Zen Mode", "Stance Change", "Disguise", "Multitype",
+               "Power Construct", "Schooling", "Comatose", "Shields Down", "As One (Glastrier)",
+               "As One (Spectrier)", "Commander", "Protosynthesis", "Quark Drive"}
+NO_WEATHER = {"Cloud Nine", "Air Lock"}
 DRAIN = {"Drain Punch", "Giga Drain", "Horn Leech", "Leech Life", "Draining Kiss", "Dream Eater", "Mega Drain",
          "Absorb", "Oblivion Wing", "Parabolic Charge", "Bitter Blade"}
 TARGETED_SUPPORT = {"Taunt", "Parting Shot"} | set(mx.STATUS_MOVES) | set(mx.TARGET_DEBUFFS) | {
@@ -114,6 +118,7 @@ class Fighter:
     destiny: bool = False
     disguise: bool = True
     mega_shown: bool = False
+    mega_form: dict | None = None  # 메가진화하면 바뀔 모습 (메가스톤을 든 메가 후보만)
 
     @property
     def max_hp(self) -> int:
@@ -153,6 +158,7 @@ class Battle:
         self.rng = Random(seed)
         self.width = 2 if fmt == "Doubles" else 1
         self.teams = [self._fighters(mine), self._fighters(foe)]
+        self.mega_left = [True, True]  # 레귤레이션 MC: 배틀당 메가진화 1회
         self.active = [[i if i < len(team) else None for i in range(self.width)] for team in self.teams]
         self.turn = 1
         self.winner: str | None = None
@@ -196,16 +202,40 @@ class Battle:
             self._on_entry(side, fighter)
 
     def _fighters(self, sets: list[dict]) -> list[Fighter]:
+        """메가 후보는 기본 폼으로 시작한다 (기본 폼 특성이 등장 시 발동). 진화는 _mega_turn 에서."""
         fighters = []
-        mega_used = False
         for s in sets:
             s = {**self.engine.default_set(s["id"], self.fmt), **s}
-            if mega_used:
-                s = {**s, "mega": None}
-            mon = self.engine.resolve(s, self.fmt)
-            mega_used |= bool(mon["mega"])
-            fighters.append(Fighter(mon, mon["stats"]["hp"]))
+            mega = self.engine.resolve(s, self.fmt) if s.get("mega") else None
+            if mega is not None and not mega["mega"]:
+                mega = None
+            mon = self.engine.resolve({**s, "mega": None}, self.fmt) if mega else self.engine.resolve(s, self.fmt)
+            fighters.append(Fighter(mon, mon["stats"]["hp"], mega_form=mega))
         return fighters
+
+    @staticmethod
+    def _mega_gain(f: Fighter) -> int:
+        return sum(f.mega_form["stats"].values()) - sum(f.mon["stats"].values())
+
+    def _mega_turn(self):
+        """턴 시작: 아직 메가진화하지 않은 쪽은 필드의 메가 후보 중 능력치가 가장 크게 오르는 하나를 진화시킨다.
+        (실제 게임처럼 배틀 중에 고른다. 교체로 나온 포켓몬은 다음 턴 시작부터 진화할 수 있다.)"""
+        for side in range(2):
+            if not self.mega_left[side]:
+                continue
+            ready = [f for _, f in self._present(side) if f.mega_form and f.hp]
+            if not ready:
+                continue
+            fighter = max(ready, key=self._mega_gain)
+            ratio = fighter.hp / fighter.max_hp
+            fighter.mon = fighter.mega_form
+            fighter.hp = max(1, round(ratio * fighter.max_hp))
+            fighter.mega_form = None
+            fighter.mega_shown = True
+            self.mega_left[side] = False
+            self._seen_cache = {}
+            self._event(f"{fighter.name}(으)로 메가진화했다!", "mega", ref=self._ref(fighter))
+            self._entry_ability(side, fighter)
 
     def _event(self, message: str, kind: str = "detail", **fields):
         if self.keep_log:
@@ -231,7 +261,7 @@ class Battle:
 
     def _speed(self, side: int, f: Fighter) -> float:
         wind = 2 if self.tailwind[side] else 1
-        weather = 2 if WEATHER_SPEED.get(f.mon["ability"]) == self.weather else 1
+        weather = 2 if WEATHER_SPEED.get(f.mon["ability"]) == self._wx else 1
         unburden = 2 if f.unburden else 1
         para = .5 if f.status == "par" and f.mon["ability"] != "Quick Feet" else 1.5 if (
             f.status and f.mon["ability"] == "Quick Feet") else 1
@@ -242,6 +272,19 @@ class Battle:
         return ("Flying" not in f.mon["types"] and f.mon["ability"] != "Levitate"
                 and (f.mon["item"] != "Air Balloon" or f.item_used))
 
+    def _unnerved(self, fighter) -> bool:
+        """긴장감: 상대 필드에 있으면 열매를 먹지 못한다."""
+        side = self._side(fighter)
+        return any(f.mon["ability"] in {"Unnerve", "As One (Glastrier)", "As One (Spectrier)"}
+                   for _, f in self._present(1 - side))
+
+    @property
+    def _wx(self) -> str:
+        """효과로서의 날씨: 필드에 구름보호·에어록이 있으면 없는 것으로 본다."""
+        if self.weather and any(f.mon["ability"] in NO_WEATHER for side in range(2) for _, f in self._present(side)):
+            return ""
+        return self.weather
+
     def _ability(self, fighter):
         fighter.ability_revealed = True
         ability = fighter.mon["ability"]
@@ -249,10 +292,18 @@ class Battle:
         self._event(f"{fighter.name}의 특성 · {label}", "field")
 
     def _on_entry(self, side: int, fighter: Fighter):
-        if fighter.mon.get("mega") and not fighter.mega_shown:
-            fighter.mega_shown = True
-            self._event(f"{fighter.name}(으)로 메가진화했다!", "mega", ref=self._ref(fighter))
+        self._entry_ability(side, fighter)
+
+    def _entry_ability(self, side: int, fighter: Fighter):
+        """등장(또는 메가진화) 때 발동하는 특성."""
         ability = fighter.mon["ability"]
+        if ability == "Trace":
+            traceable = [f for _, f in self._present(1 - side) if f.mon["ability"] not in UNTRACEABLE]
+            if traceable:
+                copied = self.rng.choice(traceable).mon["ability"]
+                fighter.mon = {**fighter.mon, "ability": copied}
+                self._ability(fighter)
+                ability = copied
         if ability == "Intimidate":
             self._ability(fighter)
             for _, target in self._present(1 - side):
@@ -343,11 +394,11 @@ class Battle:
             return False
         if ability in mx.ALL_STATUS_IMMUNE or ability in mx.STATUS_IMMUNE_ABILITIES.get(status, set()):
             return False
-        if ability == "Leaf Guard" and self.weather == "sun":
+        if ability == "Leaf Guard" and self._wx == "sun":
             return False
         if self._grounded(target) and (self.terrain == "misty" or self.terrain == "electric" and status == "slp"):
             return False
-        if status == "frz" and self.weather == "sun":
+        if status == "frz" and self._wx == "sun":
             return False
         if move is not None:
             if move in mx.POWDER and ("Grass" in target.mon["types"] or ability == "Overcoat"
@@ -367,8 +418,8 @@ class Battle:
         target.yawn = 0
         self._event(f"{target.name}은(는) {mx.STATUS_LABELS[status]} 상태가 되었다!", "status",
                     ref=self._ref(target), status=status)
-        if target.mon["item"] == "Lum Berry" and not target.item_used or (
-                status == "slp" and target.mon["item"] == "Chesto Berry" and not target.item_used):
+        if not self._unnerved(target) and (target.mon["item"] == "Lum Berry" and not target.item_used or (
+                status == "slp" and target.mon["item"] == "Chesto Berry" and not target.item_used)):
             self._consume(target)
             self._cure(target, "리샘열매로 " if target.mon["item"] == "Lum Berry" else "잠깨는열매로 ")
         elif source is not None and target.mon["ability"] == "Synchronize" and status in {"brn", "par", "psn", "tox"}:
@@ -472,8 +523,8 @@ class Battle:
 
     def _move_type(self, actor, move):
         kind = self.engine.M.get(move, {}).get("type")
-        if move == "Weather Ball" and self.weather:
-            return {"sun": "Fire", "rain": "Water", "sand": "Rock", "snow": "Ice"}[self.weather]
+        if move == "Weather Ball" and self._wx:
+            return {"sun": "Fire", "rain": "Water", "sand": "Rock", "snow": "Ice"}[self._wx]
         return ATE.get(actor.mon["ability"], kind) if kind == "Normal" else kind
 
     def _spread(self, actor, move):
@@ -530,25 +581,32 @@ class Battle:
         if actor.mon["ability"] == "Unaware":
             defender["stats"] = dict(target.mon["stats"])
         defender["stats"]["hp"] = target.max_hp
-        if self.weather == "sand" and "Rock" in target.mon["types"]:
+        if self._wx == "sand" and "Rock" in target.mon["types"]:
             defender["stats"]["spd"] = round(defender["stats"]["spd"] * 1.5)
-        if self.weather == "snow" and "Ice" in target.mon["types"]:
+        if self._wx == "snow" and "Ice" in target.mon["types"]:
             defender["stats"]["def"] = round(defender["stats"]["def"] * 1.5)
         hit = self.engine.damage(attacker, move, defender, self.fmt, spread=spread,
                                  full_hp=target.hp == target.max_hp, recharge_discount=False,
-                                 weather="sun" if actor.mon["ability"] == "Mega Sol" else self.weather,
+                                 weather="sun" if actor.mon["ability"] == "Mega Sol" else self._wx,
                                  psychic_terrain=self.terrain == "psychic" and self._grounded(actor),
                                  estimate_intimidate=False)
         if not hit:
             return 0, 100
         accuracy = hit["acc"]
         if move in ("Thunder", "Hurricane"):
-            accuracy = 100 if self.weather == "rain" else 50 if self.weather == "sun" else accuracy
-        if move == "Blizzard" and self.weather == "snow":
+            accuracy = 100 if self._wx == "rain" else 50 if self._wx == "sun" else accuracy
+        if move == "Blizzard" and self._wx == "snow":
             accuracy = 100
         accuracy = self._accuracy(actor, target, accuracy)
         power = 1.5 if actor.helped else 1.
         physical = meta.get("category") == "Physical"
+        if move in ("Eruption", "Water Spout", "Dragon Energy"):
+            power *= max(1, int(150 * actor.hp / actor.max_hp)) / 150  # 남은 HP 비례
+        if move == "Last Respects":
+            fainted = sum(1 for f in self.teams[self._side(actor)] if not f.hp)
+            power *= 1 + min(100, fainted)  # 50 + 50 × 쓰러진 아군
+        if actor.mon["ability"] == "Solar Power" and self._wx == "sun" and not physical:
+            power *= 1.5
         item = None if actor.item_used else actor.mon["item"]
         if item == "Muscle Band" and physical or item == "Wise Glasses" and not physical:
             power *= 1.1
@@ -1221,8 +1279,8 @@ class Battle:
     @staticmethod
     def _removable(fighter) -> bool:
         item = fighter.mon["item"]
-        return bool(item) and not fighter.item_used and not (fighter.mon.get("mega") and item.endswith(
-            ("ite", "ite X", "ite Y", "ite Z")))
+        return bool(item) and not fighter.item_used and not (
+            (fighter.mon.get("mega") or fighter.mega_form) and item.endswith(("ite", "ite X", "ite Y", "ite Z")))
 
     def _on_hit(self, actor, target, move, contact):
         """맞은 쪽 특성 (챔피언스 메가 특성 포함)."""
@@ -1230,6 +1288,9 @@ class Battle:
         physical = self.engine.M.get(move, {}).get("category") == "Physical"
         if ability == "Stamina":
             self._stage_event(target, self._change_stages(target, {"def": 1}))
+        elif ability == "Justified" and self._move_type(actor, move) == "Dark" and target.hp:
+            self._ability(target)
+            self._stage_event(target, self._change_stages(target, {"atk": 1}))
         elif ability == "Weak Armor" and physical:
             self._stage_event(target, self._change_stages(target, {"def": -1, "spe": 2}))
         elif ability == "Toxic Debris" and physical:
@@ -1243,6 +1304,8 @@ class Battle:
         elif ability == "Spicy Spray" and actor.hp:
             if self._inflict(actor, "brn", target):
                 self._ability(target)
+        if contact and target.hp and actor.mon["ability"] == "Poison Touch" and self.rng.random() < .3:
+            self._inflict(target, "psn", actor)
         if contact and actor.hp:
             if ability == "Flame Body" and self.rng.random() < .3:
                 self._inflict(actor, "brn", target)
@@ -1274,7 +1337,7 @@ class Battle:
         elif move in WEATHER_CHARGE:
             if move == "Electro Shot":
                 actor.stages["spa"] = min(6, actor.stages.get("spa", 0) + 1)
-            if self.weather != WEATHER_CHARGE[move]:
+            if self._wx != WEATHER_CHARGE[move]:
                 if actor.mon["item"] == "Power Herb" and not actor.item_used:
                     self._consume(actor)
                 else:
@@ -1380,6 +1443,9 @@ class Battle:
                     self.trace[victim]["spread_taken"] += amount
                 if not target.hp:
                     actor.kos += 1
+                    if actor.hp and actor.mon["ability"] == "Moxie":
+                        self._ability(actor)
+                        self._stage_event(actor, self._change_stages(actor, {"atk": 1}))
                     actor.victims[target.mon["id"]] += 1
                     if self.first_faint is None:
                         self.first_faint = victim
@@ -1425,7 +1491,8 @@ class Battle:
                     self._event(f"{'내 팀' if side else '상대'} 주변에 {'압정' if key == 'spikes' else '뾰족한 바위'}이(가) 흩어졌다!",
                                 "field")
             if not target.item_used:
-                if target.hp and target.hp <= target.max_hp // 2 and target.mon["item"] == "Sitrus Berry":
+                if (target.hp and target.hp <= target.max_hp // 2 and target.mon["item"] == "Sitrus Berry"
+                        and not self._unnerved(target)):
                     self._consume(target)
                     self._heal(target, target.max_hp // 4)
                 elif target.mon["item"] == "Air Balloon":
@@ -1463,6 +1530,7 @@ class Battle:
             raise ValueError("교체할 대기 포켓몬을 먼저 골라 주세요.")
         if self.manual and my_actions is None:
             raise ValueError("필드에 있는 포켓몬마다 명령을 골라 주세요.")
+        self._mega_turn()
         mine = self._auto(0) if my_actions is None else my_actions
         active = dict(self._present(0))
         by_slot = {a["slot"]: a for a in mine}
@@ -1577,10 +1645,12 @@ class Battle:
             self.quick_guard[side] = False
             for slot, actor in self._present(side):
                 guard = actor.mon["ability"] == "Magic Guard"
-                if (self.weather == "sand" and not set(actor.mon["types"]) & {"Rock", "Ground", "Steel"} and not guard
+                if (self._wx == "sand" and not set(actor.mon["types"]) & {"Rock", "Ground", "Steel"} and not guard
                     and actor.mon["ability"] not in {"Sand Veil", "Sand Rush", "Sand Force", "Overcoat"}
                     and actor.mon["item"] != "Safety Goggles"):
                     self._hurt(actor, actor.max_hp // 16, "은(는) 모래바람에 데미지를 입었다")
+                if actor.hp and actor.mon["ability"] == "Solar Power" and self._wx == "sun" and not guard:
+                    self._hurt(actor, actor.max_hp // 8, "은(는) 선파워로 체력이 깎였다")
                 wish = self.wish[side].get(slot)
                 if wish:
                     turns, amount = wish

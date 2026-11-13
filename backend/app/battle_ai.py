@@ -18,6 +18,7 @@ def _copy_battle(battle):
     forecast.seen = [seen.copy() for seen in battle.seen]
     forecast.activated = [effects.copy() for effects in battle.activated]
     forecast.tailwind = battle.tailwind.copy()
+    forecast.mega_left = battle.mega_left.copy()
     forecast.redirect = battle.redirect.copy()
     forecast.wide_guard = battle.wide_guard.copy()
     forecast.quick_guard = battle.quick_guard.copy()

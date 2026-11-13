@@ -1,0 +1,44 @@
+{
+ "balanced": {
+  "attack": 0.892,
+  "spread": 0.072,
+  "status": 0.036,
+  "actions": 223
+ },
+ "aggressive": {
+  "attack": 0.915,
+  "spread": 0.061,
+  "switch": 0.014,
+  "status": 0.009,
+  "actions": 213
+ },
+ "defensive": {
+  "protect": 0.279,
+  "spread": 0.056,
+  "attack": 0.635,
+  "status": 0.026,
+  "switch": 0.004,
+  "actions": 233
+ },
+ "setup": {
+  "protect": 0.138,
+  "spread": 0.062,
+  "attack": 0.742,
+  "status": 0.058,
+  "actions": 225
+ },
+ "pivot": {
+  "attack": 0.867,
+  "spread": 0.071,
+  "status": 0.053,
+  "switch": 0.009,
+  "actions": 225
+ },
+ "counter": {
+  "attack": 0.896,
+  "spread": 0.062,
+  "switch": 0.009,
+  "status": 0.033,
+  "actions": 211
+ }
+}

@@ -1,0 +1,68 @@
+{
+ "roles": {
+  "tailwind": {
+   "setters": [
+    "dragonite"
+   ],
+   "payoffs": [
+    "garchomp"
+   ]
+  },
+  "trickroom": {
+   "setters": [
+    "chandelure"
+   ],
+   "payoffs": [
+    "golisopod",
+    "sylveon"
+   ]
+  }
+ },
+ "games": 80,
+ "win": 0.744,
+ "koBeforeMovePerGame": 1.44,
+ "modes": {
+  "tailwind": {
+   "setterBroughtRate": 0.7,
+   "setterAndPayoffRate": 0.588,
+   "activationRateWhenSetterBrought": 0.429,
+   "meanActivationTurn": 2.92,
+   "winWhenActivated": 0.75,
+   "winWhenSetterBroughtButNotActivated": 0.812,
+   "koBeforeMoveActivated": 1.08,
+   "koBeforeMoveNotActivated": 1.53,
+   "counts": {
+    "games": 80,
+    "setterBrought": 56,
+    "bothBrought": 47,
+    "activated": 24,
+    "activatedTurnSum": 70,
+    "winWhenActivated": 18.0,
+    "winWhenNotActivated": 26.0,
+    "koBeforeMoveActivated": 26,
+    "koBeforeMoveNot": 49
+   }
+  },
+  "trickroom": {
+   "setterBroughtRate": 0.787,
+   "setterAndPayoffRate": 0.588,
+   "activationRateWhenSetterBrought": 0.048,
+   "meanActivationTurn": 4.33,
+   "winWhenActivated": 1.0,
+   "winWhenSetterBroughtButNotActivated": 0.692,
+   "koBeforeMoveActivated": 0.67,
+   "koBeforeMoveNotActivated": 1.5,
+   "counts": {
+    "games": 80,
+    "setterBrought": 63,
+    "bothBrought": 47,
+    "activated": 3,
+    "activatedTurnSum": 13,
+    "winWhenActivated": 3.0,
+    "winWhenNotActivated": 41.5,
+    "koBeforeMoveActivated": 2,
+    "koBeforeMoveNot": 90
+   }
+  }
+ }
+}
