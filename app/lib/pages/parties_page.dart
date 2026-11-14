@@ -126,7 +126,7 @@ class PartyCard extends ConsumerStatefulWidget {
 class _PartyCardState extends ConsumerState<PartyCard> {
   bool saving = false;
 
-  Future<void> _save({bool play = false, Json? practice}) async {
+  Future<void> _save({bool play = false, bool edit = false, Json? practice}) async {
     setState(() => saving = true);
     final p = widget.party;
     try {
@@ -136,6 +136,10 @@ class _PartyCardState extends ConsumerState<PartyCard> {
       if (!mounted) return;
       if (play) {
         context.go('/battle', extra: practice);
+        return;
+      }
+      if (edit) {
+        context.go('/workspace');
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -159,7 +163,13 @@ class _PartyCardState extends ConsumerState<PartyCard> {
     final members = (p['members'] as List).cast<Json>();
     final complete = p['complete'] == true;
     final published = p['rank'] != null;
-    final fit = (p['fit'] as List? ?? []).cast<Json>();
+    final operation = p['operation'] as Json?;
+    final execution = (operation?['execution'] as List? ?? const []).cast<Json>();
+    final unconfirmed = (operation?['unconfirmed'] as List? ?? const []).cast<String>();
+    final guide = p['guide'] as Json?;
+    final lead = guide?['lead'] as Json?;
+    final plans = (guide?['plans'] as List? ?? const []).cast<Json>();
+    final practice = plans.where((plan) => plan['lossSample'] != null).firstOrNull;
     final fixedIds = (p['fixedIds'] as List? ?? []).toSet();
     final theme = Theme.of(context);
     return Section(
@@ -168,25 +178,62 @@ class _PartyCardState extends ConsumerState<PartyCard> {
           ? '${p['season']} · 최종 ${p['rank']}위 · ${p['player']}${p['rating'] == null ? '' : ' · 레이팅 ${p['rating']}'}'
           : p['origin'] != null
               ? '${tr(p['origin']['label'] as String)} · ${tr(p['origin']['detail'] as String)}'
-              : '메타 상성 점수 ${p['metaScore']} / 100',
+              : operation == null ? '메타 상성 점수 ${p['metaScore']} / 100' : null,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (p['note'] != null) Text(p['note'] as String),
-        if (p['simulation'] case final Json simulation)
+        if (unconfirmed.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text("${unconfirmed.join(' · ')} · 반복 실행 미확인",
+                style: TextStyle(color: theme.colorScheme.tertiary, fontWeight: FontWeight.w600)),
+          ),
+        if (operation != null && lead != null) ...[
+          Text("선봉 ${_names(lead['lead'])} · 후발 ${_names(lead['back'])}", style: theme.textTheme.titleSmall),
+          if (lead['against'] != null)
+            Text("${lead['against']} 상대 · ${lead['runs']}판에서 관측", style: theme.textTheme.bodySmall),
+          if (practice != null)
+            TextButton.icon(
+              onPressed: saving ? null : () => _save(play: true, practice: {...practice, 'sample': practice['lossSample']}),
+              icon: const LabIcon(LabGlyph.controller),
+              label: Text("${practice['against']} 상대 패배 매치 다시 연습"),
+            ),
+        ],
+        if (p['simulation'] case final Json simulation when p['holdout'] == null)
           PartySimulationResult(simulation, members: members),
         if (p['holdout'] case final Json sample)
           LabExpansionTile(
-            title: Text("보류 상대 · ${fmtPct(100 * (sample['rate'] as num))} · ${sample['runs']}판"),
+            title: Text("보류 상대 승점률 ${fmtPct(100 * (sample['rate'] as num))} · ${sample['runs']}판"),
+            subtitle: sample['reference'] is Json ? Text(_referenceLabel(sample['reference'] as Json)) : null,
             tilePadding: EdgeInsets.zero,
             expandedCrossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text("탐색에서 제외한 합성 코어 ${sample['coreCount']}종 · 마스터볼 CPU"),
               if (sample['ci'] case final List interval)
                 Text("코어 기준 95% 추정 범위 ${fmtPct(100 * (interval[0] as num))}–${fmtPct(100 * (interval[1] as num))}"),
+              if ((sample['reference'] as Json?)?['ci'] case final List interval)
+                Text("공개 팀 대비 차이의 95% 추정 범위 ${(100 * (interval[0] as num)).toStringAsFixed(1)}~${(100 * (interval[1] as num)).toStringAsFixed(1)}%p"),
+              if ((sample['lossTags'] as List? ?? const []).cast<Json>().firstOrNull case final Json loss)
+                Text("자주 나온 패배 상황 · ${loss['label']} (${loss['losses']}패)"),
               for (final match in (sample['strategies'] as List).cast<Json>())
                 Text("${match['label']} · ${match['runs']}판 · ${match['win']}승 ${match['draw']}무 ${match['loss']}패"),
             ],
           ),
-        if (p['guide'] case final Json guide)
+        if (execution.isNotEmpty)
+          LabExpansionTile(
+            title: const Text('전략 실행 기록'),
+            subtitle: Text(operation?['basis'] == 'holdout' ? '보류 상대 모의전' : '최근 모의전'),
+            tilePadding: EdgeInsets.zero,
+            expandedCrossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final row in execution)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text("${row['label']} · ${row['runs']}판 중 핵심 선출 ${row['selected']}판"
+                      " · 발동 ${row['activated']}판 · 효과 활용 ${row['used']}판 · 활용한 판 ${row['usedWins']}승"),
+                ),
+            ],
+          ),
+        if (guide != null)
           LabExpansionTile(
             title: const Text('선출과 운영 가이드'),
             tilePadding: EdgeInsets.zero,
@@ -202,14 +249,14 @@ class _PartyCardState extends ConsumerState<PartyCard> {
         if (p['rankers'] case final Json rankers) RankerMatchups(rankers),
         if (p['rosterSearch'] is List && (p['rosterSearch'] as List).isNotEmpty)
           PartyRosterChanges((p['rosterSearch'] as List).cast<Json>()),
-        if (p['strategy'] case final Json strategy)
+        if (p['strategy'] case final Json strategy when operation == null)
           _StrategyPanel(
               strategy: strategy,
               metrics: p['metrics'] as Json? ?? const {},
               counterfactual: p['counterfactual'] as Json?,
               causes: (p['lossCauses'] as List? ?? const []).cast<Json>()),
         if (p['tuning'] case final Json tuning) _TuningNotes(tuning),
-        if (p['analysis'] != null)
+        if (operation == null && p['analysis'] != null)
           LabExpansionTile(
             tilePadding: EdgeInsets.zero,
             expandedCrossAxisAlignment: CrossAxisAlignment.start,
@@ -217,7 +264,7 @@ class _PartyCardState extends ConsumerState<PartyCard> {
             title: const Text('팀 분석 · 역할, 약점, 운영법'),
             children: [CandidateAnalysis(p), const SizedBox(height: 10)],
           ),
-        if (p['profile'] case final Json profile)
+        if (p['profile'] case final Json profile when operation == null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Wrap(spacing: 6, runSpacing: 4, children: [
@@ -250,29 +297,6 @@ class _PartyCardState extends ConsumerState<PartyCard> {
                 ),
             ]),
           ),
-        if (fit.isNotEmpty)
-          LabExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: const Text('구성 근거'),
-            subtitle: Text(fit
-                .map((style) =>
-                    '${style['name']} ${style['complete'] == true ? '충족' : '일부 반영'}')
-                .join(' · ')),
-            expandedCrossAxisAlignment: CrossAxisAlignment.start,
-            expandedAlignment: Alignment.centerLeft,
-            children: [
-              for (final style in fit) ...[
-                Text(style['name'] as String,
-                    style: theme.textTheme.titleSmall),
-                for (final role in (style['evidence'] as List).cast<Json>())
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                        '${role['role']}${role['minimum'] == null ? '' : ' ${role['count']}/${role['minimum']}'} · ${(role['members'] as List).isEmpty ? '담당 없음' : (role['members'] as List).join(', ')}'),
-                  ),
-              ],
-            ],
-          ),
         const SizedBox(height: 6),
         for (final member in members)
           if (member['set']['moves'] != null)
@@ -303,6 +327,12 @@ class _PartyCardState extends ConsumerState<PartyCard> {
           for (final warning in (p['warnings'] as List).cast<Json>())
             Text('• ${warning['text']}', style: theme.textTheme.bodySmall),
         Wrap(spacing: 8, runSpacing: 8, children: [
+          if (complete && operation != null)
+            FilledButton.icon(
+              onPressed: saving ? null : () => _save(edit: true),
+              icon: const LabIcon(LabGlyph.stack),
+              label: const Text('저장하고 팀 수정'),
+            ),
           if (complete)
             FilledButton.tonalIcon(
               onPressed: saving ? null : _save,
@@ -331,6 +361,16 @@ class _PartyCardState extends ConsumerState<PartyCard> {
         ]),
       ]),
     );
+  }
+
+  static String _names(Object? value) => (value as List? ?? const []).cast<Json>()
+      .map((mon) => mon['ko'] ?? mon['name']).join(' + ');
+
+  static String _referenceLabel(Json value) {
+    final ci = (value['ci'] as List?)?.cast<num>();
+    final result = ci == null || (ci.first <= 0 && ci.last >= 0)
+        ? '차이 미확인' : ci.first > 0 ? '비교 팀보다 우세' : '비교 팀보다 열세';
+    return "같은 상대에서 ${value['season']} ${value['rank']}위 공개 팀 ${fmtPct(100 * (value['rate'] as num))} · $result";
   }
 }
 

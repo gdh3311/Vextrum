@@ -8,6 +8,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('자동 구성은 미확인 전술과 보류 전적을 먼저 보여 준다', (tester) async {
+    final data = jsonDecode(File('test/fixtures/auto_team.json').readAsStringSync()) as Map<String, dynamic>;
+    final party = (data['candidates'] as List).first as Map<String, dynamic>;
+    party['operation'] = {
+      'basis': 'holdout', 'unconfirmed': ['비'],
+      'execution': [{'label': '비', 'runs': 27, 'selected': 4, 'activated': 0, 'used': 0, 'usedWins': 0}],
+    };
+    party['holdout'] = {'rate': .48, 'runs': 27, 'coreCount': 21, 'strategies': []};
+    await tester.pumpWidget(ProviderScope(child: MaterialApp(home: Scaffold(
+      body: SingleChildScrollView(child: PartyCard(party: party)),
+    ))));
+    await tester.pump();
+    expect(find.text('비 · 반복 실행 미확인'), findsOneWidget);
+    expect(find.text('전략 실행 기록'), findsOneWidget);
+    expect(find.textContaining('보류 상대 승점률'), findsOneWidget);
+    expect(find.text('구성 근거'), findsNothing);
+  });
+
   testWidgets('팀 자동 구성 결과: 비교표, 세트 최적화, 랭커 전적을 그린다', (tester) async {
     final data = jsonDecode(File('test/fixtures/auto_team.json').readAsStringSync()) as Map<String, dynamic>;
     final candidates = (data['candidates'] as List).cast<Map<String, dynamic>>();

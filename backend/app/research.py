@@ -447,6 +447,7 @@ class Lab:
                     "runs": report["runs"],
                     "memberStats": [{"id": row["id"], "picked": row["picked"]} for row in report["memberStats"]],
                     "difficulty": report["difficulty"],
+                    "strategyEvidence": report.get("strategyEvidence", {}),
                     "worst": worst["style"] if worst else None,
                 }, ensure_ascii=False)
                 row = con.execute("SELECT games, wins FROM teams WHERE sig=? AND fmt=? AND version=?",
@@ -525,6 +526,8 @@ class Lab:
         guide = team_guide(e, r["sets"], fmt, report=r["report"])
         lead = guide["lead"]["lead"]
         label = ARCHETYPES[r["archetype"]]
+        report = r["report"] or {"runs": 0}
+        execution = [auto_team.strategy_status(report, key) for key in report.get("strategyEvidence", {})]
         return {"id": r["sig"], "format": fmt, "complete": True,
                 "name": " + ".join(m["ko"] or m["name"] for m in lead),
                 "archetype": r["archetype"], "archetypeLabel": ARCHETYPES[r["archetype"]],
@@ -535,7 +538,8 @@ class Lab:
                                      f"랭커 파티와 {r['overlap']}마리 겹침"},
                 "rate": round(r["wins"] / r["games"], 3) if r["games"] else 0, "low": round(r["low"], 3),
                 "members": members, "report": r["report"], "guide": guide,
-                "rulesCoverage": simulation.rules_report(e, fmt, r["sets"])}
+                "rulesCoverage": simulation.rules_report(e, fmt, r["sets"]),
+                "operation": {"execution": execution, "unconfirmed": [], "basis": "latest"}}
 
     def leaderboard(self, e, fmt, bucket=None, archetype=None, limit=24, minimum=40):
         version = regulation.version_key(e.d)
@@ -552,6 +556,10 @@ class Lab:
             view = self.team_view(e, fmt, r)
             if r["sig"] in holdouts:
                 view["holdout"] = json.loads(holdouts[r["sig"]])
+                sample = view["holdout"]
+                view["operation"] = {"execution": [auto_team.strategy_status(sample, key)
+                                                   for key in sample.get("strategyEvidence", {})],
+                                     "unconfirmed": [], "basis": "holdout"}
             out.append(view)
             if len(out) == limit:
                 break

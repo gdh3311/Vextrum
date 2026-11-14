@@ -459,14 +459,14 @@ class BattleRequest(BaseModel):
 
 class BattleStart(BattleRequest):
     selection: list[str] | None = Field(default=None, min_length=1, max_length=4)
-    difficulty: simulation.Difficulty = "ultra"
+    difficulty: simulation.Difficulty = "master"
     manual: bool = False
-    cpuStyle: Literal["balanced", "aggressive", "defensive", "setup", "pivot", "counter"] = "balanced"
+    cpuStyle: Literal["balanced", "aggressive", "defensive", "setup", "pivot", "counter"] | None = None
 
 
 class BatchRequest(BattleRequest):
     runs: int = Field(default=50, ge=1, le=200)
-    difficulty: simulation.Difficulty = "ultra"
+    difficulty: simulation.Difficulty = "master"
 
 
 class PickVerification(BattleRequest):
@@ -532,8 +532,11 @@ def scout_battle(req: BattleRequest):
 def start_battle(req: BattleStart):
     e = engine()
     try:
-        return _battles.start(battle_lab.start(e, req.format, battle_team(e, req), battle_seed(req), req.selection,
-                                              req.difficulty, manual=req.manual, cpu_style=req.cpuStyle,
+        seed = battle_seed(req)
+        styles = battle_lab.PRACTICE_STYLES
+        style = req.cpuStyle or (styles[(seed // 17) % len(styles)] if req.manual else "balanced")
+        return _battles.start(battle_lab.start(e, req.format, battle_team(e, req), seed, req.selection,
+                                              req.difficulty, manual=req.manual, cpu_style=style,
                                               split=req.opponentPool))
     except ValueError as error:
         raise HTTPException(422, str(error)) from error

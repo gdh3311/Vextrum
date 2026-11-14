@@ -62,10 +62,24 @@ SUPPORT |= mx.NEW_SUPPORT
 # Known gaps from the simulator audit. Coverage for other effects remains approximate.
 UNIMPLEMENTED_ITEMS = {"Eject Button", "Quick Claw", "Iron Ball", "Leppa Berry", "Red Card", "Big Root",
                        "Shell Bell", "Metronome"}
-UNIMPLEMENTED_ABILITIES = {"Cursed Body", "Flower Veil", "Illusion", "Moody",
+UNIMPLEMENTED_ABILITIES = {"Cursed Body", "Illusion", "Moody",
                            "Frisk", "Pickpocket", "Damp", "Telepathy", "Snow Cloak", "Magician", "Bulletproof"}
 RULE_UNVERIFIED_ABILITIES = {"Emergency Exit", "Wimp Out"}
 UNIMPLEMENTED_MOVES = {"Curse"}  # Ghost Curse currently applies the cost without its residual effect.
+
+
+def weather_offense(e, mon, weather, move):
+    meta = e.M.get(move, {})
+    if not meta.get("power"):
+        return False
+    kind = meta["type"]
+    if kind == "Normal":
+        kind = ATE.get(mon["ability"], kind)
+    return (move == "Weather Ball" or WEATHER_CHARGE.get(move) == weather
+            or weather == "rain" and (kind == "Water" or move in {"Thunder", "Hurricane"})
+            or weather == "sun" and (kind == "Fire" or mon["ability"] == "Solar Power" and meta["category"] == "Special")
+            or weather == "snow" and move == "Blizzard"
+            or weather == "sand" and mon["ability"] == "Sand Force" and kind in {"Rock", "Ground", "Steel"})
 
 
 def move_supported(e, move):
@@ -142,6 +156,7 @@ class Fighter:
     victims: Counter = field(default_factory=Counter)
     charging: tuple[str, int | None] | None = None
     known_moves: set[str] = field(default_factory=set)
+    revealed_item: str | None = None
     taunt: int = 0
     helped: bool = False
     unburden: bool = False
@@ -156,6 +171,7 @@ class Fighter:
     encore_move: str | None = None
     last_move: str | None = None
     failed_move_turn: int = 0
+    setup_boosted: bool = False
     yawn: int = 0
     destiny: bool = False
     disguise: bool = True
@@ -191,6 +207,7 @@ class Fighter:
         self.seeded = self.destiny = False
         self.encore_move = self.last_move = None
         self.failed_move_turn = 0
+        self.setup_boosted = False
 
 
 class Battle:
@@ -218,9 +235,12 @@ class Battle:
         self.hazards = [{}, {}]  # rocks / spikes / tspikes / web
         self.wish = [{}, {}]  # slot -> (남은 턴, 회복량)
         self.activated = [set(), set()]
+        self.strategy_used = [set(), set()]
+        self.weather_owner = self.terrain_owner = self.room_owner = None
         # 패배 원인 태깅용 사건 기록 (편별): 선제기·광역기 KO, 행동 전 KO, 명중 낮은 기술 빗나감, 첫 기절
         self.trace = [dict(priority_ko=0, spread_ko=0, spread_taken=0, taken=0, ko_before_move=0, low_acc_miss=0,
                            setup_moves=0) for _ in range(2)]
+        self.public_actions = [Counter(), Counter()]
         self.first_faint = None
         self.opening = []  # 내 편(0)의 첫 턴 행동
         self.opening_actions = []
@@ -262,13 +282,14 @@ class Battle:
     def _mega_gain(f: Fighter) -> int:
         return sum(f.mega_form["stats"].values()) - sum(f.mon["stats"].values())
 
-    def _mega_turn(self, player_slot=None):
+    def _mega_turn(self, player_slot=None, *, actions=None):
         """Apply a manual choice or the automatic policy once per side."""
         for side in range(2):
             if not self.mega_left[side]:
                 continue
             ready = [f for slot, f in self._present(side) if f.mega_form and f.hp
-                     and (side != 0 or not self.manual or slot == player_slot)]
+                     and (side != 0 or not self.manual or slot == player_slot)
+                     and (actions is None or any(a["slot"] == slot and a["kind"] == "move" for a in actions[side]))]
             if not ready:
                 continue
             fighter = max(ready, key=self._mega_gain)
@@ -304,9 +325,9 @@ class Battle:
         return [(slot, self.teams[side][i]) for slot, i in enumerate(self.active[side])
                 if i is not None and self.teams[side][i].hp > 0]
 
-    def _speed(self, side: int, f: Fighter) -> float:
-        wind = 2 if self.tailwind[side] else 1
-        weather = 2 if WEATHER_SPEED.get(f.mon["ability"]) == self._wx else 1
+    def _speed(self, side: int, f: Fighter, *, ignore_wind=False, ignore_weather=False) -> float:
+        wind = 2 if self.tailwind[side] and not ignore_wind else 1
+        weather = 2 if not ignore_weather and WEATHER_SPEED.get(f.mon["ability"]) == self._wx else 1
         unburden = 2 if f.unburden else 1
         para = .5 if f.status == "par" and f.mon["ability"] != "Quick Feet" else 1.5 if (
             f.status and f.mon["ability"] == "Quick Feet") else 1
@@ -391,6 +412,10 @@ class Battle:
 
     def _lower(self, fighter, changes, source, *, reflect=True):
         ability = None if source.mon["ability"] in MOLD else fighter.mon["ability"]
+        protector = self._flower_veil(fighter, source)
+        if protector is not None:
+            self._ability(protector)
+            return False
         if fighter.mon["item"] == "Clear Amulet" or ability in {"Clear Body", "White Smoke", "Full Metal Body"}:
             return False
         if ability == "Mirror Armor" and reflect:
@@ -418,6 +443,12 @@ class Battle:
     def _side(self, fighter) -> int:
         return 0 if any(f is fighter for f in self.teams[0]) else 1
 
+    def _flower_veil(self, target, source):
+        if "Grass" not in target.mon["types"] or source is target:
+            return None
+        return next((f for _, f in self._present(self._side(target)) if f.mon["ability"] == "Flower Veil"
+                     and (source is None or source.mon["ability"] not in MOLD or f is not target)), None)
+
     def _hurt(self, fighter, amount, message, *, kind="residual"):
         """기술 외의 데미지 (날씨, 상태 이상, 반동, 설치 기술). HP 바가 움직이도록 이벤트를 남긴다."""
         if not fighter.hp or amount <= 0:
@@ -431,6 +462,8 @@ class Battle:
 
     def _can_status(self, target, status, source=None, move=None) -> bool:
         if not target.hp or target.status:
+            return False
+        if (source is not None or move == "Toxic Spikes") and self._flower_veil(target, source) is not None:
             return False
         mold = source is not None and source.mon["ability"] in MOLD
         ability = None if mold else target.mon["ability"]
@@ -469,7 +502,7 @@ class Battle:
             self._cure(target, "리샘열매로 " if target.mon["item"] == "Lum Berry" else "잠깨는열매로 ")
         elif source is not None and target.mon["ability"] == "Synchronize" and status in {"brn", "par", "psn", "tox"}:
             self._ability(target)
-            self._inflict(source, status)
+            self._inflict(source, status, target)
         return True
 
     def _cure(self, fighter, prefix=""):
@@ -524,6 +557,7 @@ class Battle:
             self._event(f"{fighter.name}은(는) 멘탈허브로 정신을 되찾았다!", "field")
 
     def _consume(self, fighter):
+        fighter.revealed_item = fighter.mon["item"]
         fighter.item_used = True
         if fighter.mon["ability"] == "Unburden":
             fighter.unburden = True
@@ -531,6 +565,7 @@ class Battle:
 
     def _set_terrain(self, side, terrain, actor):
         self.terrain = terrain
+        self.terrain_owner = side
         self.terrain_turns = 8 if actor.mon["item"] == "Terrain Extender" else 5
         self.activated[side].add(terrain)
         self._event(f"필드 · {TERRAIN_LABELS[terrain]}", "field", terrain=terrain)
@@ -548,6 +583,7 @@ class Battle:
     def _set_weather(self, side: int, weather: str, actor: Fighter):
         rocks = {"sun": "Heat Rock", "rain": "Damp Rock", "sand": "Smooth Rock", "snow": "Icy Rock"}
         self.weather = weather
+        self.weather_owner = side
         self.weather_turns = 8 if actor.mon["item"] == rocks[weather] else 5
         self.activated[side].add(weather)
         self._event(f"날씨 · {WEATHER_LABELS[weather]}", "field", weather=weather)
@@ -654,6 +690,8 @@ class Battle:
             power *= 1 + min(100, fainted)  # 50 + 50 × 쓰러진 아군
         if actor.mon["ability"] == "Solar Power" and self._wx == "sun" and not physical:
             power *= 1.5
+        if actor.mon["ability"] == "Sand Force" and self._wx == "sand" and hit["type"] in {"Rock", "Ground", "Steel"}:
+            power *= 1.3
         item = None if actor.item_used else actor.mon["item"]
         if item == "Muscle Band" and physical or item == "Wise Glasses" and not physical:
             power *= 1.1
@@ -749,10 +787,10 @@ class Battle:
         return options
 
     def _auto(self, side: int) -> list[dict]:
-        if side == 1 and self.difficulty in {"master", "champion"}:
+        if self.difficulty in {"master", "champion"}:
             from .battle_ai import choose_actions
 
-            return choose_actions(self)
+            return choose_actions(self, side)
         return self._greedy(side)
 
     def _seen(self, side: int, f: "Fighter") -> "Fighter":
@@ -775,11 +813,13 @@ class Battle:
                 guess["mega"] = f.mon.get("mega")
                 if guess.get("item") and self.engine.find_mega(self.engine.P[pid], stone=guess["item"]):
                     guess["item"] = None
+            if f.revealed_item:
+                guess["item"] = f.revealed_item
             moves = list(dict.fromkeys(sorted(f.known_moves - {"Struggle"}) + guess["moves"]))
             mon = self.engine.resolve({**guess, "moves": moves}, self.fmt)
             ratio = f.hp / f.max_hp if f.max_hp else 0
             proxy = replace(f, mon=mon, hp=max(1, round(ratio * mon["stats"]["hp"])) if f.hp else 0,
-                            choice=f.choice if f.choice in f.known_moves else None)
+                            mega_form=None, choice=None, item_used=bool(f.revealed_item and f.item_used))
             cache[id(f)] = proxy
         return proxy
 
@@ -844,8 +884,6 @@ class Battle:
                     continue
             switches = [a for a in options if a["kind"] == "switch" and a["target"] not in reserves]
             heals = [a for a in options if a.get("move") in HEAL]
-            allied = [self._speed(side, f) for _, f in self._present(side)]
-            enemies = [self._speed(1 - side, self._seen(side, f)) for _, f in self._present(1 - side)]
             strategy = self.foe_strategy if side == 1 else None
             # 순풍·트릭룸: 실제로 뒤집히는 스피드 관계 수로 가치를 매긴다.
             control = max(((style["setup"] * self._speed_control_value(side, actor, a["move"], strategy), a)
@@ -853,20 +891,6 @@ class Battle:
                            if a.get("move") in {"Tailwind", "Trick Room"}
                            and not any(c.get("move") in {"Tailwind", "Trick Room"} for c in chosen)),
                           key=lambda row: row[0], default=(0., None))
-            preferred = control[1]["move"] if control[1] is not None else None
-            setup = None
-            if not setup and self.turn <= 3:
-                def useful_weather(move):
-                    weather = WEATHER_MOVES.get(move)
-                    return weather is not None and weather != self.weather and any(
-                        WEATHER_SPEED.get(f.mon["ability"]) == weather
-                        or any(WEATHER_CHARGE.get(m) == weather for m in f.mon["moves"])
-                        or "Weather Ball" in f.mon["moves"]
-                        or weather == "sand" and "Rock" in f.mon["types"]
-                        or weather == "snow" and "Ice" in f.mon["types"]
-                        for f in self.teams[side] if f.hp)
-                setup = next((a for a in options if useful_weather(a.get("move"))
-                              and not any(c.get("move") in WEATHER_MOVES for c in chosen)), None)
             boost = next((a for a in options if any(
                 actor.stages.get(stat, 0) == 0 for stat in BOOSTS.get(a.get("move"), {}) if stat in {"atk", "spa"}
             )), None)
@@ -876,7 +900,8 @@ class Battle:
                                       danger_line=style["danger"], caution=style.get("caution", 0.)) if tactical else None
             parting = next((a for a in options if a.get("move") == "Parting Shot"), None)
             utility = max(((style["setup"] * (self._support_value(side, slot, actor, a) or 0.), a) for a in options
-                           if a.get("move") in mx.NEW_SUPPORT and not any(c.get("move") == a["move"] for c in chosen)),
+                           if a.get("move") in (mx.NEW_SUPPORT | WEATHER_MOVES.keys())
+                           and not any(c.get("move") == a["move"] for c in chosen)),
                           key=lambda row: row[0], default=(0., None))
             if difficulty in {"poke", "great"}:
                 utility = (utility[0] * .7, utility[1])
@@ -895,10 +920,6 @@ class Battle:
                 action = min(switches, key=lambda a: self._threat_to(side, self.teams[side][a["target"]]))
             elif heals and 0 < actor.hp <= actor.max_hp * style["heal"] and best_score < 0.35:
                 action = heals[0]
-            elif setup and actor.hp >= actor.max_hp / 2 and self.turn <= 4 and best_score < (
-                .95 if preferred and setup.get("move") == preferred else .55
-            ):
-                action = setup
             elif boost and actor.hp >= actor.max_hp * .8 and self.turn <= 3 and best_score < (
                 .65 if strategy == "setup" else .42
             ) * style["setup"]:
@@ -975,6 +996,7 @@ class Battle:
             changed = self._change_stages(actor, BOOSTS[move])
             if changed.get("atk", 0) > 0 or changed.get("spa", 0) > 0:
                 self.activated[side].add("setup")
+                actor.setup_boosted = True
             return bool(changed)
         elif move == "Tailwind":
             if self.tailwind[side]:
@@ -984,6 +1006,7 @@ class Battle:
             self._event(f"{'상대' if side else '내 팀'}의 뒤에서 순풍이 불기 시작했다!")
         elif move == "Trick Room":
             self.trick_room = 0 if self.trick_room else 5
+            self.room_owner = side if self.trick_room else None
             if self.trick_room:
                 self.activated[side].add("trickroom")
             self._event("행동 순서가 뒤집혔다!" if self.trick_room else "트릭룸이 풀렸다!")
@@ -1025,6 +1048,7 @@ class Battle:
                 self.hazards = [{}, {}]
             if changed.get("atk", 0) > 0 or changed.get("spa", 0) > 0:
                 self.activated[side].add("setup")
+                actor.setup_boosted = True
         elif move in mx.SCREENS:
             kind = mx.SCREENS[move]
             if self.screens[side].get(kind) or kind == "veil" and self.weather != "snow":
@@ -1198,7 +1222,7 @@ class Battle:
         undo_room = move == "Trick Room" and self.trick_room
         on_field = {id(f) for _, f in self._present(side)} | {id(f) for _, f in self._present(1 - side)}
         allies = [f for f in self.teams[side] if f.hp > 0]
-        foes = [f for f in self.teams[1 - side] if f.hp > 0]
+        foes = [f for i, f in enumerate(self.teams[1 - side]) if i in self.seen[1 - side] and f.hp > 0]
         if not foes:
             return 0.
         net = 0.
@@ -1228,6 +1252,21 @@ class Battle:
     def _support_value(self, side, slot, actor, action) -> float | None:
         """새로 다루는 보조 기술의 대략적인 가치 (공격 점수와 같은 척도). 해당 없으면 None."""
         move = action.get("move")
+        if move in WEATHER_MOVES:
+            weather = WEATHER_MOVES[move]
+            if weather == self.weather or any(f.mon["ability"] in NO_WEATHER for s in range(2) for _, f in self._present(s)):
+                return 0.
+
+            def impact(mon):
+                return (.38 * any(weather_offense(self.engine, mon, weather, m) for m in mon["moves"])
+                        + .24 * (WEATHER_SPEED.get(mon["ability"]) == weather)
+                        + .16 * (weather == "sand" and "Rock" in mon["types"] or weather == "snow" and "Ice" in mon["types"]))
+
+            active = {id(f) for _, f in self._present(side)}
+            focus = sum(impact(f.mon) * (1 if id(f) in active else .35) for f in self.teams[side] if f.hp)
+            foe = [self._seen(side, f).mon for _, f in self._present(1 - side)]
+            denial = .18 * bool(self.weather and self.weather_owner != side)
+            return max(0., focus - .65 * sum(impact(mon) for mon in foe) + denial)
         if move not in mx.NEW_SUPPORT:
             return None
         foes = dict(self._present(1 - side))
@@ -1390,6 +1429,32 @@ class Battle:
         if changes and self.rng.random() * 100 < chance * luck:
             self._lower(target, changes, actor)
 
+    def _record_strategy_attack(self, side, actor, target, move, priority, remaining):
+        used = self.strategy_used[side]
+        weather = self._wx
+        if weather and self.weather_owner == side and weather_offense(self.engine, actor.mon, weather, move):
+            used.add(weather)
+        if (self.terrain == "psychic" and self.terrain_owner == side
+                and move == "Expanding Force" and self._grounded(actor)):
+            used.add("psychic")
+        category = self.engine.M.get(move, {}).get("category")
+        if actor.setup_boosted and actor.stages.get({"Physical": "atk", "Special": "spa"}.get(category), 0) > 0:
+            used.add("setup")
+        active_effects = self.tailwind[side] or self.trick_room or weather and self.weather_owner == side
+        if not active_effects:
+            return
+        if not any(f is target and p == priority and action["kind"] == "move" for p, _, _, f, action in remaining):
+            return
+        speed = self._speed(side, actor)
+        foe_speed = self._speed(1 - side, target)
+        if self.trick_room and self.room_owner == side and speed < foe_speed:
+            used.add("trickroom")
+        if not self.trick_room and speed > foe_speed:
+            if self.tailwind[side] and self._speed(side, actor, ignore_wind=True) < foe_speed:
+                used.add("tailwind")
+            if weather and self.weather_owner == side and self._speed(side, actor, ignore_weather=True) < foe_speed:
+                used.add(weather)
+
     def _attack(self, side, slot, actor, move, target_slot, priority, remaining):
         if actor.charging:
             actor.charging = None
@@ -1485,6 +1550,12 @@ class Battle:
                 did_hit = True
                 continue
             amount = min(target.hp, max(1, round(raw)))
+            category = self.engine.M.get(move, {}).get("category")
+            if opponent and amount and self.weather_owner == 1 - side and (
+                self._wx == "sand" and "Rock" in target.mon["types"] and category == "Special"
+                or self._wx == "snow" and "Ice" in target.mon["types"] and category == "Physical"
+            ):
+                self.strategy_used[1 - side].add(self._wx)
             sturdy = target.mon["ability"] == "Sturdy" and actor.mon["ability"] not in MOLD
             if target.hp == target.max_hp and amount == target.hp and (
                 sturdy or target.mon["item"] == "Focus Sash" and not target.item_used
@@ -1501,6 +1572,8 @@ class Battle:
                     and self._move_type(actor, move) == "Normal" and self.engine.M.get(move, {}).get("power")):
                 self._consume(actor)
             target.hp -= amount
+            if opponent and amount:
+                self._record_strategy_attack(side, actor, target, move, priority, remaining)
             if observation and not target.hp:
                 self.executed_attacks[(*observation, "kos")] += 1
             target.taken += amount
@@ -1551,6 +1624,7 @@ class Battle:
             if target.hp and opponent:
                 self._on_hit(actor, target, move, contact)
                 if move == "Knock Off" and self._removable(target) and target.mon["ability"] != "Sticky Hold":
+                    target.revealed_item = target.mon["item"]
                     target.item_used = True
                     self._event(f"{target.name}의 도구를 탁 떨어뜨렸다!", "field")
             if opponent and move in {"Ceaseless Edge", "Stone Axe"}:
@@ -1602,28 +1676,25 @@ class Battle:
             raise ValueError("교체할 대기 포켓몬을 먼저 골라 주세요.")
         if self.manual and my_actions is None:
             raise ValueError("필드에 있는 포켓몬마다 명령을 골라 주세요.")
-        if my_actions is None:
-            self._mega_turn()
-            mine = self._auto(0)
-        else:
-            mine = my_actions
-        active = dict(self._present(0))
-        by_slot = {a["slot"]: a for a in mine}
-        if len(mine) != len(active) or by_slot.keys() != active.keys():
-            raise ValueError("active Pokémon each need one action")
-        switches = [a["target"] for a in mine if a["kind"] == "switch"]
-        if len(set(switches)) != len(switches):
-            raise ValueError("the same reserve cannot switch in twice")
-        for slot, a in by_slot.items():
-            if not any(self._key(o) == self._key(a) for o in self._options(0, slot, active[slot])):
-                raise ValueError("invalid battle action")
         if my_actions is not None:
+            active = dict(self._present(0))
+            by_slot = {a["slot"]: a for a in my_actions}
+            if len(my_actions) != len(active) or by_slot.keys() != active.keys():
+                raise ValueError("active Pokémon each need one action")
+            switches = [a["target"] for a in my_actions if a["kind"] == "switch"]
+            if len(set(switches)) != len(switches):
+                raise ValueError("the same reserve cannot switch in twice")
+            for slot, a in by_slot.items():
+                if not any(self._key(o) == self._key(a) for o in self._options(0, slot, active[slot])):
+                    raise ValueError("invalid battle action")
             if mega_slot is not None and (not self.manual or not self.mega_left[0]
                     or mega_slot not in active or not active[mega_slot].mega_form
                     or by_slot[mega_slot]["kind"] != "move"):
                 raise ValueError("이번 턴에 기술을 쓸 메가진화 후보를 골라 주세요.")
-            self._mega_turn(mega_slot)
-        if self._resolve_actions(mine, self._auto(1), interactive=self.manual):
+        mine = self._auto(0) if my_actions is None else my_actions
+        theirs = self._auto(1)
+        self._mega_turn(mega_slot, actions=(mine, theirs))
+        if self._resolve_actions(mine, theirs, interactive=self.manual):
             self._end_turn()
 
     def _resolve_actions(self, mine, theirs, *, interactive=False):
@@ -1658,6 +1729,7 @@ class Battle:
             if move not in PROTECT:
                 actor.protect_chain = 0
             if kind == "switch":
+                self.public_actions[side]["switch"] += 1
                 if side == 0 and self.turn == 1:
                     self.opening.append("교체")
                     self.opening_actions.append((actor.mon["id"], "switch", self.teams[side][target].mon["id"]))
@@ -1683,6 +1755,7 @@ class Battle:
                     actor.destiny = False
                 actor.last_move = move
                 actor.known_moves.add(move)
+                self.public_actions[side]["protect" if move in PROTECT else "support" if move in SUPPORT else "attack"] += 1
                 if side == 0 and self.turn == 1:
                     self.opening.append(move)
                     targets = dict(self._present(1))
@@ -1701,6 +1774,7 @@ class Battle:
                 else:
                     success = self._attack(side, slot, actor, move, target, priority, actions)
                 if success and move in PIVOT and actor.hp and self._bench(side) and any(f.hp for f in self.teams[1 - side]):
+                    self.public_actions[side]["pivot"] += 1
                     if side == 0 and interactive:
                         self._pivot_slot = slot
                         self._replacement_phase += 1
@@ -1711,16 +1785,21 @@ class Battle:
         return True
 
     def _best_reserve(self, side):
-        opponents = [f for _, f in self._present(1 - side)]
+        self._seen_cache = {}
+        opponents = [self._seen(side, f) for _, f in self._present(1 - side)]
 
         def value(index):
             candidate = self.teams[side][index]
             incoming, outgoing = [], []
             for foe in opponents:
-                meta = self.engine.default_set(foe.mon["id"], self.fmt)["moves"]
-                moves = list(dict.fromkeys([*sorted(foe.known_moves - {"Struggle"}), *meta]))[:4]
-                incoming.append(max((self._coverage(move, candidate) for move in moves), default=1))
-                outgoing.append(max((self._coverage(move, foe) for move in candidate.mon["moves"]), default=0))
+                if self.difficulty in {"master", "champion"}:
+                    hits = [self._damage(foe, candidate, move, False) for move in self._moves(foe) if move not in SUPPORT]
+                    attacks = [self._damage(candidate, foe, move, False) for move in self._moves(candidate) if move not in SUPPORT]
+                    incoming.append(max((min(2, raw / max(1, candidate.hp)) * acc / 100 for raw, acc in hits), default=0))
+                    outgoing.append(max((min(2, raw / max(1, foe.hp)) * acc / 100 for raw, acc in attacks), default=0))
+                else:
+                    incoming.append(max((self._coverage(move, candidate) for move in foe.mon["moves"]), default=1))
+                    outgoing.append(max((self._coverage(move, foe) for move in candidate.mon["moves"]), default=0))
             return (.23 * candidate.hp / candidate.max_hp + .22 * sum(outgoing)
                     - .36 * sum(incoming) + .17 * (candidate.mon["ability"] == "Intimidate"))
 
@@ -1757,6 +1836,7 @@ class Battle:
                 if self.terrain == "grassy" and self._grounded(actor):
                     self._heal(actor, actor.max_hp // 16)
                 if actor.mon["item"] == "Leftovers" and actor.hp < actor.max_hp:
+                    actor.revealed_item = actor.mon["item"]
                     self._heal(actor, actor.max_hp // 16)
                     self._event(f"{actor.name}은(는) 먹다남은음식으로 체력을 회복했다.", "heal", ref=self._ref(actor))
                 if actor.seeded and actor.hp and not guard:
@@ -1913,7 +1993,7 @@ class Battle:
                 del hazards["tspikes"]
                 self._event(f"{fighter.name}이(가) 독압정을 흡수했다!", "field")
             else:
-                self._inflict(fighter, "tox" if hazards["tspikes"] >= 2 else "psn")
+                self._inflict(fighter, "tox" if hazards["tspikes"] >= 2 else "psn", move="Toxic Spikes")
         if hazards.get("web") and fighter.hp:
             self._event(f"{fighter.name}은(는) 끈적끈적네트에 걸렸다!")
             self._lower(fighter, {"spe": -1}, fighter)
@@ -1939,6 +2019,7 @@ class Battle:
                            "slots": [self._pivot_slot], "bench": self._bench(0)}
         return {"id": battle_id, "turn": self.turn, "seed": self.seed, "winner": self.winner,
                 "difficulty": self.difficulty,
+                "cpuStyle": self.cpu_style,
                 "megaOptions": [slot for slot, f in self._present(0) if f.mega_form and not f.recharge]
                 if self.manual and self.mega_left[0] and not self.winner and not replacement else [],
                 "replacement": replacement,

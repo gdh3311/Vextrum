@@ -30,8 +30,8 @@ enum _Rank {
   poke('몬스터볼', '기본 공격 위주로 행동합니다.'),
   great('슈퍼볼', '유리한 기술을 고르고 기회가 나면 전개합니다.'),
   ultra('하이퍼볼', '전략의 핵심 기술과 KO 기회를 노립니다.'),
-  master('마스터볼', '상대의 예상 행동에 맞춰 두 포켓몬의 공격·방어·교체를 함께 고릅니다.'),
-  champion('챔피언', '실전 플레이어 수준: 내 행동을 예측하고 2턴 앞까지 진행해 보며, 막혔을 때의 최악의 경우까지 따져 수를 고릅니다. 같은 상황에서도 수가 읽히지 않게 바꿉니다.');
+  master('마스터볼', '공개된 정보로 두 포켓몬의 공격·방어·교체를 조합해 턴 종료까지 비교합니다.'),
+  champion('챔피언', '공개된 기술과 지금까지의 행동을 보고, 방어·교체를 포함한 여러 대응을 최대 두 턴 앞까지 비교합니다.');
 
   const _Rank(this.label, this.description);
   final String label;
@@ -130,7 +130,7 @@ class _BattlePracticeState extends State<_BattlePractice> {
   String? activity;
   bool get busy => activity != null;
   _BattleMode mode = _BattleMode.manual;
-  _Rank rank = _Rank.ultra;
+  _Rank rank = _Rank.master;
   String? error;
   int runs = 50;
   String teamName = '';
@@ -513,8 +513,10 @@ class _BattlePracticeState extends State<_BattlePractice> {
                 result: report!,
                 onPractice: !canStart
                     ? null
-                    : (seed) => _scout(team,
-                        seed: seed,
+                    : (example) => _scout(team,
+                        seed: example['seed'] as int,
+                        selection: (example['mine'] as List?)?.cast<String>(),
+                        opponentStyle: example['cpuStyle'] as String?,
                         replayRank: _Rank.fromKey(report!['difficulty'])),
               )])),
         Padding(

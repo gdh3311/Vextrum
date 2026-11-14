@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('자동 연구: 상태, 발견한 팀, 배운 조합을 그린다', (tester) async {
+  testWidgets('자동 연구: 상태와 발견한 팀을 그린다', (tester) async {
     final data = jsonDecode(File('test/fixtures/research.json').readAsStringSync()) as Map<String, dynamic>;
     final errors = <String>[];
     final previous = FlutterError.onError;
@@ -28,7 +28,6 @@ void main() {
                 ResearchStatusCard(
                     status: data['status'] as Map<String, dynamic>, onControl: ({running, intensity}) async {}),
                 for (final t in (data['teams'] as List).cast<Map<String, dynamic>>()) PartyCard(party: t),
-                ResearchInsights(data['insights'] as Map<String, dynamic>),
               ]),
             ),
           ),

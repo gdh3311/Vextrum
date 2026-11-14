@@ -116,7 +116,7 @@ def _candidate(e, fmt, meta, s):
     for key, payoff in {
         "rain": "rain_attack" in features or ("Water" in r["types"] and "Water" in attack_types) or "Weather Ball" in moves,
         "sun": "sun_attack" in features or ("Fire" in r["types"] and "Fire" in attack_types) or "Weather Ball" in moves,
-        "sand": ability == "Sand Rush" or "Rock" in r["types"] and "bulky" in features,
+        "sand": ability in {"Sand Rush", "Sand Force"} or "Rock" in r["types"] and "bulky" in features,
         "snow": ability == "Slush Rush" or ("Ice" in r["types"] and ("Blizzard" in moves or "bulky" in features)),
     }.items():
         if attacker and payoff and f"{key}_set" not in features:
@@ -475,6 +475,9 @@ def _merge(total, report):
     merged["strategies"] = rows
     if "rankerRate" in total and "rankerRate" in report:
         merged["rankerRate"] = (total["rankerRate"] + report["rankerRate"]) / 2
+    earlier = total.get("strategyEvidence", {})
+    merged["strategyEvidence"] = {key: dict(Counter(earlier.get(key, {})) + Counter(value))
+                                  for key, value in report.get("strategyEvidence", {}).items()}
     return merged
 
 
@@ -487,9 +490,9 @@ def _race(picks, stages, measure, rank, track, seed=821239, family=None):
         reports = measure(alive, runs, seed + 7_919 * number)
         track.update(done=number + 1, battles=len(alive) * runs)
         for (group, roster), report in zip(alive, reports):
-            key = (group, frozenset(c.id for c in roster))
+            key = (group, tuple(id(c) for c in roster))
             totals[key] = _merge(totals.get(key), report)
-        rows = sorted(((g, r, totals[(g, frozenset(c.id for c in r))]) for g, r in alive),
+        rows = sorted(((g, r, totals[(g, tuple(id(c) for c in r))]) for g, r in alive),
                       key=lambda row: rank(row[2]), reverse=True)
         kept, names, families = [], [], Counter()
         cap = max(2, -(-keep // 3)) if family else keep  # 한 전략 가족이 남은 자리의 1/3을 넘지 않게
@@ -532,6 +535,17 @@ def _versions(e):
     from .regulation import versions
 
     return versions(e.d)
+
+
+def strategy_status(report, key):
+    evidence = report.get("strategyEvidence", {}).get(key, {})
+    runs = report["runs"]
+    used = evidence.get("coreUsed", 0)
+    # Reporting gate, not a win-rate or causal-effect threshold.
+    repeated = used >= max(3, (runs + 9) // 10)
+    return {"key": key, "label": STYLES[key].label, "runs": runs,
+            **{k: evidence.get(k, 0) for k in ("selected", "activated", "used", "coreUsed", "usedWins", "usedDraws")},
+            "repeated": repeated}
 
 
 def _rate(report):
@@ -903,6 +917,11 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
         if mega == "one":
             available = tuple(c for c in available if not c.resolved["mega"])
         rows = _draft(available, fixed, wanted, group, weights, limit=16 if goals else 9, extra=extra)
+        weather_key = next((key for key in group if key in weather), None) if v6 else None
+        if weather_key:
+            automatic = tuple(c for c in available if simulation.WEATHER.get(c.resolved["ability"]) == weather_key)
+            if automatic and not any(simulation.WEATHER.get(c.resolved["ability"]) == weather_key for c in fixed):
+                rows = _draft(available, fixed, [automatic, *wanted], group, weights, limit=8, extra=extra) + rows
         # 같은 전략이라도 서로 다른 에이스에서 출발한 초안을 만든다 (사용률 최상위에만 몰리지 않게).
         for ace in _aces(e, fmt, available, group, weights, ace_count if len(group) == 1 or goals else 2, skip_top,
                          {c.species for c in fixed}):
@@ -961,8 +980,17 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
         if group not in search_pools:
             search_pools[group] = available_for(group)
 
+    from .battle_lab import FIELD_STRATEGIES
+
+    requested_modes = set(goals) & FIELD_STRATEGIES.keys() if v6 else set()
+
     def rank(report):
-        return _rank_key(report, objective)
+        base = _rank_key(report, objective)
+        modes = requested_modes.intersection(report.get("requestedModes", requested_modes))
+        if not modes:
+            return base
+        execution = min(strategy_status(report, key)["coreUsed"] / report["runs"] for key in modes)
+        return (base[0] + .12 * execution, *base[1:])
 
     # 탐색 중 찾은 선출 계획 (v5): 팀 → {미리보기 열쇠: 선출}. 멤버를 바꾼 변형은 가장 닮은 부모의 계획을 물려받는다
     # (계획에 없는 포켓몬이 들어 있으면 apply_policy 가 그 열쇠를 무시한다).
@@ -981,6 +1009,8 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
         # v6: 하이퍼볼 '균형형' 한 가지(방어를 거의 안 쓰는 CPU)에 맞춘 팀이 뽑히지 않도록 스타일을 판마다 돌린다.
         reports = parallel.compare_teams(e, fmt, teams, runs, seed, difficulty, policies=policies,
                                          cpu_styles=SELECT_STYLES if v6 else None)
+        for (group, _), report in zip(picks, reports):
+            report["requestedModes"] = [mode for mode in group if mode in requested_modes]
         if search and objective == "ranker" and rosters:
             ranks = parallel.versus_rankers_many(e, fmt, teams, 1, seed, difficulty)
             for report, ranker_result in zip(reports, ranks):
@@ -1190,6 +1220,19 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
         shown = _pareto(assessed, metrics, team_key, max(3, len(weather)), objective, distance)
     else:
         shown = _diverse(assessed, max(3, len(weather)), split_weather, distance=distance)
+    def requested_candidates(rows):
+        qualified = [row for row in rows if all(strategy_status(row[2], key)["repeated"]
+                     for key in row[0] if key in requested_modes)]
+        if split_weather:
+            for key in weather:
+                if not any(key in row[0] for row in qualified):
+                    fallback = next((row for row in rows if key in row[0]), None)
+                    if fallback:
+                        qualified.append(fallback)
+        return _diverse(qualified or rows[:1], max(3, len(weather)), split_weather, distance=distance)
+
+    if requested_modes:
+        shown = requested_candidates(assessed)
     ranker_reports = {}
     if rosters:
         tested = assessed if objective == "ranker" else shown
@@ -1204,44 +1247,78 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
             for group, roster, report in assessed:
                 report["rankerRate"] = ranker_reports[team_key(group, roster)]["rate"]
             assessed.sort(key=final_key, reverse=True)
-            shown = (_pareto(assessed, metrics, team_key, max(3, len(weather)), objective, distance) if metrics
-                     else _diverse(assessed, max(3, len(weather)), split_weather, distance=distance))
+            if requested_modes:
+                shown = requested_candidates(assessed)
+            else:
+                shown = (_pareto(assessed, metrics, team_key, max(3, len(weather)), objective, distance) if metrics
+                         else _diverse(assessed, max(3, len(weather)), split_weather, distance=distance))
     track.update("report", total=1, spotlight=[c.id for c in shown[0][1]])
     from . import battle_lab, regulation
 
     # Freeze the selected candidates before querying the core holdout.
-    holdout = {}
+    holdout, holdout_reports = {}, {}
     holdout_runs = HOLDOUT_RUNS.get(depth, 54) if v6 else 0
+    evaluated_holdout_teams = 0
     if holdout_runs and "noholdout" not in off:
         track.update(notes=["보류 상대 코어로 독립 평가"])
         frozen = [[c.set for c in roster] for _, roster, _ in shown]
+        from .parties import published
+
+        reference = next((p for p in published(e, fmt) if p["complete"] and len(p["members"]) == 6
+                          and all(not simulation.unsupported(e, fmt, m["set"]) for m in p["members"])), None)
+        if reference:
+            frozen.append([m["set"] for m in reference["members"]])
         results = parallel.compare_teams(e, fmt, frozen, holdout_runs, 20_915_003, "master",
                                          cpu_styles=(*SELECT_STYLES, "counter"), split="holdout")
+        baseline = results.pop() if reference else None
         for (group, roster, _), observed in zip(shown, results, strict=True):
-            holdout[team_key(group, roster)] = battle_lab.holdout_summary(observed)
-        track.update(battles=len(shown) * holdout_runs)
+            summary = battle_lab.holdout_summary(observed)
+            if baseline is not None and baseline["opponentCores"] == observed["opponentCores"]:
+                delta = [a - b for a, b in zip(observed["outcomes"], baseline["outcomes"], strict=True)]
+                summary["reference"] = {"season": reference["season"], "rank": reference["rank"],
+                                        "rate": round(sum(baseline["outcomes"]) / holdout_runs, 3),
+                                        "delta": round(sum(delta) / holdout_runs, 3),
+                                        "ci": battle_lab.core_interval(delta, observed["opponentCores"])}
+            holdout[team_key(group, roster)] = summary
+            holdout_reports[team_key(group, roster)] = observed
+        track.update(battles=len(frozen) * holdout_runs)
+        evaluated_holdout_teams = len(shown)
+    if requested_modes and holdout:
+        # Display only independently reproduced modes, or one explicitly labeled fallback per mode group.
+        confirmed_groups = {row[0] for row in shown if all(
+            strategy_status(holdout[team_key(row[0], row[1])], key)["repeated"]
+            for key in row[0] if key in requested_modes)}
+        fallback_groups = set()
+        returned = []
+        for row in shown:
+            group, roster, _ = row
+            confirmed = all(strategy_status(holdout[team_key(group, roster)], key)["repeated"]
+                            for key in group if key in requested_modes)
+            if confirmed or group not in confirmed_groups and group not in fallback_groups:
+                returned.append(row)
+                fallback_groups.add(group)
+        shown = returned
     candidates = []
     names_seen = set()
     for index, (group, roster, report) in enumerate(shown, 1):
         sets = [c.set for c in roster]
         analysis = e.analyze_team(sets, fmt)
-        fit = []
-        for key in group:
-            style = STYLES[key]
-            evidence = []
-            for feature, minimum in style.requirements:
-                names = [c.resolved["ko"] or c.resolved["name"] for c in roster if feature in c.features]
-                evidence.append({"role": FEATURE_NAMES[feature], "members": names[:max(3, minimum)],
-                                 "count": len(names), "minimum": minimum})
-            fit.append({"name": style.label, "evidence": evidence,
-                        "complete": all(row["count"] >= row["minimum"] for row in evidence)})
-        title = " · ".join(STYLES[key].label for key in group)
+        independent = holdout.get(team_key(group, roster))
+        operating_report = independent or report
+        requested = [key for key in group if key in FIELD_STRATEGIES and key in goals]
+        execution = [strategy_status(operating_report, key) for key in FIELD_STRATEGIES
+                     if key in operating_report.get("strategyEvidence", {}) or key in requested]
+        own_modes = {row["key"] for row in execution if row["repeated"]}
+        measured = [key for key in FIELD_STRATEGIES if key in own_modes]
+        unconfirmed = [STYLES[key].label for key in requested if key not in own_modes]
+        # Titles describe repeatable observations. The attempted preferences remain visible separately.
+        title = " · ".join(STYLES[key].label for key in (requested or measured) if key in own_modes)
         names = {c.id: c.resolved["ko"] or c.resolved["name"] for c in roster}
         from .guide import team_guide
 
-        guide = team_guide(e, sets, fmt, report=report) or {}
-        lead = " + ".join(names[m["id"]] for m in guide.get("lead", {}).get("lead", ()))
-        name = f"{title} · {lead}"
+        guide = team_guide(e, sets, fmt, report=holdout_reports.get(team_key(group, roster), report)) or {}
+        lead = " + ".join(names[m["id"]] for m in guide.get("lead", {}).get("lead", ())) or " + ".join(list(names.values())[:2])
+        name = f"{title} · {lead}" if title else lead
         if name in names_seen:
             name = f"{name} ({index}안)"
         names_seen.add(name)
@@ -1262,10 +1339,12 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
             m["features"] = [FEATURE_NAMES[f] for f in sorted(c.features) if f in FEATURE_NAMES][:4]
         candidates.append({"id": f"auto-{index}", "name": name, "format": fmt, "complete": True,
                            "members": members, "metaScore": analysis["metaScore"],
-                           "warnings": analysis["warnings"][:4], "fit": fit, "fixedIds": ids,
+                           "warnings": analysis["warnings"][:4], "fixedIds": ids,
                            "simulation": report, "profile": profile, "guide": guide,
                            "rulesCoverage": simulation.rules_report(e, fmt, sets),
-                           "holdout": holdout.get(team_key(group, roster)),
+                           "holdout": independent,
+                           "operation": {"execution": execution, "unconfirmed": unconfirmed,
+                                         "basis": "holdout" if independent else "selection"},
                            "analysis": {
                                "damageSplit": analysis["damageSplit"],
                                "weakTypes": [{"type": r["type"], "weak": r["weak"], "resist": r["resist"]}
@@ -1307,6 +1386,7 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
                            "screenRuns": screen_runs, "finalRuns": final_sample,
                            "seconds": round(perf_counter() - started, 2),
                            "holdoutRuns": holdout_runs if holdout else 0,
+                           "withheld": max(0, evaluated_holdout_teams - len(candidates)),
                            "provenance": regulation.provenance(e.d),
                            "objective": objective, "depth": depth, "cpu": cpu, "joker": joker,
                            "mega": mega, "core": core, "tune": tune, "originality": originality,

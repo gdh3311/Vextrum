@@ -1,4 +1,5 @@
 """Ranked CPU planning from visible battle state and commonly used sets."""
+import os
 from collections import Counter
 from copy import copy
 from dataclasses import replace
@@ -17,6 +18,7 @@ def _copy_battle(battle):
     forecast.active = [slots.copy() for slots in battle.active]
     forecast.seen = [seen.copy() for seen in battle.seen]
     forecast.activated = [effects.copy() for effects in battle.activated]
+    forecast.strategy_used = [effects.copy() for effects in battle.strategy_used]
     forecast.tailwind = battle.tailwind.copy()
     forecast.mega_left = battle.mega_left.copy()
     forecast.redirect = battle.redirect.copy()
@@ -29,35 +31,29 @@ def _copy_battle(battle):
     forecast.keep_log = False
     forecast._seen_cache = {}
     forecast.trace = [dict(t) for t in battle.trace]
+    forecast.public_actions = [actions.copy() for actions in battle.public_actions]
     forecast.opening = list(battle.opening)
     forecast.opening_actions = list(battle.opening_actions)
     forecast.executed_attacks = Counter()
     return forecast
 
 
-def _observation(battle):
+def _observation(battle, side=1):
     forecast = _copy_battle(battle)
-    forecast._hidden_count = sum(1 for i, f in enumerate(battle.teams[0]) if i not in battle.seen[0] and f.hp)
-    for i, fighter in enumerate(forecast.teams[0]):
-        if i not in battle.seen[0]:
+    foe = 1 - side
+    forecast._hidden_count = len(battle.teams[foe]) - len(battle.seen[foe])
+    for i, fighter in enumerate(forecast.teams[foe]):
+        if i not in battle.seen[foe]:
             fighter.hp = 0
+            fighter.mega_form = None
             continue
-        pid = fighter.mon["id"]
-        default = battle.engine.default_set(pid, battle.fmt)
-        observed = sorted(fighter.known_moves - {"Struggle"})
-        moves = list(dict.fromkeys(observed + default["moves"]))
-        # Entry announcements and the current form are visible. Item and investment are estimates.
-        if fighter.ability_revealed:
-            default["ability"] = fighter.mon["ability"]
-        if fighter.mon["mega"] != default["mega"]:
-            default["mega"] = fighter.mon["mega"]
-            if default["item"] and battle.engine.find_mega(battle.engine.P[pid], stone=default["item"]):
-                default["item"] = None
-        ratio = fighter.hp / fighter.max_hp
-        fighter.mon = battle.engine.resolve({**default, "moves": moves}, battle.fmt)
-        fighter.hp = max(1, round(ratio * fighter.max_hp)) if ratio else 0
+        public = forecast._seen(side, fighter)
+        fighter.mon = public.mon
+        fighter.hp = public.hp
+        fighter.mega_form = None
         fighter.choice = None
-        fighter.item_used = False
+        fighter.item_used = public.item_used
+    forecast._seen_cache.clear()
     return forecast
 
 
@@ -168,7 +164,7 @@ def _plan_key(battle, actions):
     return tuple(battle._key(a) for a in actions)
 
 
-def _plans(battle, side, budget):
+def _plans(battle, side, budget, *, replies=False):
     base = battle._greedy(side)
     alternatives = _alternatives(battle, side, base)
     scored = []
@@ -186,19 +182,33 @@ def _plans(battle, side, budget):
     scored.sort(key=lambda row: row[0], reverse=True)
     plans = [base]
     keys = {_plan_key(battle, actions) for actions in plans}
+    def split_attack(actions):
+        targets = [a.get("target") for a in actions if a["kind"] == "move" and a.get("move") not in SUPPORT]
+        return len(targets) == 2 and targets[0] is not None and targets[1] is not None and targets[0] != targets[1]
+
+    def add(line):
+        if line and len(plans) < budget:
+            plans.append(list(line))
+            keys.add(_plan_key(battle, line))
+
+    def next_line(predicate):
+        return next((actions for _, actions in scored if _plan_key(battle, actions) not in keys
+                     and predicate(actions)), None)
+
+    if replies and any(action.get("move") in SUPPORT or action["kind"] == "switch" for action in base):
+        add(next_line(lambda actions: all(a["kind"] == "move" and a.get("move") not in SUPPORT for a in actions)))
     predicates = (
-        lambda a: a.get("move") in PROTECT or a.get("move") in REDIRECT | {"Wide Guard", "Quick Guard"},
+        lambda a: a.get("move") in PROTECT | REDIRECT | {"Wide Guard", "Quick Guard"},
         lambda a: a["kind"] == "switch",
+        lambda a: a.get("move") in {"Tailwind", "Trick Room", "Encore", "Taunt", "Fake Out"},
         lambda a: a.get("move") in PIVOT,
     )
     for predicate in predicates:
         if len(plans) >= budget:
             break
-        line = next((actions for _, actions in scored if _plan_key(battle, actions) not in keys
-                     and any(predicate(action) for action in actions)), None)
-        if line:
-            plans.append(list(line))
-            keys.add(_plan_key(battle, line))
+        add(next_line(lambda actions: any(predicate(action) for action in actions)))
+    if len(plans) < budget:
+        add(next_line(split_attack))
     for _, actions in scored:
         if len(plans) >= budget:
             break
@@ -230,8 +240,6 @@ def _position(battle, side):
     return material + field
 
 
-import os
-
 # 챔피언 CPU 탐색 설정. 미러 매치 벤치마크(tools_bench_mirror.py)로 고른 값이며 환경 변수로 바꿔 실험할 수 있다.
 DEPTH = int(os.environ.get("CPU_DEPTH", "2"))  # 몇 턴 앞까지 진행해 보는가
 REPLIES = int(os.environ.get("CPU_REPLIES", "3"))  # 고려하는 상대 행동 조합 수
@@ -254,25 +262,27 @@ def _hidden(battle):
     return getattr(battle, "_hidden_count", 0)
 
 
-def _rollout(battle, mine, theirs, seed):
-    """mine/theirs 로 한 턴을 끝까지 진행하고(턴 종료 효과·교체 포함), 한 턴 더 표준 정책으로 진행한 뒤
-    CPU(편 1) 입장의 형세를 돌려준다. 실제 플레이어처럼 다음 턴의 결과까지 본다."""
+def _rollout(battle, side, actions, reply, seed, depth):
+    """Resolve the proposed turn and score one side after end-of-turn effects."""
     trial = _copy_battle(battle)
     trial.rng = Random(seed)
     trial.manual = False
     trial.difficulty = "ultra"
     trial._pivot_slot = None
-    trial._resolve_actions(mine, theirs)
+    joint = (reply, actions) if side == 1 else (actions, reply)
+    trial._mega_turn(actions=joint)
+    trial._resolve_actions(*joint)
     hidden = _hidden(battle)
     # 플레이어의 미공개 포켓몬은 체력이 가득한 미지의 전력으로 센다.
     reserve = hidden * 1.65
     trial._end_turn()
-    if DEPTH > 1 and not trial.winner:
+    if depth > 1 and not trial.winner:
         trial.advance()
-    own, foe = STYLE_WEIGHTS.get(getattr(battle, "cpu_style", "balanced"), (1., 1.))
-    if trial.winner == "win" or (trial.winner == "loss" and not hidden):
-        return {"loss": 6., "win": -6.}[trial.winner] + own * _position(trial, 1) - foe * _position(trial, 0) - reserve
-    return own * _position(trial, 1) - foe * _position(trial, 0) - reserve
+    own, foe = STYLE_WEIGHTS[battle.cpu_style if side == 1 else "balanced"]
+    value = own * _position(trial, side) - foe * _position(trial, 1 - side) - reserve
+    win = "loss" if side == 1 else "win"
+    loss = "win" if side == 1 else "loss"
+    return value + (6 if trial.winner == win and not hidden else -6 if trial.winner == loss else 0)
 
 
 def _softmax(values, temperature):
@@ -282,63 +292,61 @@ def _softmax(values, temperature):
     return [w / total for w in weights]
 
 
-def choose_actions_pro(battle):
-    """실제 플레이어 수준의 판단 (챔피언 난이도).
-
-    1. 상대(플레이어)가 고를 만한 행동 조합 여러 개를 플레이어 입장에서 평가해 가능성 가중치를 매긴다.
-    2. 내 행동 후보마다 각 예상 행동과 맞붙여 2턴 앞까지 진행해 보고(같은 난수로 2회), 가중 평균과 최악의 경우를
-       절반씩 본다. 미러 매치 기준 표준 정책 상대 승률: 기존 챔피언 77% → 81%.
-    3. 거의 같은 점수의 후보 중에서는 무작위로 골라 수가 읽히지 않게 한다.
-    """
-    forecast = _observation(battle)
+def choose_actions_pro(battle, side=1):
+    """Compare plausible opponent replies using only the observed position and action history."""
+    forecast = _observation(battle, side)
     forecast.manual = False
-    replies = _plans(forecast, 0, REPLIES)
-    candidates = _plans(forecast, 1, CANDIDATES)
-    salt = battle.seed ^ (battle.turn * 196613)
+    replies = _plans(forecast, 1 - side, max(4, REPLIES), replies=True)
+    candidates = _plans(forecast, side, CANDIDATES)
+    salt = battle.seed ^ (battle.turn * 196613) ^ (side * 7919)
 
     # 플레이어 입장에서 각 예상 행동이 내 기본 수에 얼마나 좋은지 → 가능성
     base = candidates[0]
-    reply_value = [-_rollout(forecast, reply, base, salt + 7 * i) for i, reply in enumerate(replies)]
+    public = battle.public_actions[1 - side]
+
+    def reply_bias(actions):
+        keys = ["switch" if a["kind"] == "switch" else "protect" if a.get("move") in PROTECT
+                else "support" if a.get("move") in SUPPORT else "attack" for a in actions]
+        return .55 * sum(public[k] for k in keys) / max(4, sum(public.values()))
+
+    reply_value = [-_rollout(forecast, side, base, reply, salt, 1) + reply_bias(reply) for reply in replies]
     weights = [.75 * w + .25 / len(replies) for w in _softmax(reply_value, TEMP)]
 
-    def evaluate(index, actions):
+    def evaluate(actions):
         outcomes = []
         for i, reply in enumerate(replies):
-            samples = [_rollout(forecast, reply, actions, salt + 31 * i + 7919 * k) for k in range(SAMPLES)]
+            samples = [_rollout(forecast, side, actions, reply, salt + 31 * i + 7919 * k, DEPTH)
+                       for k in range(SAMPLES)]
             outcomes.append(sum(samples) / len(samples))
         expected = sum(w * o for w, o in zip(weights, outcomes))
         switches = sum(a["kind"] == "switch" for a in actions)
         # 2턴 탐색으로는 순풍·트릭룸의 남은 턴 이득이 다 보이지 않으므로 미리 더해 준다.
-        tempo = sum(forecast._speed_control_value(1, dict(forecast._present(1)).get(a["slot"]), a["move"],
-                                                  battle.foe_strategy)
+        active = dict(forecast._present(side))
+        tempo = sum(forecast._speed_control_value(side, active[a["slot"]], a["move"],
+                                                  battle.foe_strategy if side == 1 else None)
                     for a in actions if a.get("move") in {"Tailwind", "Trick Room"}
-                    and dict(forecast._present(1)).get(a["slot"]) is not None)
+                    and a["slot"] in active)
         return (1 - RISK) * expected + RISK * min(outcomes) - .06 * switches + CONTROL * tempo
 
-    scored = [(evaluate(i, actions), actions) for i, actions in enumerate(candidates)]
+    scored = [(evaluate(actions), actions) for actions in candidates]
     best = max(score for score, _ in scored)
     close = [actions for score, actions in scored if score >= best - .04]
     return Random(salt).choice(close)
 
 
-def choose_actions(battle):
+def choose_actions(battle, side=1):
     """Compare joint CPU lines against several plausible replies for the next turn."""
     if battle.difficulty == "champion" and os.environ.get("CPU_ALGO") != "old":
-        return choose_actions_pro(battle)
-    forecast = _observation(battle)
-    champion = battle.difficulty == "champion"
-    replies = _plans(forecast, 0, 3 if champion else 2)
-    candidates = _plans(forecast, 1, 9 if champion else 5)
+        return choose_actions_pro(battle, side)
+    forecast = _observation(battle, side)
+    replies = _plans(forecast, 1 - side, 2, replies=True)
+    candidates = _plans(forecast, side, 5)
 
     def evaluate(actions):
-        outcomes = []
-        for i, reply in enumerate(replies):
-            trial = _copy_battle(forecast)
-            trial.rng = Random(battle.seed ^ (battle.turn * 196613 + i * 17))
-            trial._resolve_actions(reply, actions)
-            outcomes.append(_position(trial, 1) - _position(trial, 0))
+        outcomes = [_rollout(forecast, side, actions, reply, battle.seed ^ (battle.turn * 196613 + i * 17), 1)
+                    for i, reply in enumerate(replies)]
         mean = sum(outcomes) / len(outcomes)
-        risk = .33 if champion else .15
+        risk = .20
         switches = sum(a["kind"] == "switch" for a in actions)
         return mean * (1 - risk) + min(outcomes) * risk - .10 * switches
 

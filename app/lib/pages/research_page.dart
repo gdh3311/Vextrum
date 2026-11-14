@@ -45,7 +45,6 @@ class ResearchPage extends ConsumerStatefulWidget {
 class _ResearchPageState extends ConsumerState<ResearchPage> {
   Json? status;
   List<Json>? teams;
-  Json? insights;
   String? error;
   String bucket = '';
   String archetype = '';
@@ -73,7 +72,7 @@ class _ResearchPageState extends ConsumerState<ResearchPage> {
   Future<void> _refresh({bool all = false}) async {
     try {
       final s = (await dio.get('/api/research/status', queryParameters: {'format': _format})).data as Json;
-      Json? t, i;
+      Json? t;
       if (all || teams == null) {
         t = (await dio.get('/api/research/teams', queryParameters: {
           'format': _format,
@@ -82,13 +81,11 @@ class _ResearchPageState extends ConsumerState<ResearchPage> {
           'limit': 20,
         }))
             .data as Json;
-        i = (await dio.get('/api/research/insights', queryParameters: {'format': _format})).data as Json;
       }
       if (!mounted) return;
       setState(() {
         status = s;
         if (t != null) teams = (t['teams'] as List).cast<Json>();
-        if (i != null) insights = i;
         error = null;
       });
     } catch (_) {
@@ -123,8 +120,7 @@ class _ResearchPageState extends ConsumerState<ResearchPage> {
       Padding(
         padding: const EdgeInsets.only(bottom: 14),
         child: Text(
-            '앱 서버가 켜져 있는 동안 팀을 계속 새로 만들고, 바꾸고, 섞어서 매번 새로운 상대와 싸워 봅니다. '
-            '결과는 쌓여서 오래 연구할수록 더 강하고 다양한 팀이 남고, 팀 자동 구성도 여기서 찾은 팀을 출발점으로 씁니다.',
+            '팀을 변형해 CPU와 시험하고, 상위 후보의 보류 상대 전적과 실제 전략 실행을 따로 기록합니다.',
             style: theme.textTheme.bodyMedium),
       ),
       if (error != null)
@@ -134,7 +130,7 @@ class _ResearchPageState extends ConsumerState<ResearchPage> {
         ),
       if (s != null) ResearchStatusCard(status: s, onControl: _control),
       Section('발견한 팀',
-          subtitle: '판 수가 많아 믿을 만한 성적(하한 신뢰구간) 순서입니다',
+          subtitle: '탐색 표본에서 승점률 하한이 높은 팀부터 표시합니다.',
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
               for (final (key, label) in _buckets)
@@ -166,7 +162,6 @@ class _ResearchPageState extends ConsumerState<ResearchPage> {
           ])),
       for (final team in teams ?? const <Json>[])
         PartyCard(party: team, key: ValueKey(('research', team['id']))),
-      if (insights != null) ResearchInsights(insights!),
     ]);
   }
 }
@@ -253,57 +248,6 @@ class ResearchStatusCard extends StatelessWidget {
         ],
       ]),
     );
-  }
-}
-
-class ResearchInsights extends StatelessWidget {
-  const ResearchInsights(this.data, {super.key});
-  final Json data;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final pairs = (data['pairs'] as List).cast<Json>();
-    final species = (data['species'] as List).cast<Json>();
-    if (pairs.isEmpty && species.isEmpty) return const SizedBox();
-    return Section('연구로 배운 것',
-        subtitle: '함께 넣었을 때 각자의 승률로 기대되는 것보다 더 잘 이긴 조합',
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          for (final p in pairs)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(children: [
-                Sprite((p['a'] as Json)['sprite'] as String, size: 32),
-                Sprite((p['b'] as Json)['sprite'] as String, size: 32),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('${(p['a'] as Json)['name']} + ${(p['b'] as Json)['name']}'),
-                    Text(
-                        tr('{} · 기대보다 {}%p · {}판')
-                            .replaceFirst('{}', fmtPct(100 * (p['rate'] as num)))
-                            .replaceFirst('{}',
-                                '${(p['lift'] as num) >= 0 ? '+' : ''}${(100 * (p['lift'] as num)).toStringAsFixed(1)}')
-                            .replaceFirst('{}', _thousands(p['games'] as int)),
-                        style: theme.textTheme.bodySmall),
-                  ]),
-                ),
-              ]),
-            ),
-          if (species.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text('연구에서 승률이 높은 포켓몬', style: theme.textTheme.titleSmall),
-            const SizedBox(height: 6),
-            Wrap(spacing: 8, runSpacing: 6, children: [
-              for (final s in species)
-                Chip(
-                  avatar: Sprite(s['sprite'] as String, size: 22),
-                  label: Text('${s['name']} ${fmtPct(100 * (s['rate'] as num))}'),
-                  visualDensity: VisualDensity.compact,
-                ),
-            ]),
-          ],
-        ]));
   }
 }
 

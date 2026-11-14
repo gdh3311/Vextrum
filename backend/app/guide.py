@@ -408,6 +408,7 @@ def selection_evidence(e, fmt, team, report):
                           "openingWins": pick.get("openingWins", 0) if claims else 0, "activations": effects,
                           "axes": axes(e, chosen, fmt, leads=lead, effects=effects),
                           "sample": pick.get("sample"),
+                          "lossSample": pick.get("lossSample"),
                           "openingAgreement": round(pick.get("openingRuns", 0) / max(1, pick["runs"]), 3) if claims else 0,
                           "difficulty": report.get("difficulty")})
     return plans

@@ -12,7 +12,7 @@ String battleRecord(Json row) {
 
 class BattleReport extends StatefulWidget {
   final Json result;
-  final ValueChanged<int>? onPractice;
+  final ValueChanged<Json>? onPractice;
 
   const BattleReport({super.key, required this.result, this.onPractice});
 
@@ -32,6 +32,7 @@ class _BattleReportState extends State<BattleReport> {
         measured.firstOrNull ??
         strategies.first;
     final overall = (result['members'] as List).cast<Json>();
+    final actions = (result['actions'] as List? ?? const []).cast<Json>();
     final names = {
       for (final mon in overall)
         mon['id'] as String: (mon['ko'] ?? mon['name']) as String,
@@ -54,6 +55,15 @@ class _BattleReportState extends State<BattleReport> {
         '전략별 균등 표본',
         '양쪽 CPU 자동 선출·행동',
       ].join(' · ')),
+      if (actions.length == 2)
+        LabExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          title: const Text('CPU의 방어·교체 기록'),
+          children: [
+            for (final (index, row) in actions.indexed)
+              Text("${index == 0 ? '내 팀' : '상대 팀'} · 방어 ${row['protect'] ?? 0}회 · 교체 ${row['switch'] ?? 0}회 · 교체 기술 ${row['pivot'] ?? 0}회"),
+          ],
+        ),
       if (showExtremes)
         Padding(
           padding: const EdgeInsets.only(top: 8),
@@ -147,7 +157,7 @@ class _ResultBar extends StatelessWidget {
 class _StrategyDetail extends StatelessWidget {
   final Json data;
   final Map<String, String> names;
-  final ValueChanged<int>? onPractice;
+  final ValueChanged<Json>? onPractice;
 
   const _StrategyDetail(
       {super.key, required this.data, required this.names, this.onPractice});
@@ -281,7 +291,7 @@ class _StrategyDetail extends StatelessWidget {
           TextButton.icon(
             icon: const LabIcon(LabGlyph.repeat),
             label: const Text('이 매치업으로 연습'),
-            onPressed: () => onPractice!(example['seed'] as int),
+            onPressed: () => onPractice!(example),
           ),
       ]),
     );

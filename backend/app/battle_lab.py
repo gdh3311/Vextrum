@@ -11,6 +11,8 @@ from .engine import Engine
 from .parties import _member
 from .typechart import TYPES
 
+PRACTICE_STYLES = (*auto_team.SELECT_STYLES, "counter")
+
 PLAYBOOKS = {
     "balance": ("물리와 특수 화력을 분산해 한쪽 공격만 막히는 상황을 줄입니다.", ("physical", "special")),
     "tailwind": ("순풍으로 행동 순서를 앞당기고 공격으로 초반을 압박합니다.", ("tailwind", "attacker")),
@@ -23,8 +25,8 @@ PLAYBOOKS = {
     "setup": ("랭크업 공격수가 강화할 기회를 만들고 내구형 포켓몬으로 빈틈을 메웁니다.", ("setup_attacker", "bulky")),
 }
 def loss_tags(battle):
-    """진 판의 원인 태그 (명세 8.1). 상대가 실제로 만든 상황과 이 판에서 일어난 사건으로만 판정한다."""
-    mine, theirs = battle.trace[0], battle.trace[1]
+    """Observations from a loss. They do not establish why the battle was lost."""
+    mine = battle.trace[0]
     tags = []
     foe = battle.activated[1]
     if "trickroom" in foe and "trickroom" not in battle.activated[0]:
@@ -43,19 +45,19 @@ def loss_tags(battle):
         tags.append("speed_control_failed")
     if battle.first_faint == 0:
         tags.append("lead_matchup_lost")
-    if theirs["low_acc_miss"] >= 2:
+    if mine["low_acc_miss"] >= 2:
         tags.append("low_accuracy_dependency")
     if "setup" in foe:
         tags.append("setup_window_allowed")
-    return tags or ["damage_balance_issue"]
+    return tags
 
 
 LOSS_TAGS = {
     "trick_room_unanswered": "상대 트릭룸에 대응 못 함", "opponent_tailwind_unanswered": "상대 순풍에 대응 못 함",
-    "terrain_or_weather_lost": "날씨·필드 싸움에서 밀림", "spread_move_unanswered": "광역기에 크게 당함",
+    "terrain_or_weather_lost": "양쪽 모두 날씨·필드를 전개함", "spread_move_unanswered": "광역기에 크게 당함",
     "priority_unanswered": "선제기에 쓰러짐", "speed_control_failed": "움직이기 전에 2마리 이상 쓰러짐",
     "lead_matchup_lost": "선봉 대면에서 먼저 쓰러짐", "low_accuracy_dependency": "명중 낮은 기술이 2번 이상 빗나감",
-    "setup_window_allowed": "상대 랭크업 허용", "damage_balance_issue": "화력·내구 싸움에서 밀림",
+    "setup_window_allowed": "상대 랭크업 발동",
 }
 
 
@@ -225,6 +227,8 @@ def holdout_summary(report):
             "rate": round(sum(report["outcomes"]) / report["runs"], 3),
             "ci": core_interval(report["outcomes"], cores), "coreCount": len(set(cores)),
             "difficulty": report["difficulty"], "cpuStyles": list(report["cpuStyles"]),
+            "strategyEvidence": report.get("strategyEvidence", {}),
+            "lossTags": report.get("lossTags", []),
             "strategies": [{k: row[k] for k in ("style", "label", "win", "draw", "loss", "runs")}
                            for row in report["strategies"]]}
 
@@ -243,9 +247,10 @@ def _choose(e, fmt, own, opponents, rng, *, style=None, core=(), prefer_mega=Fal
     weather = [{simulation.WEATHER[m["ability"]]} if m["ability"] in simulation.WEATHER else set()
                for m in own]
     for m, effects in zip(own, weather):
-        effects.update(simulation.WEATHER_MOVES[move] for move in m["moves"] if move in simulation.WEATHER_MOVES)
-        if "Chilly Reception" in m["moves"]:
-            effects.add("snow")
+        if m["item"] not in simulation.CHOICE | {"Assault Vest"}:
+            effects.update(simulation.WEATHER_MOVES[move] for move in m["moves"] if move in simulation.WEATHER_MOVES)
+            if "Chilly Reception" in m["moves"]:
+                effects.add("snow")
 
     def room_gain(i):
         speed = own[i]["speed"]
@@ -467,21 +472,53 @@ def wilson(wins: float, runs: int, z: float = 1.96) -> list[float]:
     return [round(100 * max(0., center - margin), 1), round(100 * min(1., center + margin), 1)]
 
 
+FIELD_STRATEGIES = {
+    **{w: (f"{w}_set", f"{w}_core") for w in ("rain", "sun", "sand", "snow")},
+    "tailwind": ("tailwind", "attacker"), "trickroom": ("trickroom", "slow_attacker"),
+    "psychic": ("psychic_set", "psychic_attack"), "setup": ("setup_attacker", "setup_attacker"),
+}
+
+
+def strategy_members(e, fmt, team):
+    candidates = [auto_team._candidate(e, fmt, (), s) for s in team]
+    result = {}
+    for key, (setter, payoff) in FIELD_STRATEGIES.items():
+        pairs = {frozenset((a.id, b.id)) for a in candidates if setter in a.features
+                 for b in candidates if payoff in b.features and (key not in {"trickroom", "tailwind"} or a.id != b.id)}
+        if pairs:
+            result[key] = pairs
+    return result
+
+
 class _Detail:
     """한 팀의 반복 배틀 상세 집계: 포켓몬별 기여, 위협적인 상대, 선봉 조합별 승률, 턴 분포."""
 
-    def __init__(self, width):
+    def __init__(self, width, mechanics=None):
         self.width = width
         self.members, self.foes, self.leads = {}, {}, {}
         self.turns = Counter()
         self.plans = {}
         self.attacks = Counter()
         self.games = 0
+        self.mechanics = mechanics or {}
+        self.execution = {key: Counter() for key in self.mechanics}
 
     def add(self, battle, result, style, match_seed, cpu_style="balanced", split="search"):
         self.games += 1
         self.attacks.update(battle.executed_attacks)
         ids = [f.mon["id"] for f in battle.teams[0]]
+        selected = set(ids)
+        for key, members in self.mechanics.items():
+            row = self.execution[key]
+            together = any(pair <= selected for pair in members)
+            fired = key in battle.activated[0]
+            used = key in battle.strategy_used[0]
+            row["selected"] += together
+            row["activated"] += fired
+            row["used"] += used
+            row["coreUsed"] += together and used
+            row["usedWins"] += used and result == "win"
+            row["usedDraws"] += used and result == "draw"
         pick = tuple(ids[:self.width]), tuple(ids[self.width:])
         group = self.plans.setdefault(style, {})
         sample = {"seed": match_seed, "cpuStyle": cpu_style, "result": result, "pool": split}
@@ -490,6 +527,8 @@ class _Detail:
                                        "sample": sample})
         line["runs"] += 1
         line[result] += 1
+        if result == "loss" and "lossSample" not in line:
+            line["lossSample"] = sample
         line["activations"].update(battle.activated[0])
         line["attacks"].update(battle.executed_attacks)
         if battle.opening_actions:
@@ -541,6 +580,7 @@ class _Detail:
             r["winRate"] = round(100 * r["win"] / r["runs"], 1)
             r["ci"] = wilson(r["win"], r["runs"])
         return {"memberStats": members, "threats": foes[:6], "leadStats": leads,
+                "strategyEvidence": self.execution,
                 "turnHistogram": [{"turns": t, "games": self.turns[t]} for t in sorted(self.turns)]}
 
     def evidence(self):
@@ -563,6 +603,7 @@ class _Detail:
                                                   for actor, move, target in actions],
                                "openingRuns": observed.get("runs", 0), "openingWins": observed.get("wins", 0),
                                "attacks": attacks(row["attacks"]),
+                               "lossSample": row.get("lossSample"),
                                "sample": observed.get("sample", row["sample"])})
             return output
 
@@ -669,10 +710,11 @@ def compare_teams(e, fmt, teams, runs, seed, difficulty: simulation.Difficulty =
     cpu_styles: 상대 CPU 플레이 스타일 목록 (판마다 돌아가며). outcomes 에 판별 결과(1·0.5·0)를 남긴다."""
     standings = [{**_results(), "runs": runs, "strategies": {}, "leads": Counter(),
                   "activations": Counter(), "turns": 0, "foeEffects": Counter(), "lossEffects": Counter(),
-                  "lossTags": Counter(), "outcomes": [], "cpuStyles": {}, "opponentCores": []}
+                  "lossTags": Counter(), "outcomes": [], "cpuStyles": {}, "opponentCores": [],
+                  "actions": [Counter(), Counter()]}
                  for _ in teams]
     policies = policies or [None] * len(teams)
-    details = [_Detail(2 if fmt == "Doubles" else 1) for _ in teams]
+    details = [_Detail(2 if fmt == "Doubles" else 1, strategy_members(e, fmt, team)) for team in teams]
     resolved = [_resolve(e, fmt, team) for team in teams]
     width = 2 if fmt == "Doubles" else 1
     for number, match_seed in enumerate(_match_seeds(e, fmt, runs, seed, styles, split)):
@@ -692,6 +734,8 @@ def compare_teams(e, fmt, teams, runs, seed, difficulty: simulation.Difficulty =
             by_style["runs"] += 1
             by_style["score"] += score
             row["turns"] += battle.turn - 1
+            for counts, actions in zip(row["actions"], battle.public_actions):
+                counts.update(actions)
             detail.add(battle, battle.winner, style, match_seed, cpu_style, split)
             row["activations"].update(sorted(battle.activated[0]))
             # 패배 원인 추적: 상대가 전개한 전략(트릭룸·순풍·날씨·필드·랭크업·벽)이 진 판에 얼마나 몰리는가
@@ -749,16 +793,21 @@ def batch(e, fmt, team, runs, seed, difficulty: simulation.Difficulty = "ultra")
         raise ValueError("팀에 시뮬레이터가 구현하지 않은 요소가 있습니다. 운영 가이드에서 확인해 주세요.")
     width = 2 if fmt == "Doubles" else 1
     totals = _results()
+    actions = [Counter(), Counter()]
     breakdown, overall = {}, {}
     turns = 0
-    detail = _Detail(width)
-    for match_seed in _match_seeds(e, fmt, runs, seed):
+    detail = _Detail(width, strategy_members(e, fmt, team))
+    styles = PRACTICE_STYLES if difficulty in {"master", "champion"} else ("balanced",)
+    for number, match_seed in enumerate(_match_seeds(e, fmt, runs, seed)):
         match = matchup(e, fmt, team, match_seed)
-        battle = _play(e, fmt, team, match, difficulty)
+        cpu_style = styles[number % len(styles)]
+        battle = _play(e, fmt, team, match, difficulty, cpu_style)
         result, turn_count = battle.winner, battle.turn - 1
         totals[result] += 1
+        for counts, observed in zip(actions, battle.public_actions):
+            counts.update(observed)
         turns += turn_count
-        detail.add(battle, result, match.style, match_seed)
+        detail.add(battle, result, match.style, match_seed, cpu_style)
         block = breakdown.setdefault(match.style, _style_stats(match.style))
         block["runs"] += 1
         block[result] += 1
@@ -775,6 +824,7 @@ def batch(e, fmt, team, runs, seed, difficulty: simulation.Difficulty = "ultra")
         line[result] += 1
         if not block["example"] or result == "loss" and block["example"]["result"] != "loss":
             block["example"] = {"seed": match_seed, "result": result, "turns": turn_count, "leadSize": width,
+                                "cpuStyle": cpu_style,
                                 "mine": mine, "foe": foe, "opponent": [_brief(c.resolved) for c in match.roster]}
     evidence = detail.evidence()
     for block in breakdown.values():
@@ -785,6 +835,7 @@ def batch(e, fmt, team, runs, seed, difficulty: simulation.Difficulty = "ultra")
         block["foes"] = sorted(block["foes"].values(), key=lambda row: (-row["loss"], -row["picked"], row["id"]))
         block["lineups"] = sorted(block["lineups"].values(), key=lambda row: -row["runs"])[:5]
     return {"runs": runs, **totals, "avgTurns": round(turns / runs, 1), "seed": seed, "difficulty": difficulty,
+            "actions": actions, "cpuStyles": list(styles),
             "ci": wilson(totals["win"], runs), **detail.report(), "attacks": evidence["attacks"],
             "dataset": {"season": next((s for s in e.d["seasons"] if s != "Current"), None),
                         "generatedAt": e.d["generatedAt"]},

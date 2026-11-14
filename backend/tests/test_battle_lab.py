@@ -17,6 +17,49 @@ class BattleLabTest(unittest.TestCase):
     def team(self, fmt):
         return [{"id": p["id"]} for p in self.engine.ranked(fmt)[:6]]
 
+    def test_rain_execution_requires_owned_weather_and_a_successful_payoff(self):
+        e, fmt = self.engine, "Doubles"
+        team = [{"id": "klefki", "item": "Light Clay", "moves": ["Rain Dance"]},
+                {"id": "basculegion", "item": None, "ability": "Adaptability", "moves": ["Wave Crash"]}]
+        foe = [{"id": "incineroar", "item": None, "moves": ["Protect"]}]
+        battle = simulation.Battle(e, fmt, team, foe, 19)
+        setter, attacker = battle.teams[0]
+        target = battle.teams[1][0]
+        self.assertGreater(battle._support_value(0, 0, setter, {"move": "Rain Dance"}), .2)
+        self.assertEqual(battle._auto(0)[0]["move"], "Rain Dance")
+        battle._set_weather(1, "rain", target)
+        self.assertTrue(battle._attack(0, 1, attacker, "Wave Crash", 0, 0, ()))
+        self.assertNotIn("rain", battle.strategy_used[0])
+        target.hp = target.max_hp
+        target.protected = True
+        battle._set_weather(0, "rain", setter)
+        self.assertFalse(battle._attack(0, 1, attacker, "Wave Crash", 0, 0, ()))
+        self.assertNotIn("rain", battle.strategy_used[0])
+        target.protected = False
+        self.assertTrue(battle._attack(0, 1, attacker, "Wave Crash", 0, 0, ()))
+        detail = battle_lab._Detail(2, battle_lab.strategy_members(e, fmt, team))
+        detail.add(battle, "win", "balance", 19)
+        self.assertEqual(detail.execution["rain"]["coreUsed"], 1)
+
+    def test_activation_without_a_payoff_does_not_qualify(self):
+        report = {"runs": 27, "strategyEvidence": {"rain": {"selected": 18, "activated": 15, "used": 0}}}
+        self.assertFalse(auto_team.strategy_status(report, "rain")["repeated"])
+        report["strategyEvidence"]["rain"].update(used=8, coreUsed=8)
+        self.assertTrue(auto_team.strategy_status(report, "rain")["repeated"])
+
+    def test_flower_veil_protects_grass_partner_until_the_holder_leaves(self):
+        e, fmt = self.engine, "Doubles"
+        sets = [{"id": "floetteeternal", "ability": "Flower Veil", "mega": None},
+                {"id": "rillaboom", "ability": "Grassy Surge", "mega": None}, {"id": "garchomp", "mega": None}]
+        battle = simulation.Battle(e, fmt, sets, [{"id": "incineroar", "ability": "Intimidate", "mega": None}], 3)
+        floette, grass, _ = battle.teams[0]
+        foe = battle.teams[1][0]
+        self.assertEqual(grass.stages.get("atk", 0), 0)
+        self.assertEqual(floette.stages.get("atk"), -1)
+        self.assertFalse(battle._inflict(grass, "brn", foe, "Will-O-Wisp"))
+        battle._switch(0, 0, 2)
+        self.assertTrue(battle._inflict(grass, "brn", foe, "Will-O-Wisp"))
+
     def test_hybrid_guide_matches_selection_and_replays_the_observed_opening(self):
         fmt = "Doubles"
         e = self.engine
@@ -219,6 +262,50 @@ class BattleLabTest(unittest.TestCase):
         self.assertEqual(a._auto(1), b._auto(1))
         self.assertEqual(a.teams[0][0].known_moves, {"Rock Tomb"})
 
+    def test_ranked_planner_is_used_on_both_sides_and_masks_future_mega(self):
+        from app import battle_ai
+
+        team = [{"id": "garchomp", "mega": None}, {"id": "rillaboom", "mega": None}]
+        foe = [{"id": "charizard", "mega": "Mega Charizard Y", "item": "Charizardite Y"}, {"id": "incineroar"}]
+        b = simulation.Battle(self.engine, "Doubles", team, foe, 19, difficulty="master")
+        self.assertIsNotNone(b.teams[1][0].mega_form)
+        self.assertIsNone(battle_ai._observation(b, 0).teams[1][0].mega_form)
+        with patch.object(battle_ai, "choose_actions", wraps=battle_ai.choose_actions) as choose:
+            b.advance()
+        self.assertEqual([call.args[1] for call in choose.call_args_list], [0, 1])
+        self.assertTrue(all(b.public_actions))
+
+    def test_master_batch_replays_the_observed_cpu_style_and_selection(self):
+        fmt = "Doubles"
+        team = self.team(fmt)
+        report = battle_lab.batch(self.engine, fmt, team, 6, 739, "master")
+        self.assertEqual(len(report["cpuStyles"]), 6)
+        self.assertTrue(all(report["actions"]))
+        for block in report["strategies"]:
+            sample = block["example"]
+            battle = battle_lab.start(self.engine, fmt, team, sample["seed"], sample["mine"], "master",
+                                      cpu_style=sample["cpuStyle"])
+            while not battle.winner:
+                battle.advance()
+            self.assertEqual(battle.winner, sample["result"])
+
+    def test_cpu_commits_turn_before_manual_mega_reveals_weather(self):
+        team = [{"id": "charizard", "mega": "Mega Charizard Y", "item": "Charizardite Y", "moves": ["Protect"]}]
+        foe = [{"id": "incineroar", "mega": None}]
+        battle = simulation.Battle(self.engine, "Singles", team, foe, 19, difficulty="master", manual=True)
+        choose = battle._auto
+
+        def before_mega(side):
+            self.assertEqual(side, 1)
+            self.assertEqual(battle.weather, "")
+            self.assertFalse(battle.teams[0][0].mega_shown)
+            return choose(side)
+
+        with patch.object(battle, "_auto", side_effect=before_mega):
+            battle.advance([{"slot": 0, "kind": "move", "move": "Protect", "target": None}], mega_slot=0)
+        self.assertTrue(battle.teams[0][0].mega_shown)
+        self.assertEqual(battle.weather, "sun")
+
     def test_wide_guard_protects_both_slots_for_one_turn(self):
         a = [{"id": "garchomp", "moves": ["Rock Slide"], "item": None, "mega": None}]
         b = [{"id": "pelipper", "moves": ["Wide Guard"], "item": None},
@@ -394,9 +481,9 @@ class BattleLabTest(unittest.TestCase):
             self.assertEqual(members["garchomp"], locked)
             self.assertIn("kingambit", members)
             self.assertNotIn("sneasler", members)
-            self.assertTrue(all(style["complete"] for style in team["fit"]))
-            self.assertTrue(all(role["count"] >= role["minimum"]
-                                for style in team["fit"] for role in style["evidence"]))
+            room = next(row for row in team["operation"]["execution"] if row["key"] == "trickroom")
+            self.assertEqual("트릭룸" in team["operation"]["unconfirmed"], not room["repeated"])
+            self.assertLessEqual(room["coreUsed"], room["selected"])
             report = team["simulation"]
             self.assertEqual(report["runs"], auto_team.FINAL_RUNS)
             self.assertEqual(sum(report[result] for result in ("win", "loss", "draw")), report["runs"])

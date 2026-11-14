@@ -280,6 +280,10 @@ def recommend(e: Engine, fmt: str, *, joker: str = "allow", depth: str = "standa
         score = _combined(meta_rate, ranks["rate"] if ranks else 0, ranker_weight)
         candidates.append((score, origin, goals, roster, team, report, ranks))
     candidates.sort(key=lambda row: -row[0])
+    requested = set(styles) & battle_lab.FIELD_STRATEGIES.keys()
+    if requested:
+        candidates = [row for row in candidates if all(auto_team.strategy_status(row[5], key)["repeated"]
+                      for key in requested)] or candidates[:1]
 
     from .guide import team_guide
 
@@ -301,9 +305,14 @@ def recommend(e: Engine, fmt: str, *, joker: str = "allow", depth: str = "standa
                                  for k in goals if k in auto_team.WEATHER_STYLES | {"tailwind", "trickroom", "psychic"}]
         names = {c.id: c.resolved["ko"] or c.resolved["name"] for c in roster}
         lead = " + ".join(names[m["id"]] for m in guide.get("lead", {}).get("lead", ()))
+        execution = [auto_team.strategy_status(report, key) for key in battle_lab.FIELD_STRATEGIES
+                     if key in report.get("strategyEvidence", {}) or key in requested]
+        unconfirmed = [row["label"] for row in execution if row["key"] in requested and not row["repeated"]]
+        title = " · ".join(row["label"] for row in execution if row["repeated"] and (not requested or row["key"] in requested))
         out.append({
-            "id": f"lab-{index}", "name": f"{origin['label'].split(' · ', 1)[-1]} · {lead}", "format": fmt,
+            "id": f"lab-{index}", "name": f"{title} · {lead}" if title else lead, "format": fmt,
             "complete": True, "origin": origin, "goals": list(goals),
+            "operation": {"execution": execution, "unconfirmed": unconfirmed, "basis": "selection"},
             "members": members, "jokers": jokers, "metaScore": analysis["metaScore"],
             "warnings": analysis["warnings"][:4], "score": round(score, 3),
             "simulation": report, "rankers": ranks, "guide": guide,

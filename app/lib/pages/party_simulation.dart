@@ -13,6 +13,22 @@ class PartyEvaluationSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (candidates.any((team) => team['operation'] != null)) {
+      final sample = (evaluation['holdoutRuns'] as num?) ?? 0;
+      return Section(
+        '자동 구성 후보',
+        subtitle: sample > 0 ? '보류 상대 모의전 · 팀당 $sample판' : '선정에 사용한 모의전',
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if ((evaluation['withheld'] as num? ?? 0) > 0)
+            Text("요청한 전략이 재현되지 않은 후보 ${evaluation['withheld']}팀 제외"),
+          for (final team in candidates)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Text("${team['name']} · ${_candidateRate(team)}"),
+            ),
+        ]),
+      );
+    }
     final stable = evaluation['objective'] == 'stability';
     final ranker = evaluation['objective'] == 'ranker' &&
         ((evaluation['rankerGames'] as num?) ?? 0) > 0;
@@ -64,6 +80,11 @@ class PartyEvaluationSummary extends StatelessWidget {
     }
     final worst = (result['strategies'] as List).first as Json;
     return "전체 ${_winRate(result)} · 최저 ${_winRate(worst)} (${worst['label']})";
+  }
+
+  static String _candidateRate(Json team) {
+    final row = team['holdout'] as Json?;
+    return row == null ? _winRate(team['simulation'] as Json) : fmtPct(100 * (row['rate'] as num));
   }
 }
 
