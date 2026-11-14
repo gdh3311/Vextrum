@@ -5,9 +5,11 @@ import '../api.dart';
 import '../i18n.dart';
 import '../lab_icons.dart';
 import '../main.dart' show PageHeader;
+import '../settings.dart' show apiContextProvider;
 import '../team_state.dart';
 import '../widgets.dart';
 import '../workspace_state.dart';
+import 'enemy_page.dart' show enemyProvider;
 import 'match_journal.dart';
 import 'team_page.dart' show SetEditor;
 import 'team_switcher.dart' show TeamPickerButton;
@@ -15,14 +17,15 @@ import 'team_switcher.dart' show TeamPickerButton;
 /// 팀 워크스페이스: 왼쪽 팀 편집 · 가운데 즉시 분석 · 오른쪽 교체 추천/상대 대응/실험실/실전 기록.
 /// 빠른 분석은 정적 계산(승률 아님), 승률은 오른쪽의 모의전 작업에서만 나온다.
 class WorkspacePage extends ConsumerStatefulWidget {
-  const WorkspacePage({super.key});
+  const WorkspacePage({super.key, this.initialTab = 0});
+  final int initialTab;
   @override
   ConsumerState<WorkspacePage> createState() => _WorkspacePageState();
 }
 
 class _WorkspacePageState extends ConsumerState<WorkspacePage> {
   int slot = 0;
-  int tab = 0;
+  late int tab = widget.initialTab;
 
   @override
   Widget build(BuildContext context) {
@@ -584,6 +587,22 @@ class _ReplacePanelState extends ConsumerState<_ReplacePanel> {
   }
 }
 
+final _matchupTeamProvider = FutureProvider.autoDispose<Json?>((ref) async {
+  ref.watch(apiContextProvider);
+  final enemy = ref.watch(enemyProvider);
+  final team = ref.watch(teamProvider);
+  final format = ref.watch(formatProvider);
+  final revision = ref.watch(teamRevisionProvider);
+  if (enemy.length != 6 || team.length < (format == 'Doubles' ? 4 : 3)) return null;
+  final res = await dio.post('/api/workbench/matchup/team', data: {
+    'format': format,
+    'teamRevision': revision,
+    'team': [for (final s in team) s.set],
+    'enemy': [for (final mon in enemy) mon['id']],
+  });
+  return res.data as Json;
+});
+
 class _MatchupPanel extends ConsumerStatefulWidget {
   const _MatchupPanel();
   @override
@@ -593,9 +612,9 @@ class _MatchupPanel extends ConsumerStatefulWidget {
 class _MatchupPanelState extends ConsumerState<_MatchupPanel> {
   Json? foe;
   Json? single;
-  final enemy = <Json>[];
-  Json? teamResult;
   String? error;
+  List<String> custom = const [];
+  int? customRevision;
 
   Future<void> pickFoe() async {
     final list = await ref.read(pokemonListProvider.future);
@@ -621,24 +640,10 @@ class _MatchupPanelState extends ConsumerState<_MatchupPanel> {
     final list = await ref.read(pokemonListProvider.future);
     if (!mounted) return;
     final p = await showPokemonPicker(context, list, ref.read(formatProvider));
-    if (p == null || enemy.length >= 6 || enemy.any((x) => x['id'] == p['id'])) return;
-    setState(() => enemy.add(p));
-    if (enemy.length >= 4) await analyzeTeam();
-  }
-
-  Future<void> analyzeTeam() async {
-    try {
-      final team = ref.read(teamProvider);
-      final res = await dio.post('/api/workbench/matchup/team', data: {
-        'format': ref.read(formatProvider),
-        'teamRevision': ref.read(teamRevisionProvider),
-        'team': [for (final s in team) s.set],
-        'enemy': [for (final e in enemy) e['id']],
-      });
-      setState(() => teamResult = res.data as Json);
-    } catch (e) {
-      setState(() => error = apiError(e));
-    }
+    if (!mounted || p == null) return;
+    final enemy = ref.read(enemyProvider);
+    if (enemy.length >= 6 || enemy.any((x) => x['id'] == p['id'])) return;
+    ref.read(enemyProvider.notifier).replace([...enemy, p]);
   }
 
   @override
@@ -646,14 +651,36 @@ class _MatchupPanelState extends ConsumerState<_MatchupPanel> {
     final rev = ref.watch(teamRevisionProvider);
     final team = ref.watch(teamProvider);
     final job = ref.watch(matchupJobProvider);
+    final enemy = ref.watch(enemyProvider);
+    final analysis = ref.watch(_matchupTeamProvider);
+    final teamResult = analysis.isLoading ? null : analysis.valueOrNull;
     final cs = Theme.of(context).colorScheme;
     final rec = teamResult?['recommendation'] as Json?;
     final alternatives = ((rec?['alternatives'] as List?) ?? const []).cast<Json>();
     List<String> ids(Json r) => [
           for (final m in [...(r['lead'] as List? ?? const []), ...(r['back'] as List? ?? const [])]) m['id'] as String
         ];
-    final picks = [if (rec != null) ids(rec), for (final a in alternatives.take(2)) ids(a)].where((p) => p.length == 4).toList();
+    final count = ref.watch(formatProvider) == 'Doubles' ? 4 : 3;
+    final enemyIds = [for (final mon in enemy) mon['id'] as String]..sort();
+    final names = {for (final m in [...team.map((s) => s.detail), ...enemy]) m['id']: (m['ko'] ?? m['name'])};
+    String name(Object? id) => '${names[id] ?? id}';
+    final resultEnemy = (job.result?['enemy'] as List?)?.join('|');
+    bool samePick(List<String> a, List<String> b) {
+      final lead = count - 2;
+      return a.take(lead).toSet().containsAll(b.take(lead)) &&
+          a.skip(lead).toSet().containsAll(b.skip(lead));
+    }
+    final suggested = [if (rec != null) ids(rec), for (final a in alternatives.take(2)) ids(a)]
+        .where((p) => p.length == count).toList();
+    final customPick = customRevision == rev && custom.length == count ? custom : const <String>[];
+    final picks = [
+      if (suggested.isNotEmpty) suggested.first,
+      if (customPick.isNotEmpty && suggested.isNotEmpty && !samePick(customPick, suggested.first)) customPick,
+      for (final a in suggested.skip(1))
+        if (customPick.isEmpty || !samePick(a, customPick)) a,
+    ].take(3).toList();
     final hyp = (teamResult?['hypotheses'] as Json?)?['scenario'] as Map?;
+    final plans = job.result?['opponentPlans'] as Map? ?? const {};
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Section('상대 포켓몬 하나',
           subtitle: '상대 세트는 채용률 가설(도구·특성)의 확률 가중으로 계산합니다. 확정 정보가 아닙니다.',
@@ -674,29 +701,48 @@ class _MatchupPanelState extends ConsumerState<_MatchupPanel> {
             ],
           ])),
       Section('상대 6마리',
-          subtitle: '선출 추천은 정적 분석, 선출 비교는 모의전(같은 상대·난수)입니다.',
+          subtitle: '실전 상대 분석과 같은 명단을 사용합니다. 6마리를 채우면 선출을 추천하고 모의전으로 비교할 수 있습니다.',
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (analysis.isLoading && enemy.length == 6) const LinearProgressIndicator(),
             Wrap(spacing: 6, runSpacing: 6, children: [
-              for (final e in enemy)
+              for (final (i, e) in enemy.indexed)
                 InputChip(
                     avatar: Sprite(e['sprite'] as String, size: 22),
                     label: Text('${e['ko'] ?? e['name']}'),
-                    onDeleted: () => setState(() {
-                          enemy.remove(e);
-                          teamResult = null;
-                        })),
+                    onDeleted: () => ref.read(enemyProvider.notifier).removeAt(i)),
               if (enemy.length < 6) ActionChip(label: const Text('+ 상대 추가'), onPressed: addEnemy),
             ]),
+            if (analysis.hasError) Text(apiError(analysis.error!), style: TextStyle(color: cs.error)),
             if (teamResult != null) ...[
-              staleBanner(context, teamResult!['teamRevision'] as int?, rev),
               if (hyp != null)
-                Text('상대 전략 가설: ${hyp.entries.map((e) => '${e.key} ${(100 * (e.value as num)).round()}%').join(' · ')}',
+                Text('상대 전략 가설 · ${hyp.entries.map((e) => '${_tactics[e.key] ?? e.key} ${fmtPct(100 * (e.value as num))}').join(' · ')}',
                     style: const TextStyle(fontSize: 12.5)),
               if (rec != null)
                 Text('추천 선출 · 선봉 ${(rec['lead'] as List).map((m) => m['ko'] ?? m['name']).join(' + ')} · 후발 ${(rec['back'] as List).map((m) => m['ko'] ?? m['name']).join(' + ')}',
                     style: const TextStyle(fontWeight: FontWeight.w700)),
-              FilledButton.tonal(
-                  onPressed: picks.isEmpty || job.running
+              if ((teamResult['leads'] as List? ?? const []).isNotEmpty)
+                Text('상대 선봉 후보 · ${(teamResult['leads'] as List).take(3).map((r) =>
+                   (r['members'] as List).map((m) => m['ko'] ?? m['name']).join(' + ')).join(' / ')}'),
+              Wrap(spacing: 8, children: [
+                OutlinedButton(
+                  onPressed: picks.isEmpty || job.running ? null : () async {
+                    final pick = await showDialog<List<String>>(context: context,
+                        builder: (_) => _SelectionDialog(
+                          team: [for (final s in team) s.detail],
+                          leadSize: count - 2,
+                          initial: customPick.isEmpty ? picks.first : customPick,
+                        ));
+                    if (mounted && pick != null) {
+                      setState(() {
+                        custom = pick;
+                        customRevision = rev;
+                      });
+                    }
+                  },
+                  child: Text(customPick.isEmpty ? '내 선출 추가' : '내 선출 수정'),
+                ),
+                FilledButton.tonal(
+                  onPressed: picks.isEmpty || job.running || teamResult['teamRevision'] != rev
                       ? null
                       : () => ref.read(matchupJobProvider.notifier).start('/api/workbench/matchup/validate', {
                             'format': ref.read(formatProvider),
@@ -706,24 +752,112 @@ class _MatchupPanelState extends ConsumerState<_MatchupPanel> {
                             'games': 30,
                           }, rev),
                   child: Text('선출 ${picks.length}가지 모의전 비교 (30판씩)')),
+              ]),
+              if (customPick.isNotEmpty)
+                Text('내 선출 · 선봉 ${customPick.take(count - 2).map(name).join(' + ')} · 후발 ${customPick.skip(count - 2).map(name).join(' + ')}'),
               jobProgress(context, job, () => ref.read(matchupJobProvider.notifier).cancel()),
-              if (job.result != null) ...[
+              if (job.result != null && resultEnemy == enemyIds.join('|')) ...[
                 staleBanner(context, job.revision, rev),
-                for (final r in (job.result!['rows'] as List).cast<Json>())
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Row(children: [
-                      Expanded(
-                          child: Text('${(r['pick'] as List).join(' · ')} — ${(100 * (r['rate'] as num)).round()}% (${r['games']}판)',
-                              style: const TextStyle(fontSize: 12.5))),
-                      verdictChip(context, r['vsFirst'] as Json?),
-                    ]),
+                for (final (i, r) in (job.result!['rows'] as List).cast<Json>().indexed)
+                  LabExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    title: Text([
+                      if (i == 0) '추천 선출'
+                      else if ((r['pick'] as List).join('|') == customPick.join('|')) '내 선출'
+                      else '대안 $i',
+                      if (r['unavailable'] != null) '모의전 미지원'
+                      else '${fmtPct(100 * (r['rate'] as num))} (${r['games']}판)',
+                    ].join(' · ')),
+                    subtitle: Text('선봉 ${(r['lead'] as List).map(name).join(' + ')} · 후발 ${(r['back'] as List).map(name).join(' + ')}'),
+                    children: [
+                      if (r['unavailable'] case final String reason)
+                        Text(reason)
+                      else ...[
+                        verdictChip(context, r['vsFirst'] as Json?),
+                        Text('모의전 승점률의 95% 구간 ${(r['ci'] as List).join('~')}%'),
+                      ],
+                      for (final row in (r['openingExamples'] as List? ?? const []).cast<Json>())
+                        Text('CPU 첫 턴 선택 ${row['games']}판 · ${(row['actions'] as List).cast<Json>().map((a) =>
+                          "${name(a['actor'])} ${a['move'] == 'switch' ? '교체' : a['moveKo']}${a['target'] == '' ? '' : ' → ${name(a['target'])}'}").join(' / ')}'),
+                      if ((r['used'] as Map? ?? const {}).isNotEmpty)
+                        Text('전술 활용 · ${(r['used'] as Map).entries.map((e) => '${_tactics[e.key] ?? e.key} ${e.value}판').join(' · ')}'),
+                    ],
                   ),
-                Text('${job.result!['note']}', style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
+                Text('상대 세트·선출 가설 ${job.result!['opponentHypotheses']}가지 · ${job.result!['note']}',
+                    style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
+                if (plans.isNotEmpty)
+                  Text('상대 핵심 조합을 시험한 판 · ${plans.entries.map((e) => '${_tactics[e.key] ?? e.key} ${e.value}판').join(' · ')}'),
               ],
             ],
           ])),
     ]);
+  }
+}
+
+const _tactics = {
+  'rain': '비', 'sun': '쾌청', 'sand': '모래바람', 'snow': '눈', 'psychic': '사이코필드',
+  'tailwind': '순풍', 'trickroom': '트릭룸', 'setup': '능력치 강화', 'balance': '균형형',
+};
+
+class _SelectionDialog extends StatefulWidget {
+  const _SelectionDialog({required this.team, required this.leadSize, required this.initial});
+  final List<Json> team;
+  final int leadSize;
+  final List<String> initial;
+
+  @override
+  State<_SelectionDialog> createState() => _SelectionDialogState();
+}
+
+class _SelectionDialogState extends State<_SelectionDialog> {
+  late final lead = widget.initial.take(widget.leadSize).toSet();
+  late final back = widget.initial.skip(widget.leadSize).toSet();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget choices(Set<String> selected, Set<String> other, int limit) => Wrap(
+      spacing: 6,
+      children: [
+        for (final mon in widget.team)
+          FilterChip(
+            label: Text('${mon['ko'] ?? mon['name']}'),
+            selected: selected.contains(mon['id']),
+            onSelected: !selected.contains(mon['id']) && selected.length == limit ? null : (checked) {
+              final id = mon['id'] as String;
+              setState(() {
+                if (checked) {
+                  other.remove(id);
+                  selected.add(id);
+                } else {
+                  selected.remove(id);
+                }
+              });
+            },
+          ),
+      ],
+    );
+    return AlertDialog(
+      title: const Text('비교할 내 선출'),
+      content: SizedBox(width: 400, child: SingleChildScrollView(child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('선봉 ${lead.length}/${widget.leadSize}'),
+          choices(lead, back, widget.leadSize),
+          const SizedBox(height: 8),
+          Text('후발 ${back.length}/2'),
+          choices(back, lead, 2),
+        ],
+      ))),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),
+        FilledButton(
+          onPressed: lead.length == widget.leadSize && back.length == 2
+              ? () => Navigator.pop(context, [...lead, ...back]) : null,
+          child: const Text('비교에 추가'),
+        ),
+      ],
+    );
   }
 }
 
@@ -829,18 +963,26 @@ class _FeedbackPanel extends ConsumerStatefulWidget {
 class _FeedbackPanelState extends ConsumerState<_FeedbackPanel> {
   Json? result;
   String? error;
+  String? resultScope;
+  bool running = false;
 
-  Future<void> run(List<Json> records) async {
+  Future<void> run(String format, String scope, List<Json> records) async {
+    setState(() {
+      resultScope = scope;
+      result = null;
+      error = null;
+      running = true;
+    });
     try {
-      final team = ref.read(teamProvider);
       final res = await dio.post('/api/workbench/feedback', data: {
-        'format': ref.read(formatProvider),
-        'team': [for (final s in team) s.set],
-        'records': records,
+        'format': format,
+        'records': records.take(500).toList(),
       });
-      setState(() => result = res.data as Json);
+      if (mounted) setState(() => result = res.data as Json);
     } catch (e) {
-      setState(() => error = apiError(e));
+      if (mounted) setState(() => error = apiError(e));
+    } finally {
+      if (mounted) setState(() => running = false);
     }
   }
 
@@ -848,25 +990,41 @@ class _FeedbackPanelState extends ConsumerState<_FeedbackPanel> {
   Widget build(BuildContext context) {
     final journal = ref.watch(matchJournalProvider).valueOrNull ?? const <Json>[];
     final name = ref.read(teamProvider.notifier).activeName;
-    final mine = journal.where((r) => r['teamName'] == name).toList();
+    ref.watch(activeTeamIndexProvider);
+    final format = ref.watch(formatProvider);
+    final mine = journal.where((r) => r['teamName'] == name && r['format'] == format).toList();
+    final scope = '$format|$name|${mine.firstOrNull?['at']}';
+    final result = resultScope == scope ? this.result : null;
+    final error = resultScope == scope ? this.error : null;
     final cs = Theme.of(context).colorScheme;
     return Section('실전 기록',
-        subtitle: '상대 분석 화면의 전적 기록을 이 팀 기준으로 분석합니다. 실전 표본은 모의전·메타 데이터와 섞지 않습니다.',
+        subtitle: '상대 분석에서 경기 전 예측을 저장한 뒤 실제 선출과 결과를 기록하면 두 내용을 비교할 수 있습니다.',
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text('이 팀($name)의 기록 ${mine.length}판 · 전체 ${journal.length}판'),
           const SizedBox(height: 6),
-          FilledButton(onPressed: mine.isEmpty ? null : () => run(mine), child: const Text('기록 분석')),
-          if (error != null) Text(error!, style: TextStyle(color: cs.error)),
+          FilledButton(onPressed: mine.isEmpty || running ? null : () => run(format, scope, mine),
+              child: Text(running && resultScope == scope ? '분석 중' : '기록 분석')),
+          if (error != null) Text(error, style: TextStyle(color: cs.error)),
           if (result != null) ...[
-            Text('${result!['note']}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-            if (result!['rate'] != null)
-              Text('실전 승점률 ${(100 * (result!['rate'] as num)).round()}% (95% ${(result!['ci'] as List).join('~')}%)'),
-            for (final t in (result!['trouble'] as List).cast<Json>())
+            Text('${result['note']}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+            if (result['rate'] != null)
+              Text('실전 승점률 ${(100 * (result['rate'] as num)).round()}% (95% ${(result['ci'] as List).join('~')}%)'),
+            for (final t in (result['trouble'] as List).cast<Json>())
               Text('자주 지는 상대 · ${t['name']} ${t['losses']}패/${t['games']}판', style: const TextStyle(fontSize: 12.5)),
-            if ((result!['pickCheck'] as Json)['followed'] != 0 || (result!['pickCheck'] as Json)['deviated'] != 0)
-              Text('추천 선출을 따른 판 ${result!['pickCheck']['followed']} · 다르게 고른 판 ${result!['pickCheck']['deviated']}',
+            if (result['pickCheck'] case final Json picks)
+              Text('경기 전 예측을 남긴 ${picks['saved'] ?? 0}판 · 내 선봉과 후발 모두 일치 ${picks['followed']}판 · 다름 ${picks['deviated']}판',
                   style: const TextStyle(fontSize: 12.5)),
-            for (final h in (result!['hypotheses'] as List).cast<Json>())
+            if (result['enemyLeadCheck'] case final Json foe when (foe['games'] as int) > 0)
+              Text('상대 선봉 예측 · 첫 후보 ${foe['topOne']}/${foe['games']} · 상위 후보 ${foe['topThree']}/${foe['games']}'),
+            if (result['calibration'] case final Json sample)
+              Text('같은 선출로 비교한 ${sample['games']}판 · 경기 전 모의전 ${fmtPct(100 * (sample['simulated'] as num))} · 실전 ${fmtPct(100 * (sample['observed'] as num))}'),
+            if (result['openingCheck'] case final Json opening when (opening['games'] as int) > 0)
+              Text('내 첫 턴 기술·교체가 저장한 CPU 선택 예시와 일치 ${opening['matches']}/${opening['games']}판'),
+            for (final row in (result['lossReasons'] as List? ?? const []).cast<Json>())
+              Text('직접 기록한 패배 요인 · ${row['text']} ${row['count']}회'),
+            for (final row in (result['turnObservations'] as List? ?? const []).cast<Json>())
+              Text("관측 · ${row['turn'] == null ? '' : '${row['turn']}턴 · '}${row['text']}"),
+            for (final h in (result['hypotheses'] as List).cast<Json>())
               Text('다음 실험 · ${h['text']}', style: const TextStyle(fontSize: 12.5)),
           ],
         ]));

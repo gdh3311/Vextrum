@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 
-RULES_CONTRACT = "champions-local-2026.11-r1"
+RULES_CONTRACT = "champions-local-2026.11-r2"
 
 # ---------------------------------------------------------------- 기술 데이터 보정 (SV → 챔피언스)
 CHAMPIONS_MOVES = {
@@ -27,7 +27,8 @@ CHAMPIONS_MOVES = {
     "Fire Lash": {"power": 90}, "First Impression": {"power": 100}, "Grav Apple": {"power": 90},
     "Infernal Parade": {"power": 65}, "Mountain Gale": {"power": 120}, "Night Daze": {"power": 90},
     "Psyshield Bash": {"power": 90}, "Spirit Shackle": {"power": 90}, "Trop Kick": {"power": 85},
-    "Crabhammer": {"accuracy": 95}, "Syrup Bomb": {"accuracy": 90},
+    "Crabhammer": {"accuracy": 95}, "Syrup Bomb": {"accuracy": 90}, "Make It Rain": {"accuracy": 95},
+    "Slash": {"power": 80}, "Meteor Assault": {"power": 170}, "Snipe Shot": {"power": 85},
     "Growth": {"type": "Grass"}, "Snap Trap": {"type": "Steel"},
 }
 # 무게에 따라 위력이 바뀌는 기술과 고정 데미지 기술: 기술 목록에서 빠지지 않도록 기준 위력을 준다
@@ -102,7 +103,7 @@ TARGET_STAGES = {
 SELF_STAGES = {
     "Close Combat": ({"def": -1, "spd": -1}, 100), "Draco Meteor": ({"spa": -2}, 100), "Overheat": ({"spa": -2}, 100),
     "Leaf Storm": ({"spa": -2}, 100), "Fleur Cannon": ({"spa": -2}, 100), "Psycho Boost": ({"spa": -2}, 100),
-    "Make It Rain": ({"spa": -1}, 100), "Superpower": ({"atk": -1, "def": -1}, 100),
+    "Make It Rain": ({"spa": -2}, 100), "Superpower": ({"atk": -1, "def": -1}, 100),
     "Armor Cannon": ({"def": -1, "spd": -1}, 100), "Headlong Rush": ({"def": -1, "spd": -1}, 100),
     "Hammer Arm": ({"spe": -1}, 100), "Ice Hammer": ({"spe": -1}, 100),
     "V-create": ({"def": -1, "spd": -1, "spe": -1}, 100), "Clanging Scales": ({"def": -1}, 100),

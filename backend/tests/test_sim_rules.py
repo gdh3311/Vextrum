@@ -72,6 +72,55 @@ class SimRulesTest(unittest.TestCase):
         self.assertEqual(report["status"], "UNSIMULATABLE")
         self.assertEqual({r["name"] for r in report["issues"]}, {"Trick", "Eject Button"})
 
+    def test_imprison_stops_queued_trick_room_and_ends_when_user_switches(self):
+        b = self.battle([self.s("chandelure", moves=["Imprison", "Trick Room"]),
+                         self.s("garchomp"), self.s("rillaboom")],
+                        [self.s("chandelure", moves=["Trick Room", "Protect"]),
+                         self.s("arcanine", moves=["Protect"])])
+        b._resolve_actions([{"slot": 0, "kind": "move", "move": "Imprison"}],
+                           [{"slot": 0, "kind": "move", "move": "Trick Room"}])
+        foe = b.teams[1][0]
+        self.assertEqual(b.trick_room, 0)
+        self.assertNotIn("Trick Room", b._moves(foe))
+        b._switch(0, 0, 2)
+        self.assertIn("Trick Room", b._moves(foe))
+
+    def test_disable_blocks_queued_move_and_mental_herb_cures_it(self):
+        b = self.battle([self.s("gengar", moves=["Disable"])],
+                        [self.s("kingambit", moves=["Iron Head", "Protect"], item=None)])
+        foe = b.teams[1][0]
+        foe.last_move = "Iron Head"
+        b._resolve_actions([{"slot": 0, "kind": "move", "move": "Disable", "target": 0}],
+                           [{"slot": 0, "kind": "move", "move": "Iron Head", "target": 0}])
+        self.assertEqual(foe.disable, 4)
+        self.assertEqual(foe.failed_move_turn, b.turn)
+        self.assertNotIn("Iron Head", b._moves(foe))
+        for _ in range(4):
+            b._end_turn()
+        self.assertIsNone(foe.disabled_move)
+        self.assertIn("Iron Head", b._moves(foe))
+
+        herb = self.battle([self.s("gengar", moves=["Disable"])],
+                           [self.s("kingambit", moves=["Iron Head"], item="Mental Herb")])
+        target = herb.teams[1][0]
+        target.last_move = "Iron Head"
+        self.assertTrue(herb._targeted(0, herb.teams[0][0], target, "Disable"))
+        self.assertTrue(target.item_used)
+        self.assertIsNone(target.disabled_move)
+
+    def test_champions_move_numbers_and_aura_guard(self):
+        self.assertEqual([self.e.M[m]["power"] for m in ("Slash", "Meteor Assault", "Snipe Shot")], [80, 170, 85])
+        self.assertEqual(self.e.M["Make It Rain"]["accuracy"], 95)
+        b = self.battle([self.s("garchomp", moves=["Dragon Claw", "Earthquake"], item=None)],
+                        [self.s("golisopod", item=None)])
+        actor, target = b.teams[0][0], b.teams[1][0]
+        target.mon["ability"] = None
+        reference = [b._damage(actor, target, move, False)[0] for move in actor.mon["moves"]]
+        target.mon["ability"] = "Aura Guard"
+        guarded = [b._damage(actor, target, move, False)[0] for move in actor.mon["moves"]]
+        self.assertAlmostEqual(guarded[0], reference[0] / 2)
+        self.assertEqual(guarded[1], reference[1])
+
     # ---------------- 메가진화
     def mega_sets(self):
         e = self.e

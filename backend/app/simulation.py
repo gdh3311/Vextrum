@@ -16,6 +16,7 @@ from .typechart import type_multiplier
 MAX_TURNS = 40
 Difficulty = Literal["poke", "great", "ultra", "master", "champion"]
 FIRST_TURN = {"Fake Out", "First Impression"}
+MOVE_LOCKS = {"Imprison", "Disable"}
 PROTECT = {"Protect", "Detect", "King's Shield", "Spiky Shield", "Baneful Bunker", "Silk Trap", "Burning Bulwark"}
 HEAL = {"Recover", "Roost", "Slack Off", "Soft-Boiled", "Milk Drink", "Synthesis", "Moonlight", "Morning Sun", "Shore Up"}
 BOOSTS = {
@@ -36,7 +37,7 @@ UNTRACEABLE = {"Trace", "Imposter", "Illusion", "Zen Mode", "Stance Change", "Di
 NO_WEATHER = {"Cloud Nine", "Air Lock"}
 DRAIN = {"Drain Punch", "Giga Drain", "Horn Leech", "Leech Life", "Draining Kiss", "Dream Eater", "Mega Drain",
          "Absorb", "Oblivion Wing", "Parabolic Charge", "Bitter Blade"}
-TARGETED_SUPPORT = {"Taunt", "Parting Shot"} | set(mx.STATUS_MOVES) | set(mx.TARGET_DEBUFFS) | {
+TARGETED_SUPPORT = {"Taunt", "Parting Shot", "Disable"} | set(mx.STATUS_MOVES) | set(mx.TARGET_DEBUFFS) | {
     "Encore", "Leech Seed", "Pain Split", "Yawn", "Strength Sap"}
 TERRAIN = {"Psychic Surge": "psychic", "Grassy Surge": "grassy", "Electric Surge": "electric", "Misty Surge": "misty"}
 TERRAIN_MOVES = {f"{kind.title()} Terrain": kind for kind in TERRAIN.values()}
@@ -48,7 +49,7 @@ ABSORB_BOOST = {"Storm Drain": ("Water", "spa", 1), "Lightning Rod": ("Electric"
                 "Motor Drive": ("Electric", "spe", 1), "Sap Sipper": ("Grass", "atk", 1),
                 "Well-Baked Body": ("Fire", "def", 2)}
 SUPPORT = PROTECT | HEAL | BOOSTS.keys() | REDIRECT | TARGETED_SUPPORT | TERRAIN_MOVES.keys() | {
-    "Tailwind", "Trick Room", "Wide Guard", "Quick Guard", "Helping Hand", "Chilly Reception",
+    "Tailwind", "Trick Room", "Wide Guard", "Quick Guard", "Helping Hand", "Chilly Reception", "Imprison",
 }
 WEATHER = {"Drought": "sun", "Drizzle": "rain", "Sand Stream": "sand", "Snow Warning": "snow"}
 WEATHER_MOVES = {"Sunny Day": "sun", "Rain Dance": "rain", "Sandstorm": "sand", "Snowscape": "snow"}
@@ -169,8 +170,12 @@ class Fighter:
     seeded: bool = False
     encore: int = 0
     encore_move: str | None = None
+    disable: int = 0
+    disabled_move: str | None = None
+    imprisoned: bool = False
     last_move: str | None = None
     failed_move_turn: int = 0
+    action_turn: int = 0
     setup_boosted: bool = False
     yawn: int = 0
     destiny: bool = False
@@ -203,10 +208,11 @@ class Fighter:
         self.protect_chain = 0
         if self.status == "tox":
             self.toxic = 1  # 챔피언스: 교체하면 맹독 카운트가 1/16로 돌아간다
-        self.sub = self.encore = self.yawn = 0
+        self.sub = self.encore = self.disable = self.yawn = 0
         self.seeded = self.destiny = False
-        self.encore_move = self.last_move = None
-        self.failed_move_turn = 0
+        self.imprisoned = False
+        self.encore_move = self.disabled_move = self.last_move = None
+        self.failed_move_turn = self.action_turn = 0
         self.setup_boosted = False
 
 
@@ -244,6 +250,7 @@ class Battle:
         self.first_faint = None
         self.opening = []  # 내 편(0)의 첫 턴 행동
         self.opening_actions = []
+        self.opening_choices = []
         self.executed_attacks = Counter()  # (공격자, 기술, 대상) → 실제 시도·명중·KO
         self.log: list[dict] = []
         self.keep_log = log
@@ -552,8 +559,8 @@ class Battle:
     def _mental_herb(self, fighter):
         if fighter.mon["item"] == "Mental Herb" and not fighter.item_used:
             self._consume(fighter)
-            fighter.taunt = fighter.encore = 0
-            fighter.encore_move = None
+            fighter.taunt = fighter.encore = fighter.disable = 0
+            fighter.encore_move = fighter.disabled_move = None
             self._event(f"{fighter.name}은(는) 멘탈허브로 정신을 되찾았다!", "field")
 
     def _consume(self, fighter):
@@ -591,14 +598,23 @@ class Battle:
     def _move_name(self, move: str) -> str:
         return self.engine.M.get(move, {}).get("ko") or move
 
-    def _moves(self, f: Fighter) -> list[str]:
+    def _move_sealed(self, side, actor, move):
+        return ((actor.disable and move == actor.disabled_move and move not in FIRST_TURN) or
+                any(f.imprisoned and move in f.mon["moves"] for _, f in self._present(1 - side)))
+
+    def _moves(self, f: Fighter, *, side=None) -> list[str]:
         if f.recharge:
             return []
+        if side is None:
+            side = self._side(f)
+        sealed = {m for _, foe in self._present(1 - side) if foe.imprisoned for m in foe.mon["moves"]}
         moves = [m for m in f.mon["moves"] if
                  (m in SUPPORT or self.engine.M[m]["power"] and not self.engine.M[m].get("selfdestruct"))
                  and (not f.taunt or m not in SUPPORT)
                  and (not f.choice or m == f.choice)
                  and (not f.encore or m == f.encore_move)
+                 and m not in sealed
+                 and not (f.disable and m == f.disabled_move)
                  and (m not in FIRST_TURN or f.entered == self.turn)]
         return moves or ["Struggle"]
 
@@ -729,6 +745,8 @@ class Battle:
             power *= 1.2
         if target_ability == "Thick Fat" and kind in {"Fire", "Ice"}:
             power *= .5
+        if target_ability == "Aura Guard" and "contact" in meta.get("flags", ()):
+            power *= .5
         if target_ability == "Disguise" and target.disguise:
             power = 0
         if (actor.hp * 3 <= actor.max_hp and LOW_HP_BOOST.get(actor.mon["ability"]) == hit["type"]
@@ -764,7 +782,7 @@ class Battle:
                      "priority": self._priority(f, move)}]
         options = []
         bench = self._bench(side)
-        for move in self._moves(f):
+        for move in self._moves(f, side=side):
             meta = self.engine.M.get(move, {})
             spread = self._spread(f, move)
             targets = [None] if (move in SUPPORT and move not in TARGETED_SUPPORT) or spread else [
@@ -900,7 +918,7 @@ class Battle:
                                       danger_line=style["danger"], caution=style.get("caution", 0.)) if tactical else None
             parting = next((a for a in options if a.get("move") == "Parting Shot"), None)
             utility = max(((style["setup"] * (self._support_value(side, slot, actor, a) or 0.), a) for a in options
-                           if a.get("move") in (mx.NEW_SUPPORT | WEATHER_MOVES.keys())
+                           if a.get("move") in (mx.NEW_SUPPORT | WEATHER_MOVES.keys() | MOVE_LOCKS)
                            and not any(c.get("move") == a["move"] for c in chosen)),
                           key=lambda row: row[0], default=(0., None))
             if difficulty in {"poke", "great"}:
@@ -1010,6 +1028,11 @@ class Battle:
             if self.trick_room:
                 self.activated[side].add("trickroom")
             self._event("행동 순서가 뒤집혔다!" if self.trick_room else "트릭룸이 풀렸다!")
+        elif move == "Imprison":
+            if actor.imprisoned:
+                return False
+            actor.imprisoned = True
+            self._event(f"{actor.name}은(는) 자신의 기술을 봉인했다.", "field")
         elif move in WEATHER_MOVES:
             if self.weather == WEATHER_MOVES[move]:
                 return False
@@ -1193,6 +1216,16 @@ class Battle:
             self._event(f"{target.name}은(는) 앙코르를 받았다!", "status", ref=self._ref(target))
             self._mental_herb(target)
             return True
+        if move == "Disable":
+            last = target.last_move
+            if target.disable or not last or last not in target.mon["moves"]:
+                return False
+            already_acted = target.action_turn == self.turn or target.entered > self.turn
+            target.disable, target.disabled_move = (5 if already_acted else 4), last
+            self._event(f"{target.name}은(는) {self._move_name(last)}을(를) 사용할 수 없게 됐다.",
+                        "status", ref=self._ref(target))
+            self._mental_herb(target)
+            return True
         if move == "Leech Seed":
             if target.seeded or "Grass" in target.mon["types"] or target.sub:
                 return False
@@ -1252,6 +1285,16 @@ class Battle:
     def _support_value(self, side, slot, actor, action) -> float | None:
         """새로 다루는 보조 기술의 대략적인 가치 (공격 점수와 같은 척도). 해당 없으면 None."""
         move = action.get("move")
+        if move == "Imprison":
+            if actor.imprisoned:
+                return 0.
+            shared = set(actor.mon["moves"]) & {
+                m for _, foe in self._present(1 - side) for m in self._seen(side, foe).mon["moves"]
+            }
+            return .7 if "Trick Room" in shared else .28 * min(2, len(shared - PROTECT))
+        if move == "Disable":
+            target = dict(self._present(1 - side)).get(action.get("target"))
+            return .55 if target and target.last_move and not target.disable and not target.protected else 0.
         if move in WEATHER_MOVES:
             weather = WEATHER_MOVES[move]
             if weather == self.weather or any(f.mon["ability"] in NO_WEATHER for s in range(2) for _, f in self._present(s)):
@@ -1694,6 +1737,18 @@ class Battle:
         mine = self._auto(0) if my_actions is None else my_actions
         theirs = self._auto(1)
         self._mega_turn(mega_slot, actions=(mine, theirs))
+        if self.turn == 1:
+            active = dict(self._present(0))
+            foes = dict(self._present(1))
+            self.opening_choices = []
+            for action in mine:
+                actor = active[action["slot"]]
+                target = action.get("target")
+                if action["kind"] == "switch":
+                    self.opening_choices.append((actor.mon["id"], "switch", self.teams[0][target].mon["id"]))
+                elif action["kind"] == "move":
+                    self.opening_choices.append((actor.mon["id"], action["move"],
+                                                 foes[target].mon["id"] if target in foes else ""))
         if self._resolve_actions(mine, theirs, interactive=self.manual):
             self._end_turn()
 
@@ -1719,6 +1774,7 @@ class Battle:
             current = self.active[side][slot]
             if current is None or self.teams[side][current] is not actor:
                 continue
+            actor.action_turn = self.turn
             if not actor.hp or actor.flinched:
                 if actor.hp and actor.flinched:
                     if kind == "move":
@@ -1746,6 +1802,15 @@ class Battle:
                 if actor.taunt and move in SUPPORT:
                     actor.failed_move_turn = self.turn
                     self._event(f"{actor.name}의 {self._move_name(move)}은(는) 도발에 막혔다.")
+                    continue
+                if self._move_sealed(side, actor, move):
+                    actor.charging = None
+                    actor.failed_move_turn = self.turn
+                    self._event(f"{actor.name}의 {self._move_name(move)}은(는) 봉인·사슬묶기로 막혔다.", "status")
+                    continue
+                if move in FIRST_TURN and actor.entered != self.turn:
+                    actor.failed_move_turn = self.turn
+                    self._event(f"{actor.name}의 {self._move_name(move)} 실패")
                     continue
                 if not self._can_act(actor, move):
                     actor.charging = None
@@ -1793,7 +1858,8 @@ class Battle:
             incoming, outgoing = [], []
             for foe in opponents:
                 if self.difficulty in {"master", "champion"}:
-                    hits = [self._damage(foe, candidate, move, False) for move in self._moves(foe) if move not in SUPPORT]
+                    hits = [self._damage(foe, candidate, move, False) for move in self._moves(foe, side=1 - side)
+                            if move not in SUPPORT]
                     attacks = [self._damage(candidate, foe, move, False) for move in self._moves(candidate) if move not in SUPPORT]
                     incoming.append(max((min(2, raw / max(1, candidate.hp)) * acc / 100 for raw, acc in hits), default=0))
                     outgoing.append(max((min(2, raw / max(1, foe.hp)) * acc / 100 for raw, acc in attacks), default=0))
@@ -1863,6 +1929,10 @@ class Battle:
                     if not actor.encore:
                         actor.encore_move = None
                         self._event(f"{actor.name}의 앙코르 상태가 풀렸다.", "status", ref=self._ref(actor))
+                if actor.disable:
+                    actor.disable -= 1
+                    if not actor.disable:
+                        actor.disabled_move = None
                 if actor.mon["ability"] == "Speed Boost" and actor.hp and actor.entered < self.turn + 1 and (
                     actor.stages.get("spe", 0) < 6):
                     self._ability(actor)

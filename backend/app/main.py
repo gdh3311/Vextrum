@@ -891,6 +891,18 @@ def workbench_vs_team_validate(req: VsTeamRequest):
                 req.enemy, req.picks, max(10, min(120, req.games)))
 
 
+@app.post("/api/workbench/matchup/prediction")
+def workbench_prediction(req: EnemyRequest):
+    from . import workbench
+
+    if req.enemyLead:
+        raise HTTPException(422, "상대 선봉을 확인하기 전 예측만 저장할 수 있습니다.")
+    try:
+        return workbench.prediction_snapshot(engine(), req.format, _sets(req.team), req.enemy, include_simulation=True)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+
+
 @app.post("/api/workbench/experiment")
 def workbench_experiment(req: ExperimentRequest):
     from . import workbench

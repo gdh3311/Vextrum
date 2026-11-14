@@ -6,9 +6,9 @@
 from datetime import datetime, timezone
 
 # 결과가 의존하는 버전 (명세 3.1): 규칙·시뮬레이터·CPU 정책이 바뀌면 이전 성적을 그대로 잇지 않는다.
-SIMULATOR_VERSION = "sim-2026.11.14"  # 플라워베일과 전술 활용 관측
+SIMULATOR_VERSION = "sim-2026.11.14-r2"  # 봉인·사슬묶기 및 M-C 수치 보정
 POLICY_VERSION = "cpu-tiers-v6"  # 공개 정보로 양쪽이 같은 탐색기를 사용
-RULES_VERSION = "champions-mc-2026.11"
+RULES_VERSION = "champions-mc-2026.11-r2"
 OPPONENT_VERSION = "synthetic-core-split-v1"
 
 

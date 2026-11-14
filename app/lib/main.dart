@@ -100,7 +100,9 @@ final _router = GoRouter(routes: [
     routes: [
       GoRoute(path: '/', pageBuilder: (c, s) => _routePage(s, const MetaPage())),
       GoRoute(path: '/team', pageBuilder: (c, s) => _routePage(s, const TeamPage())),
-      GoRoute(path: '/workspace', pageBuilder: (c, s) => _routePage(s, const WorkspacePage())),
+      GoRoute(path: '/workspace', pageBuilder: (c, s) => _routePage(s, WorkspacePage(
+        initialTab: s.uri.queryParameters['tab'] == 'feedback' ? 3 : 0,
+      ))),
       GoRoute(path: '/team/auto', pageBuilder: (c, s) => _routePage(s, const AutoTeamPage())),
       GoRoute(path: '/enemy', pageBuilder: (c, s) => _routePage(s, const EnemyPage())),
       GoRoute(path: '/jokers', pageBuilder: (c, s) => _routePage(s, const JokerPage())),

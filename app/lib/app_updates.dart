@@ -14,6 +14,22 @@ const _releases = [
     date: '2026.11.14',
     entries: [
       (
+        glyph: LabGlyph.note,
+        title: '경기 전 예측과 실전 기록 비교',
+        detail: '상대 6마리를 입력해 예측을 저장하고, 경기 뒤 실제 선출·첫 턴 선택·결과와 비교합니다.',
+      ),
+      (
+        glyph: LabGlyph.versus,
+        title: '상대별 선출과 첫 턴 비교',
+        detail: '같은 상대 가설에서 추천 선출과 대안을 비교하고 CPU의 첫 턴 선택과 전술 활용을 확인합니다. 봉인과 사슬묶기도 배틀에 반영했습니다.',
+      ),
+    ],
+  ),
+  (
+    version: '1.18.0',
+    date: '2026.11.14',
+    entries: [
+      (
         glyph: LabGlyph.versus,
         title: '공개 정보로 판단하는 배틀 CPU',
         detail: '마스터볼 이상에서 양쪽 CPU가 같은 판단 엔진으로 공격·방어·교체를 비교합니다. 모의전에서 쓴 선출과 상대 성향을 연습에 가져옵니다.',

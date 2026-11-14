@@ -3,6 +3,8 @@ import json
 import os
 import time
 import unittest
+from threading import Event
+from unittest.mock import patch
 
 os.environ.setdefault("SIM_PARALLEL", "0")
 
@@ -167,6 +169,27 @@ class WorkbenchTest(unittest.TestCase):
         self.assertIn("scenario", team["hypotheses"])
         self.assertTrue(team["recommendation"]["lead"])
 
+    def test_fixed_opponent_research_samples_psychic_core_and_compares_same_conditions(self):
+        enemy = ["indeedeef", "armarouge", "incineroar", "sneasler", "garchomp", "milotic"]
+        entry = {"cancel": Event(), "teamRevision": 9}
+        pick = list(IDS[:4])
+        out = workbench.validate_vs_team(entry, self.e, FMT, self.team, enemy, [pick, pick], games=6)
+        first, second = out["rows"]
+        self.assertGreater(out["opponentPlans"].get("psychic", 0), 0)
+        self.assertGreater(out["opponentHypotheses"], 1)
+        self.assertEqual(first["openingExamples"], second["openingExamples"])
+        self.assertEqual(second["vsFirst"]["diff"], 0)
+        self.assertEqual(out["teamRevision"], 9)
+
+    def test_unsupported_pick_preserves_other_picks(self):
+        team = [{**self.team[0], "item": "Quick Claw", "mega": None}, *self.team[1:]]
+        enemy = ["incineroar", "whimsicott", "sneasler", "kingambit", "charizard", "basculegion"]
+        out = workbench.validate_vs_team({"cancel": Event(), "teamRevision": 1}, self.e, FMT, team,
+                                         enemy, [list(IDS[:4]), list(IDS[1:5])], games=2)
+        self.assertIn("Quick Claw", out["rows"][0]["unavailable"])
+        self.assertEqual(out["rows"][1]["games"], 2)
+        self.assertNotIn("vsFirst", out["rows"][1])
+
     # ---- 실전 피드백
     def test_feedback_keeps_real_games_separate(self):
         enemy = ["incineroar", "whimsicott", "sneasler", "kingambit", "charizard", "basculegion"]
@@ -177,6 +200,36 @@ class WorkbenchTest(unittest.TestCase):
         self.assertEqual(out["source"], "real")
         self.assertTrue(out["trouble"])
         self.assertTrue(out["hypotheses"])
+
+    def test_feedback_uses_saved_prediction_and_only_compares_complete_selections(self):
+        enemy = ["incineroar", "whimsicott", "sneasler", "kingambit", "charizard", "basculegion"]
+        with patch.object(workbench.regulation, "official_season", return_value={"id": "M8", "regulation": "MC"}):
+            prediction = workbench.prediction_snapshot(self.e, FMT, self.team, enemy)
+        self.assertEqual(len(prediction["lead"]), 2)
+        self.assertEqual(len(prediction["back"]), 2)
+        a, b = prediction["lead"]
+        prediction["simulation"] = {"rate": .65, "openingExamples": [
+            {"actions": [{"actor": a, "move": "Protect"}, {"actor": b, "move": "switch"}]},
+        ]}
+        common = {"format": FMT, "team": self.team, "enemy": [{"id": p} for p in reversed(enemy)],
+                  "season": "M8", "prediction": prediction,
+                  "myLead": [b, a], "myBack": prediction["back"],
+                  "enemyLead": prediction["enemyLeadCandidates"][1],
+                  "opening": {a: "Protect", b: "switch"}}
+        remaining = next(p for p in IDS if p not in prediction["lead"] + prediction["back"])
+        rows = [{**common, "outcome": "loss", "lossReason": "교체", "turnNote": "방어를 선택함", "keyTurn": 1},
+                {**common, "outcome": "win", "myBack": [prediction["back"][0], remaining]},
+                {**common, "outcome": "win", "myBack": []},
+                {**common, "outcome": "win", "team": [{**self.team[0], "nature": "Brave"}, *self.team[1:]]}]
+        out = workbench.feedback(self.e, FMT, rows)
+        self.assertEqual(out["games"], 4)
+        self.assertEqual(out["pickCheck"]["saved"], 3)
+        self.assertEqual(out["pickCheck"]["followed"], 1)
+        self.assertEqual(out["pickCheck"]["deviated"], 1)
+        self.assertEqual(out["enemyLeadCheck"], {"games": 3, "topOne": 0, "topThree": 3})
+        self.assertEqual(out["calibration"], {"games": 1, "simulated": .65, "observed": 0.})
+        self.assertEqual(out["openingCheck"], {"games": 1, "matches": 1})
+        self.assertEqual(out["turnObservations"], [{"turn": 1, "text": "방어를 선택함"}])
 
 
 if __name__ == "__main__":

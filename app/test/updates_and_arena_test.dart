@@ -48,7 +48,7 @@ void main() {
     await tester.tap(find.byTooltip('새 업데이트 보기'));
     await tester.pumpAndSettle();
     expect(find.text('업데이트 내역'), findsOneWidget);
-    expect(find.text('공개 정보로 판단하는 배틀 CPU'), findsOneWidget);
+    expect(find.text('경기 전 예측과 실전 기록 비교'), findsOneWidget);
     await tester.tap(find.byTooltip('닫기'));
     await tester.pumpAndSettle();
 

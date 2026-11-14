@@ -59,8 +59,16 @@ class EnemyNotifier extends StateNotifier<List<Json>> {
 }
 
 final enemyProvider = StateNotifierProvider<EnemyNotifier, List<Json>>((ref) => EnemyNotifier());
-final _confirmedLeadProvider = StateProvider<List<String>>((ref) => const []);
-final _lockedBringProvider = StateProvider<List<String>>((ref) => const []);
+final _enemyRosterProvider = Provider<String>((ref) =>
+    (ref.watch(enemyProvider).map((p) => p['id'] as String).toList()..sort()).join('|'));
+final _confirmedLeadProvider = StateProvider<List<String>>((ref) {
+  ref.watch(_enemyRosterProvider);
+  return const [];
+});
+final _lockedBringProvider = StateProvider<List<String>>((ref) {
+  ref.watch(_enemyRosterProvider);
+  return const [];
+});
 
 final enemyAnalysisProvider = FutureProvider<Json?>((ref) async {
   ref.watch(apiContextProvider);
@@ -194,9 +202,6 @@ class EnemyPage extends ConsumerWidget {
       if (list == null) return;
       final picked = await pickOpponents(context, list, enemy, fmt);
       if (picked != null && context.mounted) {
-        final ids = picked.map((p) => p['id']).toSet();
-        setConfirmed(confirmed.where(ids.contains).toList());
-        if (!ids.containsAll(enemy.map((p) => p['id'])) || picked.length != enemy.length) setLocked([]);
         ref.read(enemyProvider.notifier).replace(picked);
       }
     }
@@ -225,11 +230,7 @@ class EnemyPage extends ConsumerWidget {
               avatar: Sprite(enemy[i]['sprite'] as String, size: 28),
               label: Text('${enemy[i]['ko'] ?? enemy[i]['name']}'.replaceAll('♀', '암컷').replaceAll('♂', '수컷')),
               onPressed: () => context.push('/pokemon/${enemy[i]['id']}'),
-              onDeleted: () {
-                setConfirmed(confirmed.where((id) => id != enemy[i]['id']).toList());
-                setLocked([]);
-                ref.read(enemyProvider.notifier).removeAt(i);
-              },
+              onDeleted: () => ref.read(enemyProvider.notifier).removeAt(i),
             ),
             FilledButton.tonalIcon(
               icon: const LabIcon(LabGlyph.search, size: 18),
@@ -292,6 +293,7 @@ class EnemyPage extends ConsumerWidget {
         format: fmt,
         teamName: teamName,
         team: [for (final s in team) s.set],
+        teamMembers: [for (final s in team) s.detail],
         enemy: enemy,
         confirmed: confirmed,
         locked: locked,

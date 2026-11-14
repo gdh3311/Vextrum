@@ -15,6 +15,7 @@ import json
 import threading
 import time
 import uuid
+from collections.abc import Mapping
 from collections import Counter
 from random import Random
 
@@ -637,49 +638,173 @@ def vs_team(e: Engine, fmt: str, sets: list[dict], enemy: list[str], revision: i
     """상대 6마리: 기존 선출 분석 + 상대 전략 확률 가설."""
     from .enemy import analyze_enemy
 
-    out = analyze_enemy(e, enemy[:6], [_full(e, fmt, s) for s in sets], fmt)
+    enemy = sorted(enemy[:6])
+    out = analyze_enemy(e, enemy, [_full(e, fmt, s) for s in sets], fmt)
     out["hypotheses"] = battle_lab.preview_strategy(e, fmt, [p for p in enemy if p in e.P])
     out["teamRevision"] = revision
     out["basis"] = "static"
     return out
 
 
+def prediction_snapshot(e, fmt, sets, enemy, *, include_simulation=False):
+    """Freeze the pre-battle recommendation separately from the player's later choices."""
+    from .enemy import analyze_enemy
+
+    if (len(enemy) != 6 or len(sets) != 6 or any(p not in e.P for p in enemy)
+            or len({auto_team.species(e, p) for p in enemy}) != 6 or blocking(legality(e, fmt, sets))):
+        raise ValueError("서로 다른 상대 6마리와 규칙에 맞는 내 팀 6마리가 필요합니다.")
+    enemy = sorted(enemy)
+    report = analyze_enemy(e, enemy, [_full(e, fmt, s) for s in sets], fmt)
+    rec = report["recommendation"]
+
+    def ids(rows):
+        return [m["id"] for m in rows]
+
+    lead, back = ids(rec["lead"]), ids(rec["back"])
+    forecast = None
+    unavailable = None
+    if include_simulation:
+        try:
+            result = validate_vs_team({"cancel": threading.Event(), "teamRevision": 0}, e, fmt, sets,
+                                      enemy, [lead + back], games=18)
+        except ValueError as error:
+            unavailable = str(error)
+        else:
+            row = result["rows"][0]
+            unavailable = row.get("unavailable")
+            if not unavailable:
+                forecast = {k: row[k] for k in ("games", "rate", "ci", "openingExamples", "used")}
+                forecast["opponentHypotheses"] = result["opponentHypotheses"]
+                forecast["opponentPlans"] = result["opponentPlans"]
+    return {"at": time.time(), "basis": "static", "versions": regulation.versions(e.d),
+            "season": regulation.provenance(e.d)["officialSeason"], "enemy": sorted(enemy),
+            "teamSignature": feedback_team_signature(sets), "format": fmt,
+            "lead": lead, "back": back, "simulation": forecast, "simulationUnavailable": unavailable,
+            "enemyLeadCandidates": [ids(row["members"]) for row in report["leads"][:3]]}
+
+
 def validate_vs_team(entry, e, fmt, sets, enemy, picks, games=30, difficulty="master"):
-    """특정 상대 6마리를 상대로 내 선출 후보들을 같은 판으로 모의전. 상대 세트는 대표 세트(공개 정보 기준)."""
-    roster = [e.default_set(p, fmt) for p in enemy[:6] if p in e.P]
-    player = battle_lab._resolve(e, fmt, sets)
-    foes = battle_lab._resolve(e, fmt, roster)
-    index = {m["id"]: i for i, m in enumerate(player)}
+    """Compare fixed selections against identical sampled sets, enemy lines and seeds."""
     from . import simulation
 
+    width = 2 if fmt == "Doubles" else 1
+    count = battle_lab.limit(fmt)
+    if (not count <= len(enemy) <= 6 or len(set(enemy)) != len(enemy) or any(p not in e.P for p in enemy)
+            or len({auto_team.species(e, p) for p in enemy}) != len(enemy)
+            or blocking(legality(e, fmt, sets))):
+        raise ValueError("규칙에 맞는 내 팀과 상대 포켓몬을 확인해 주세요.")
+    player = battle_lab._resolve(e, fmt, sets)
+    index = {m["id"]: i for i, m in enumerate(player)}
+    if not picks or any(len(p) != count or len(set(p)) != count or not set(p) <= index.keys() for p in picks):
+        raise ValueError("선봉과 후발에 서로 다른 포켓몬을 골라 주세요.")
+    full = {s["id"]: _full(e, fmt, s) for s in sets}
+    problems = {pid: simulation.unsupported(e, fmt, full[pid]) for pid in set().union(*picks)}
+    enemy = sorted(enemy)
+    variants = [[h for h in foe_hypotheses(e, fmt, pid, limit=8)
+                 if not simulation.unsupported(e, fmt, h["set"])] for pid in enemy]
+    missing = [_name(e.P[p]) for p, options in zip(enemy, variants) if not options]
+    if missing:
+        raise ValueError("모의전에 사용할 수 있는 상대 대표 세트가 없습니다 · " + ", ".join(missing))
+    preview = [e.default_resolved(p["id"], fmt) for p in player]
+    strategy = battle_lab.preview_strategy(e, fmt, enemy)["scenario"]
+    scenarios = []
+    for g in range(games):
+        rng = Random(51_000_007 + g)
+        roster, items = {}, set()
+        for i in rng.sample(range(len(variants)), len(variants)):
+            options = variants[i]
+            available = [h for h in options if h["set"]["item"] not in items]
+            if available:
+                choice = rng.choices(available, weights=[h["prob"] for h in available])[0]["set"]
+            else:
+                choice = {**options[0]["set"], "item": None, "mega": None}
+            choice = _sample_matchup_moves(e, fmt, choice, rng)
+            roster[i] = choice
+            if choice["item"]:
+                items.add(choice["item"])
+        foes = battle_lab._resolve(e, fmt, [roster[i] for i in range(len(enemy))])
+        style = rng.choices(list(strategy), weights=list(strategy.values()))[0] if g % 2 else "balance"
+        core = ()
+        if style in battle_lab.FIELD_ROLES:
+            starter, payoff = battle_lab.PLAYBOOKS[style][1]
+            features = [auto_team._candidate(e, fmt, (), roster[i]).features for i in range(len(enemy))]
+            pairs = [(i, j) for i, first in enumerate(features) for j, second in enumerate(features)
+                     if i != j and starter in first and payoff in second]
+            if pairs:
+                core = rng.choice(pairs)
+        theirs, _ = battle_lab._choose(e, fmt, foes, preview, rng, style=style, core=core)
+        scenarios.append(([roster[i] for i in theirs], rng.randrange(2 ** 31), style if core else None))
+
     out = []
+    results = []
     for k, pick in enumerate(picks[:3]):
         _step(entry, k, len(picks[:3]), "선출 " + " · ".join(pick))
-        if not all(p in index for p in pick):
+        line = {"pick": pick, "lead": pick[:width], "back": pick[width:]}
+        unsupported = {issue["name"] for pid in pick for issue in problems[pid]}
+        if unsupported:
+            labels = ", ".join(e.M.get(m, {}).get("ko") or m for m in sorted(unsupported))
+            out.append({**line, "unavailable": f"모의전에 아직 반영되지 않은 요소 · {labels}"})
+            results.append([])
             continue
         score = Counter()
+        tactics = Counter()
+        openings = Counter()
         outcomes = []
-        for g in range(games):
-            rng = Random(51_000_007 + g)
-            theirs, _ = battle_lab._choose(e, fmt, foes, [e.default_resolved(p["id"], fmt) for p in player], rng)
-            b = simulation.Battle(e, fmt, [sets[index[p]] for p in pick], [roster[i] for i in theirs],
-                                  rng.randrange(2 ** 31), log=False, difficulty=difficulty,
-                                  cpu_style=STYLES[g % len(STYLES)])
+        for g, (foe, seed, style) in enumerate(scenarios):
+            _check(entry)
+            b = simulation.Battle(e, fmt, [full[p] for p in pick], foe, seed, log=False, difficulty=difficulty,
+                                  foe_strategy=style,
+                                  cpu_style=battle_lab.PRACTICE_STYLES[g % len(battle_lab.PRACTICE_STYLES)])
             while not b.winner:
                 b.advance()
             score[b.winner] += 1
             outcomes.append({"win": 1., "draw": .5, "loss": 0.}[b.winner])
             score.update(f"exec:{x}" for x in b.activated[0])
+            tactics.update(b.strategy_used[0])
+            openings.update([tuple(b.opening_choices)])
         n = len(outcomes)
-        out.append({"pick": pick, "games": n, "rate": round(sum(outcomes) / n, 3),
-                    "ci": battle_lab.wilson(sum(outcomes), n), "outcomes": outcomes,
-                    "executed": {k[5:]: v for k, v in score.items() if k.startswith("exec:")}})
-    for row in out[1:]:
-        row["vsFirst"] = paired_verdict(out[0]["outcomes"], row["outcomes"])
-    for row in out:
-        row.pop("outcomes")
+        results.append(outcomes)
+        out.append({**line, "games": n, "rate": round(sum(outcomes) / n, 3),
+                    "ci": battle_lab.wilson(sum(outcomes), n),
+                    "executed": {k[5:]: v for k, v in score.items() if k.startswith("exec:")},
+                    "used": dict(tactics),
+                    "openingExamples": [{"games": n, "actions": [{"actor": a, "move": m, "target": t,
+                                                                  "moveKo": e.M.get(m, {}).get("ko") or m}
+                                                                  for a, m, t in line]}
+                                        for line, n in openings.most_common(2) if line]})
+    for row, outcomes in zip(out[1:], results[1:]):
+        if results[0] and outcomes:
+            row["vsFirst"] = paired_verdict(results[0], outcomes)
     return {"rows": out, "difficulty": difficulty, "teamRevision": entry["teamRevision"],
-            "note": "상대 세트는 각 종의 대표 세트입니다 (실제 상대 세트와 다를 수 있음). 선출 비교는 같은 상대·난수."}
+            "enemy": enemy, "opponentHypotheses": len({sig(foe) for foe, _, _ in scenarios}),
+            "opponentPlans": dict(Counter(style for _, _, style in scenarios if style)),
+            "note": "채용 자료를 바탕으로 기술·도구·특성을 가정했습니다. 모든 선출에 같은 상대·난수를 썼습니다."}
+
+
+def _sample_matchup_moves(e, fmt, entry, rng):
+    """Include common alternate moves while keeping the set usable with its item."""
+    from . import simulation
+
+    moves = entry["moves"]
+    item = entry["item"]
+    p = e.P[entry["id"]]
+    restricted = simulation.CHOICE | {"Assault Vest"}
+    if not moves or item in restricted and any(e.M[m]["category"] == "Status" for m in moves):
+        legal = [m for m in moves if e.M[m]["category"] != "Status"]
+        if not legal:
+            legal = [m for m in p["learnset"] if e.M[m]["power"] and simulation.move_supported(e, m)][:4]
+        moves = legal
+    usage = {r["name"]: r["pct"] for r in p["usage"].get(fmt, {}).get("moves", [])}
+    alternate = [m for m, rate in usage.items() if rate >= 15 and m not in moves
+                 and simulation.move_supported(e, m)
+                 and (e.M[m]["category"] != "Status" or item not in restricted)][:4]
+    attacks = sum(bool(e.M[m]["power"]) for m in moves)
+    replaceable = [i for i, m in enumerate(moves) if usage.get(m, 0) < 80 and (not e.M[m]["power"] or attacks > 1)]
+    if alternate and replaceable and rng.random() < .45:
+        i = min(replaceable, key=lambda i: usage.get(moves[i], 0))
+        move = rng.choices(alternate, weights=[usage[m] for m in alternate])[0]
+        moves = [*moves[:i], move, *moves[i + 1:]]
+    return {**entry, "moves": moves}
 
 
 # ---------------------------------------------------------------- Simulation Lab
@@ -705,50 +830,100 @@ def experiment(entry, e, fmt, a, b, games=60, difficulty="master", styles=None, 
 
 
 # ---------------------------------------------------------------- Battle Feedback
+def feedback_team_signature(team):
+    keys = ("id", "moves", "item", "ability", "nature", "points", "mega")
+    return sig([{key: s[key] for key in keys if key in s} for s in team])
+
+
+def _ids(value):
+    if not isinstance(value, list):
+        return set()
+    ids = [row.get("id") if isinstance(row, dict) else row for row in value]
+    return {pid for pid in ids if isinstance(pid, str)}
+
+
 def feedback(e: Engine, fmt: str, records: list[dict], sets: list[dict] | None = None) -> dict:
     """실전 기록 분석 (기기에 저장된 기록을 받아 계산만 한다). 실전 표본은 메타 확률에 섞지 않는다."""
     rows = [r for r in records if r.get("format", fmt) == fmt and r.get("outcome") in ("win", "loss", "draw")]
     n = len(rows)
     wins = sum(1 for r in rows if r["outcome"] == "win") + .5 * sum(1 for r in rows if r["outcome"] == "draw")
     losses = [r for r in rows if r["outcome"] == "loss"]
-    seen_in_losses = Counter(p for r in losses for p in set(r.get("enemy") or []))
-    seen_all = Counter(p for r in rows for p in set(r.get("enemy") or []))
+    seen_in_losses = Counter(p for r in losses for p in _ids(r.get("enemy")))
+    seen_all = Counter(p for r in rows for p in _ids(r.get("enemy")))
     trouble = [{"id": p, "name": _name(e.P[p]) if p in e.P else p, "losses": k, "games": seen_all[p],
                 "lossRate": round(k / seen_all[p], 2)}
                for p, k in seen_in_losses.most_common() if seen_all[p] >= 2 and k / seen_all[p] >= .6][:6]
-    mismatch = []
-    if sets:
-        from .enemy import analyze_enemy
-
-        for r in rows[:40]:
-            enemy = [p for p in r.get("enemy") or [] if p in e.P]
-            if len(enemy) < 4 or not r.get("myBring"):
-                continue
-            rec = (analyze_enemy(e, enemy, [_full(e, fmt, s) for s in sets], fmt).get("recommendation") or {})
-            bring_ids = {x["id"] for x in [*(rec.get("lead") or []), *(rec.get("back") or [])]}
-            if bring_ids:
-                mismatch.append({"at": r.get("at"), "outcome": r["outcome"],
-                                 "same": len(bring_ids & set(r["myBring"])), "recommended": sorted(bring_ids)})
-    followed = [m for m in mismatch if m["same"] >= 3]
-    deviated = [m for m in mismatch if m["same"] < 3]
+    width = 2 if fmt == "Doubles" else 1
+    paired_games, exact, deviated, lead_matches = [], [], [], 0
+    calibration = []
+    opening_games = opening_matches = 0
+    opponent_seen = opponent_first = opponent_top = 0
+    for r in rows:
+        rec = r.get("prediction")
+        team = r.get("team")
+        if (not isinstance(rec, dict) or not isinstance(team, list) or len(team) != 6
+                or not all(isinstance(s, Mapping) for s in team) or len(_ids(r.get("enemy"))) != 6
+                or rec.get("basis") != "static"
+                or rec.get("format") != fmt or _ids(rec.get("enemy")) != _ids(r.get("enemy"))
+                or rec.get("teamSignature") != feedback_team_signature(team)):
+            continue
+        expected = _ids(rec.get("lead"))
+        expected_back = _ids(rec.get("back"))
+        actual = _ids(r.get("myLead"))
+        actual_back = _ids(r.get("myBack"))
+        if (len(actual) == len(expected) == width and len(actual_back) == len(expected_back) == 2
+                and not actual & actual_back and (actual | actual_back) <= _ids(team)):
+            lead_matches += actual == expected
+            matched = actual == expected and actual_back == expected_back
+            (exact if matched else deviated).append(r)
+            forecast = rec.get("simulation")
+            estimate = forecast.get("rate") if isinstance(forecast, dict) else None
+            if (matched and isinstance(estimate, (int, float)) and 0 <= estimate <= 1
+                    and rec.get("season") and r.get("season") == rec["season"]):
+                calibration.append((estimate, {"win": 1., "draw": .5, "loss": 0.}[r["outcome"]]))
+            opening = r.get("opening")
+            examples = forecast.get("openingExamples") if isinstance(forecast, dict) else None
+            if (matched and isinstance(opening, dict) and set(opening) == actual
+                    and all(isinstance(m, str) and m for m in opening.values()) and isinstance(examples, list)):
+                choices = [{a.get("actor"): a.get("move") for a in line["actions"]
+                            if isinstance(a, dict) and isinstance(a.get("actor"), str)}
+                           for line in examples if isinstance(line, dict) and isinstance(line.get("actions"), list)]
+                choices = [c for c in choices if set(c) == actual]
+                if choices:
+                    opening_games += 1
+                    opening_matches += opening in choices
+        foe_lead = _ids(r.get("enemyLead"))
+        raw_candidates = rec.get("enemyLeadCandidates")
+        candidates = [_ids(c) for c in raw_candidates[:3] if isinstance(c, list)] if isinstance(raw_candidates, list) else []
+        if len(foe_lead) == width and foe_lead <= _ids(r.get("enemy")) and candidates:
+            opponent_seen += 1
+            opponent_first += foe_lead == candidates[0]
+            opponent_top += foe_lead in candidates
+        paired_games.append(r)
 
     def rate(ms):
         return round(sum(1 if m["outcome"] == "win" else .5 if m["outcome"] == "draw" else 0 for m in ms) / len(ms),
                      2) if ms else None
 
-    reasons = Counter((r.get("lossReason") or "").strip() for r in losses if (r.get("lossReason") or "").strip())
+    reasons = Counter(r["lossReason"] for r in losses if isinstance(r.get("lossReason"), str) and r["lossReason"].strip())
+    observed = [r for r in losses if isinstance(r.get("turnNote"), str) and r["turnNote"].strip()]
     hypotheses = []
     for t in trouble[:3]:
         hypotheses.append({"kind": "matchup", "foe": t["id"],
                            "text": f"{t['name']} 상대 {t['games']}판 중 {t['losses']}패 — 대응 멤버·기술을 실험실에서 비교해 보세요"})
-    if followed and deviated and rate(followed) is not None and rate(deviated) is not None:
+    if exact and deviated:
         hypotheses.append({"kind": "picks",
-                           "text": f"추천 선출을 따른 판 {len(followed)}판 승점 {rate(followed)} · "
-                                   f"따르지 않은 판 {len(deviated)}판 승점 {rate(deviated)} (표본이 적어 결론이 아닙니다)"})
+                           "text": "선출이 달랐던 판은 상대 구성과 당시 행동도 확인한 뒤 같은 조건으로 비교해 보세요."})
     return {"games": n, "rate": round(wins / n, 3) if n else None,
             "ci": battle_lab.wilson(wins, n) if n else None, "source": "real",
-            "trouble": trouble, "pickCheck": {"followed": len(followed), "followedRate": rate(followed),
-                                              "deviated": len(deviated), "deviatedRate": rate(deviated)},
+            "trouble": trouble, "pickCheck": {"followed": len(exact), "followedRate": rate(exact),
+                                              "deviated": len(deviated), "deviatedRate": rate(deviated),
+                                              "saved": len(paired_games), "leadMatches": lead_matches},
+            "enemyLeadCheck": {"games": opponent_seen, "topOne": opponent_first, "topThree": opponent_top},
+            "openingCheck": {"games": opening_games, "matches": opening_matches},
+            "calibration": {"games": len(calibration), "simulated": round(sum(a for a, _ in calibration) / len(calibration), 3),
+                            "observed": round(sum(b for _, b in calibration) / len(calibration), 3)} if calibration else None,
+            "turnObservations": [{"turn": r.get("keyTurn"), "text": r["turnNote"]} for r in observed[:5]],
             "lossReasons": [{"text": k, "count": v} for k, v in reasons.most_common(6)],
             "hypotheses": hypotheses,
             "note": f"실전 기록 {n}판 기준입니다. 표본이 적으면 경향일 뿐이며 메타 데이터나 모의전 결과에 섞지 않습니다."}
