@@ -23,10 +23,10 @@ def _init():
     _engine = Engine(json.loads(collector.DATASET.read_text(encoding="utf-8")))
 
 
-def _compare(fmt, teams, runs, seed, difficulty, styles=None, policies=None, cpu_styles=None):
+def _compare(fmt, teams, runs, seed, difficulty, styles=None, policies=None, cpu_styles=None, split="search"):
     from . import battle_lab
 
-    return battle_lab.compare_teams(_engine, fmt, teams, runs, seed, difficulty, styles, policies, cpu_styles)
+    return battle_lab.compare_teams(_engine, fmt, teams, runs, seed, difficulty, styles, policies, cpu_styles, split)
 
 
 def _rankers(fmt, team, games, seed, difficulty):
@@ -51,23 +51,24 @@ def _serial(e):
     return WORKERS < 2 or os.environ.get("SIM_PARALLEL") == "0" or _engine is not None
 
 
-def compare_teams(e, fmt, teams, runs, seed, difficulty="ultra", styles=None, policies=None, cpu_styles=None):
+def compare_teams(e, fmt, teams, runs, seed, difficulty="ultra", styles=None, policies=None, cpu_styles=None,
+                  split="search"):
     from . import battle_lab
 
     # 한 판의 비용은 CPU 랭크마다 다르다 (챔피언은 탐색형이라 하이퍼볼의 약 30배).
     cost = {"champion": 30, "master": 2}.get(difficulty, 1)
     policies = policies or [None] * len(teams)
     if _serial(e) or len(teams) < 2 or len(teams) * runs * cost < 240:
-        return battle_lab.compare_teams(e, fmt, teams, runs, seed, difficulty, styles, policies, cpu_styles)
+        return battle_lab.compare_teams(e, fmt, teams, runs, seed, difficulty, styles, policies, cpu_styles, split)
     chunks = min(WORKERS, len(teams))
     size = -(-len(teams) // chunks)
     parts = [(teams[i:i + size], policies[i:i + size]) for i in range(0, len(teams), size)]
     try:
-        futures = [_executor(e).submit(_compare, fmt, part, runs, seed, difficulty, styles, pol, cpu_styles)
+        futures = [_executor(e).submit(_compare, fmt, part, runs, seed, difficulty, styles, pol, cpu_styles, split)
                    for part, pol in parts]
         return [row for future in futures for row in future.result()]
     except Exception:  # 프로세스를 못 쓰는 환경에서는 그냥 순서대로 돌린다.
-        return battle_lab.compare_teams(e, fmt, teams, runs, seed, difficulty, styles, policies, cpu_styles)
+        return battle_lab.compare_teams(e, fmt, teams, runs, seed, difficulty, styles, policies, cpu_styles, split)
 
 
 def versus_rankers_many(e, fmt, teams, games, seed, difficulty="ultra"):

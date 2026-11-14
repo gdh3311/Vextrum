@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from . import mechanics as mx, parallel
 from .engine import RESIST_BERRIES, TYPE_ITEMS, Engine, weight
-from .simulation import PROTECT, SUPPORT
+from .simulation import PROTECT, SUPPORT, unsupported
 
 # 챔피언스에 있고 배틀 엔진이 효과를 계산하는 도구만 후보로 쓴다.
 SIMULATED_ITEMS = {
@@ -212,6 +212,7 @@ class Tuner:
             base = self.value(s, gaps)
             used = {m.get("item") for j, m in enumerate(team) if j != i and m.get("item")}
             options = [*self.items(s, used), *self.abilities(s), *self.moves(s, gaps), *self.spreads(s)]
+            options = [v for v in options if not unsupported(self.e, self.fmt, v.set)]
             for v in options:
                 v.score = self.value(v.set, gaps) - base
             # 계산 점수는 순서를 정하는 데만 쓰고, 종류별로 고르게 남긴다.

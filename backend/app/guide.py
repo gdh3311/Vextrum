@@ -6,18 +6,21 @@ from __future__ import annotations
 
 import re
 from itertools import combinations
+from random import Random
 
+from . import auto_team, battle_lab, regulation, simulation
 from .enemy import mini
 from .engine import ROLE_MOVES, Engine, weight
 from .typechart import type_multiplier
 
 WEATHER = {
-    "Drizzle": ("비", "Water", {"Swift Swim"}, "비를 깔고 물 기술 화력(1.5배)으로 밀어붙입니다. 날씨는 5턴이니 시동 포켓몬을 후발로 남겨 다시 깔 수 있게 하세요."),
-    "Drought": ("쾌청", "Fire", {"Chlorophyll", "Solar Power"}, "쾌청 아래 불꽃 기술(1.5배)과 솔라빔을 씁니다. 물 기술 피해가 반감되는 것도 활용하세요."),
-    "Sand Stream": ("모래바람", "Rock", {"Sand Rush", "Sand Force"}, "모래바람으로 기합의띠·멀티스케일을 깨고, 바위 타입의 특방 상승을 활용합니다."),
-    "Snow Warning": ("설경", "Ice", {"Slush Rush", "Ice Body"}, "설경으로 얼음 타입의 방어를 올리고 눈보라·오로라베일을 씁니다."),
+    "Drizzle": ("비", "Water", {"Swift Swim"}, "비가 유지되는 동안 물 기술이 1.5배 강해집니다."),
+    "Drought": ("쾌청", "Fire", {"Chlorophyll", "Solar Power"}, "쾌청이 유지되는 동안 불꽃 기술이 1.5배 강해집니다."),
+    "Sand Stream": ("모래바람", "Rock", {"Sand Rush", "Sand Force"}, "모래 피해를 받는 상대는 턴 종료 피해로 기합의띠·멀티스케일의 풀 HP 조건을 잃을 수 있습니다. 바위 타입은 특방이 1.5배가 됩니다."),
+    "Snow Warning": ("눈", "Ice", {"Slush Rush", "Ice Body"}, "눈이 유지되는 동안 얼음 타입의 방어가 1.5배가 됩니다."),
 }
 WEATHER_MOVES = {"Drizzle": "Rain Dance", "Drought": "Sunny Day", "Sand Stream": "Sandstorm", "Snow Warning": "Snowscape"}
+WEATHER_ROCKS = {"Drizzle": "Damp Rock", "Drought": "Heat Rock", "Sand Stream": "Smooth Rock", "Snow Warning": "Icy Rock"}
 WEATHER_ATTACKS = {
     "Drizzle": {"Electro Shot", "Hurricane", "Thunder"},
     "Drought": {"Solar Beam", "Solar Blade"},
@@ -47,29 +50,43 @@ def attackers(e: Engine, team, fmt):
     return [r for r in team if set(e.roles(r, fmt)) & {"physical", "special", "mixed"}]
 
 
+def has_support(mon, move):
+    return move in mon["moves"] and mon["item"] not in simulation.CHOICE | {"Assault Vest"}
+
+
 # ------------------------------------------------------------------ 팀의 축과 운영법
-def axes(e: Engine, team: list[dict], fmt: str) -> list[dict]:
+def axes(e: Engine, team: list[dict], fmt: str, *, leads=(), effects=None, foes=()) -> list[dict]:
     out = []
     roles = {r["id"]: set(e.roles(r, fmt)) for r in team}
 
-    def add(label, members, play):
+    lead_ids = {m["id"] for m in leads}
+
+    def add(label, members, play, *, key=None, setters=()):
         seen, uniq = set(), []
         for r in members:
             if r["id"] not in seen:
                 seen.add(r["id"])
                 uniq.append(mini(r))
-        out.append({"label": label, "members": uniq, "play": play})
+        out.append({"label": label, "members": uniq, "play": play, "key": key,
+                    "opening": any(r["id"] in lead_ids for r in setters),
+                    "activations": effects.get(key, 0) if effects is not None and key else None})
 
     for ability, (label, wtype, abusers, play) in WEATHER.items():
-        starters = [r for r in team if r["ability"] == ability or WEATHER_MOVES[ability] in r["moves"]]
+        starters = [r for r in team if r["ability"] == ability or has_support(r, WEATHER_MOVES[ability])
+                    or ability == "Snow Warning" and has_support(r, "Chilly Reception")]
         if not starters:
             continue
         attacks = WEATHER_ATTACKS.get(ability, set()) | {"Weather Ball"}
-        users = [x for x in team if x not in starters and (
+        users = [x for x in team if (
             x["ability"] in abusers or attacks.intersection(x["moves"])
-            or any(e.M[m]["type"] == wtype and e.M[m]["power"] for m in x["moves"]))]
+            or (wtype in {"Ice", "Rock"} and wtype in x["types"])
+            or (wtype in {"Water", "Fire"} and any(e.M[m]["type"] == wtype and e.M[m]["power"] for m in x["moves"])))]
+        duration = ", ".join(f"{n(r)} {8 if r['item'] == WEATHER_ROCKS[ability] else 5}턴" for r in starters)
+        timing = "후발 시동이므로 첫 턴부터 적용하려면 교체가 필요합니다. " if leads and not any(
+            r["id"] in lead_ids for r in starters) else ""
         add(f"{label} 축", starters + users,
-            play + (f" 수혜자: {names(users)}." if users else " 날씨 시동 포켓몬 자체의 화력과 상대 날씨 견제에 활용하세요."))
+            timing + f"시동 턴 포함 {duration}. " + play + (f" 현재 선출 수혜 포켓몬 · {names(users)}." if users else ""),
+            key=simulation.WEATHER[ability], setters=starters)
 
     for r in team:
         if r["ability"] in TERRAIN:
@@ -77,99 +94,48 @@ def axes(e: Engine, team: list[dict], fmt: str) -> list[dict]:
             users = [x for x in team if set(x["moves"]) & moves]
             add(label, [r] + users, play + (f" {names(users)}의 필드 기술과 함께 선출하세요." if users else ""))
 
-    tr = [r for r in team if "Trick Room" in r["moves"]]
+    weather_axes = [a["label"] for a in out if a["key"] in {"rain", "sun", "sand", "snow"}]
+    if len(weather_axes) > 1:
+        add("날씨 덮어쓰기", [], f"{'와 '.join(weather_axes)}은 한 번에 하나만 유지됩니다. 필요한 날씨 시동을 나중에 내보내세요.")
+    tr = [r for r in team if has_support(r, "Trick Room")]
     if tr:
-        slow = [r for r in attackers(e, team, fmt) if r["speed"] <= 95 and r not in tr]
-        add("트릭룸", tr + slow,
-            f"{names(tr)}(으)로 트릭룸을 깔고 5턴 동안 느린 어태커로 먼저 때립니다."
-            + (f" 트릭룸 아래 에이스: {names(slow)}." if slow else " 느린 어태커가 없어 상대 스피드 견제용으로만 쓰입니다.")
-            + " 시동 턴에는 방어·속이다·유도로 시동 포켓몬을 지키세요.")
-    tw = [r for r in team if "Tailwind" in r["moves"]]
+        slow = [r for r in attackers(e, team, fmt) if r not in tr and (
+            sum(r["speed"] < f["speed"] for f in foes) > len(foes) / 2 if foes else r["speed"] <= 95)]
+        support = [r for r in leads if r not in tr and ("Fake Out" in r["moves"] or
+                   any(has_support(r, move) for move in simulation.REDIRECT))]
+        timing = "시동 포켓몬이 후발이라 필드에 내보낸 뒤 기술을 써야 합니다. " if leads and not any(
+            r["id"] in lead_ids for r in tr) else ""
+        add("트릭룸", tr + slow + support,
+            timing + f"{names(tr)}의 트릭룸은 시동 턴 포함 5턴이며, 보통 이후 4턴을 활용합니다. 같은 우선도 안에서 느린 쪽이 먼저 움직입니다."
+            + (f" 저속 공격수 · {names(slow)}." if slow else " 이 선출은 저속 화력보다 상대 트릭룸을 되돌리는 데 쓸 수 있습니다.")
+            + (f" 시동 보조 후보 · {names(support)}." if support else ""), key="trickroom", setters=tr)
+    tw = [r for r in team if has_support(r, "Tailwind")]
     if tw:
-        add("순풍", tw, f"{names(tw)}(으)로 순풍을 깔면 4턴 동안 아군 스피드가 2배가 됩니다. 첫 턴에 깔고, 남은 3턴에 화력을 몰아 쓰세요.")
+        timing = "시동 포켓몬이 후발입니다. " if leads and not any(r["id"] in lead_ids for r in tw) else ""
+        add("순풍", tw, timing + f"{names(tw)}의 순풍은 시동 턴 포함 4턴입니다. 같은 턴에 아직 움직이지 않은 아군부터 스피드 2배가 적용됩니다.",
+            key="tailwind", setters=tw)
     fo = [r for r in team if "Fake Out" in r["moves"]]
     if fo and fmt == "Doubles":
-        add("속이다 지원", fo, f"{names(fo)}의 속이다로 등장 턴에 상대 한 마리를 멈춥니다. 그 사이 옆 포켓몬이 랭크업·시동·집중 공격을 합니다.")
+        add("속이다 지원", fo, f"{names(fo)}의 속이다는 첫 행동 턴에 사용할 수 있습니다. 고스트의 노말 무효, 정신력의 풀죽음 방지, 방어·선공기 차단을 확인하세요.")
     inti = [r for r in team if r["ability"] == "Intimidate"]
     if inti:
-        add("위협", inti, f"{names(inti)}이(가) 나올 때마다 상대 공격이 1랭크 내려갑니다."
+        add("위협", inti, f"{names(inti)}의 위협은 등장 시 발동합니다. 상대의 공격 하락 무효나 오기·승기를 확인하세요."
             + (" 교체로 여러 번 발동시키는 사이클 운영이 가능합니다." if len(inti) >= 2 or any("pivot" in roles[r["id"]] for r in inti) else ""))
-    red = [r for r in team if set(r["moves"]) & ROLE_MOVES["redirect"]]
-    setup = [r for r in team if set(r["moves"]) & ROLE_MOVES["setup"] and r not in red]
+    red = [r for r in team if any(has_support(r, m) for m in ROLE_MOVES["redirect"])]
+    setup = [r for r in team if r not in red and any(has_support(r, m) for m in ROLE_MOVES["setup"])]
     if red and setup and fmt == "Doubles":
         add("유도 + 랭크업", red + setup, f"{names(red)}이(가) 공격을 끌어오는 동안 {names(setup)}이(가) 랭크업한 뒤 전개합니다.")
     elif setup:
         add("랭크업 에이스", setup, f"{names(setup)}이(가) 랭크업할 턴을 만들어 주는 것이 핵심입니다. 상대의 도발·앙코르·흑안개를 먼저 확인하세요.")
     fast = [r for r in attackers(e, team, fmt) if "fast" in roles[r["id"]]]
     if len(fast) >= 4:
-        add("고속 공세", fast, "빠른 어태커로 먼저 때려 수적 우위를 만드는 팀입니다. 상대의 순풍·트릭룸을 허용하면 급격히 불리해지니 시동 포켓몬을 최우선으로 노리세요.")
+        add("고속 공세", fast, "같은 우선도에서 속도 우위를 노릴 수 있습니다. 상대의 선공기, 순풍, 트릭룸에 따라 행동 순서가 바뀝니다.")
     if not out:
-        add("밸런스형", [], "뚜렷한 축 없이 개별 상성으로 싸우는 팀입니다. 상대 6마리를 보고 유리한 4마리(싱글 3마리)를 고르는 선출이 가장 중요합니다.")
+        add("상성 중심", [], "현재 선출에서 공격을 받아낼 포켓몬과 상대를 압박할 포켓몬을 함께 봅니다.")
     return out
 
 
-# ------------------------------------------------------------------ 기본 선출
-def default_lead(e: Engine, team: list[dict], fmt: str, meta: list[dict], ws: list[float]) -> dict | None:
-    n_lead, n_bring = (2, 4) if fmt == "Doubles" else (1, 3)
-    if len(team) < n_lead:
-        return None
-    n_bring = min(n_bring, len(team))
-    wsum = sum(ws)
-    sc = {a["id"]: [e.matchup(a, b, fmt)["score"] for b in meta] for a in team}
-    roles = {a["id"]: set(e.roles(a, fmt)) for a in team}
-
-    def mean(a):
-        return sum(w * s for w, s in zip(ws, sc[a["id"]])) / wsum
-
-    def reasons(lead):
-        ro, why = set().union(*(roles[a["id"]] for a in lead)), []
-        if fmt == "Doubles":
-            if "fakeout" in ro:
-                why.append("속이다로 첫 턴 주도권")
-            if ro & {"tailwind", "trickroom"}:
-                why.append("첫 턴에 스피드 컨트롤 시동")
-            elif "speedcontrol" in ro:
-                why.append("스피드 견제 기술 보유")
-            if "intimidate" in ro:
-                why.append("위협으로 상대 물리 화력 견제")
-            if ro & {"weather", "terrain"}:
-                why.append("날씨/필드 선점")
-            if "redirect" in ro:
-                why.append("유도로 옆 포켓몬 보호")
-        else:
-            if "hazard" in ro:
-                why.append("설치기로 초반 깔기")
-            if "pivot" in ro:
-                why.append("교체 기술로 유리한 대면 만들기")
-            if "fast" in ro:
-                why.append("빠른 선봉으로 선공")
-        return why
-
-    best = None
-    for lead in combinations(team, n_lead):
-        s = sum(mean(a) for a in lead) / n_lead + 2.5 * len(reasons(lead))
-        megas = sum(1 for a in lead if a["mega"])
-        if megas > 1:
-            s -= 8
-        if best is None or s > best[0]:
-            best = (s, lead)
-    lead = best[1]
-    rest = [a for a in team if a not in lead]
-
-    def coverage(group):
-        tot = 0.0
-        for j, w in enumerate(ws):
-            s = sorted((sc[a["id"]][j] for a in group), reverse=True)
-            tot += w * (s[0] if len(s) == 1 else 0.65 * s[0] + 0.35 * s[1])
-        return tot / wsum - 4 * max(0, sum(1 for a in group if a["mega"]) - 1)
-
-    back = max(combinations(rest, n_bring - n_lead), key=lambda b: coverage(lead + b)) if rest else ()
-    return {"lead": [mini(a) for a in lead], "back": [mini(a) for a in back],
-            "bench": [mini(a) for a in team if a not in lead and a not in back],
-            "why": reasons(lead) or ["메타 상위권 상대로 평균 상성이 가장 좋은 조합"]}
-
-
-# ------------------------------------------------------------------ 승리 플랜(주력)
+# ------------------------------------------------------------------ 이론상 공격 범위
 def win_conditions(e: Engine, team, fmt, meta, ws) -> list[dict]:
     rows = []
     for a in attackers(e, team, fmt):
@@ -206,7 +172,8 @@ def synergies(e: Engine, team, fmt) -> list[dict]:
 
     for a, b in combinations(team, 2):
         for x, y in ((a, b), (b, a)):
-            xm, ym = set(x["moves"]), set(y["moves"])
+            xm = {m for m in x["moves"] if e.M[m]["power"] or has_support(x, m)}
+            ym = {m for m in y["moves"] if e.M[m]["power"] or has_support(y, m)}
             for mv in x["moves"]:  # 아군까지 때리는 전체기
                 m = e.M[mv]
                 if m["target"] == "allAdjacent" and m["power"]:
@@ -215,10 +182,11 @@ def synergies(e: Engine, team, fmt) -> list[dict]:
                     if mult == 0:
                         add("good", x, y, f"{n(x)}의 {mk}을(를) {n(y)}이(가) 무효로 받아, 아군 피해 없이 전체기를 쓸 수 있습니다.")
                     elif mult >= 2:
-                        add("warn", x, y, f"함께 내면 {n(x)}의 {mk}이(가) {n(y)}에게 {mult:g}배로 들어갑니다. 방어를 누르거나 따로 선출하세요.")
+                        guard = " 아군이 방어할 때 쓰거나 다른 기술을 고르세요." if ym & simulation.PROTECT else " 다른 기술을 고르거나 함께 내보내는 턴을 피하세요."
+                        add("warn", x, y, f"{n(x)}의 {mk}은 함께 나온 {n(y)}도 맞힙니다. 타입 상성 {mult:g}배." + guard)
             if "Fake Out" in xm and ym & (ROLE_MOVES["setup"] | {"Trick Room", "Tailwind"}):
                 what = next(iter(ym & (ROLE_MOVES["setup"] | {"Trick Room", "Tailwind"})))
-                add("good", x, y, f"{n(x)}의 속이다로 한 마리를 멈추는 턴에 {n(y)}이(가) {e.M[what]['ko'] or what}을(를) 씁니다.")
+                add("good", x, y, f"{n(x)}의 속이다가 통하는 상대라면 {n(y)}의 {e.M[what]['ko'] or what} 전개를 보조할 수 있습니다.")
             if xm & ROLE_MOVES["redirect"] and ym & ROLE_MOVES["setup"]:
                 add("good", x, y, f"{n(x)}이(가) 공격을 끌어오는 동안 {n(y)}이(가) 랭크업합니다.")
             if x["ability"] in WEATHER:
@@ -234,7 +202,7 @@ def synergies(e: Engine, team, fmt) -> list[dict]:
                 add("good", x, y, f"{n(x)}의 도우미로 {n(y)}의 전체기 화력을 1.5배로 올립니다.")
             if "Tailwind" in xm and 85 <= y["speed"] < e.percentiles(fmt)["fast"] and \
                     roles[y["id"]] & {"physical", "special", "mixed"}:
-                add("good", x, y, f"{n(x)}의 순풍 아래에서 {n(y)}(스피드 {round(y['speed'])})이(가) 대부분의 상대보다 먼저 움직입니다.")
+                add("good", x, y, f"{n(x)}의 순풍으로 {n(y)}의 스피드가 {round(y['speed'])}에서 {round(2*y['speed'])}로 오릅니다.")
     seen, uniq = set(), []
     for s in sorted(out, key=lambda s: s["kind"] != "warn"):
         key = (s["members"][0]["id"], s["members"][1]["id"], s["text"][:12])
@@ -245,108 +213,104 @@ def synergies(e: Engine, team, fmt) -> list[dict]:
 
 
 # ------------------------------------------------------------------ 메타 전략별 대비
-def prep(e: Engine, team, fmt) -> list[dict]:
+def prep(e: Engine, team, fmt, leads=()) -> list[dict]:
     rows = []
+    lead_ids = {m["id"] for m in leads}
 
-    def has_move(names_):
-        return [r for r in team if set(r["moves"]) & set(names_)]
+    def actions(moves=(), abilities=(), damage_types=(), resist=None):
+        out = []
+        for mon in team:
+            supported = [m for m in mon["moves"] if m in moves or (
+                e.M[m]["power"] and e.M[m]["type"] in damage_types)]
+            if mon["item"] in simulation.CHOICE | {"Assault Vest"}:
+                supported = [m for m in supported if e.M[m]["power"]]
+            for move in supported:
+                name = e.M[move].get("ko") or move
+                timing = " (후발)" if leads and mon["id"] not in lead_ids else ""
+                out.append((mon, f"{n(mon)}{timing} · {name}"))
+            if mon["ability"] in abilities:
+                ability = e.d["abilities"].get(mon["ability"], {}).get("ko") or mon["ability"]
+                out.append((mon, f"{n(mon)} · {ability}"))
+            elif resist and type_multiplier(resist, mon["types"], mon["ability"]) < 1:
+                out.append((mon, f"{n(mon)} · {'무효' if not type_multiplier(resist, mon['types'], mon['ability']) else '반감'}"))
+        return out
 
-    def typed(t):
-        return [r for r in team if t in r["types"]]
-
-    def weak_to(t):
-        return [r for r in team if type_multiplier(t, r["types"], r["ability"]) >= 2]
-
-    def hitters(t):
-        return [r for r in team if any(e.M[m]["type"] == t and e.M[m]["power"] for m in r["moves"])]
-
-    def add(label, answers, strong, advice_ok, advice_weak, note=""):
-        seen, uniq = set(), []
-        for r in answers:
-            if r["id"] not in seen:
-                seen.add(r["id"])
-                uniq.append(r)
-        level = "good" if len(uniq) >= strong else "ok" if uniq else "weak"
-        rows.append({"label": label, "level": level, "answers": [mini(r) for r in uniq],
-                     "advice": (advice_ok if uniq else advice_weak) + note})
+    def add(label, options, note):
+        answers = list({m["id"]: mini(m) for m, _ in options}.values())
+        advice = " / ".join(dict.fromkeys(s for _, s in options))
+        rows.append({"label": label, "level": "ok" if answers else "weak", "answers": answers,
+                     "advice": (advice + ". " + note) if advice else "현재 선출에서 확인된 대응 수단이 없습니다."})
 
     if fmt == "Doubles":
-        add("트릭룸", has_move(["Taunt", "Imprison", "Trick Room", "Roar", "Whirlwind", "Fake Out", "Encore"]), 2,
-            "시동 턴에 도발·속이다로 막거나 시동 포켓몬에 집중 공격하세요. 깔렸다면 방어·교체로 5턴을 흘립니다.",
-            "트릭룸을 막을 수단이 없습니다. 도발이나 속이다를 가진 포켓몬을 넣거나, 깔리면 방어로 턴을 흘려야 합니다.")
-        own = has_move(SPEED_MOVES)
-        prio = [r for r in team if "priority" in e.roles(r, fmt)]
-        add("순풍", own + prio, 2,
-            "내 스피드 컨트롤로 맞불을 놓거나, 순풍 4턴 동안 방어·선공기로 버팁니다.",
-            "스피드 컨트롤과 선공기가 모두 없습니다. 상대 순풍 턴에 일방적으로 맞게 됩니다.")
-    ww = weak_to("Water")
-    add("비 파티", [r for r in team if r["ability"] in ("Drought", "Sand Stream", "Snow Warning", "Water Absorb", "Storm Drain", "Dry Skin")]
-        + hitters("Electric") + hitters("Grass"), 2,
-        "날씨를 덮어쓰거나 전기·풀 기술로 물 타입을 압박하세요.",
-        "물 타입을 찌를 전기·풀 기술과 날씨 대책이 없습니다.",
-        f" 물 약점: {names(ww)}." if ww else "")
-    fw = weak_to("Fire")
-    add("쾌청 파티", [r for r in team if r["ability"] in ("Drizzle", "Sand Stream", "Snow Warning", "Flash Fire")]
-        + hitters("Rock") + hitters("Water"), 2,
-        "날씨를 덮어쓰거나 바위·물 기술로 불꽃 타입을 압박하세요.",
-        "불꽃 타입을 찌를 바위·물 기술과 날씨 대책이 없습니다.",
-        f" 불꽃 약점: {names(fw)}." if fw else "")
-    add("사이코스팸", typed("Dark") + [r for r in team if r["ability"] in TERRAIN and r["ability"] != "Psychic Surge"]
-        + typed("Steel"), 2,
-        "악 타입은 에스퍼 기술을 무효로 받습니다. 필드를 덮어쓰면 와이드포스가 약해집니다.",
-        "에스퍼 기술을 받아낼 악·강철 타입과 필드 대책이 없습니다.",
-        " 사이코필드에서는 내 선공기가 막히는 점도 주의하세요.")
-    spec = [r for r in team if set(e.roles(r, fmt)) & {"special", "mixed"}]
-    proof = [r for r in team if r["ability"] in INTIM_PROOF]
-    add("위협", spec + proof, 3,
-        "특수 어태커와 위협이 통하지 않는 포켓몬을 중심으로 선출하세요.",
-        "화력이 전부 물리라 위협에 크게 약해집니다. 특수 어태커를 한 마리 이상 넣으세요.")
+        room_moves = {move for m in team if m["item"] not in simulation.CHOICE | {"Assault Vest"} for move in m["moves"]}
+        note = "트릭룸은 시동 턴 포함 5턴입니다."
+        if "Trick Room" in room_moves:
+            note += " 이미 켜진 상태에서 트릭룸을 쓰면 해제합니다."
+        if room_moves & {"Taunt", "Fake Out", "Encore"}:
+            note += " 대상의 방어와 기술별 차단 수단을 확인하세요."
+        add("트릭룸", actions({"Taunt", "Trick Room", "Encore", "Fake Out"}), note)
+        add("순풍", actions(SPEED_MOVES | {m for m in e.M if e.M[m]["priority"] > 0 and e.M[m]["power"]}),
+            "순풍은 시동 턴 포함 4턴입니다. 선공기는 우선도와 기술별 성공 조건을 확인하세요.")
+    add("비 파티", actions({"Sunny Day", "Sandstorm", "Snowscape", "Chilly Reception"},
+                           {"Drought", "Sand Stream", "Snow Warning"}, {"Electric", "Grass"}, resist="Water"),
+        "상대의 날씨 재전개와 물 타입 외 공격수도 확인하세요.")
+    add("쾌청 파티", actions({"Rain Dance", "Sandstorm", "Snowscape", "Chilly Reception"},
+                             {"Drizzle", "Sand Stream", "Snow Warning"}, {"Rock", "Water"}, resist="Fire"),
+        "쾌청이 유지되는 동안 물 기술 화력은 절반입니다.")
+    add("사이코스팸", actions({"Grassy Terrain", "Electric Terrain", "Misty Terrain", "Wide Guard"},
+                            set(TERRAIN) - {"Psychic Surge"}, resist="Psychic"),
+            "사이코필드는 접지한 포켓몬을 향한 상대의 선공기를 막습니다.")
+    special = [(m, f"{n(m)} · 특수 화력") for m in team if set(e.roles(m, fmt)) & {"special", "mixed"}]
+    add("위협", special + actions(abilities=INTIM_PROOF), "위협은 물리 공격 랭크에 영향을 줍니다.")
     if fmt == "Doubles":
-        add("속이다", typed("Ghost") + [r for r in team if r["ability"] in ("Inner Focus", "Psychic Surge", "Armor Tail", "Queenly Majesty", "Dazzling")]
-            + has_move(["Fake Out"]), 2,
-            "고스트 타입·정신력은 속이다가 통하지 않습니다. 첫 턴에 방어를 섞어 속이다를 낭비시키세요.",
-            "속이다를 무시할 수단이 없습니다. 첫 턴 방어로 읽기 싸움을 해야 합니다.")
-    add("선공기 공세", [r for r in team if r["ability"] in PRIORITY_BLOCK] + [r for r in team if "bulky" in e.roles(r, fmt)], 2,
-        "내구형으로 선공기를 받아내고, 체력이 깎인 어태커는 방어·교체로 지키세요.",
-        "내구가 낮은 팀이라 체력이 깎이면 선공기에 차례로 마무리당합니다.")
+        add("속이다", actions(simulation.PROTECT | {"Quick Guard"}, PRIORITY_BLOCK | {"Inner Focus"},
+                             resist=None)
+            + [(m, f"{n(m)} · 고스트 타입의 노말 무효") for m in team if "Ghost" in m["types"]],
+            "고스트는 노말 기술에 무효이며, 정신력은 속이다의 피해를 받고 풀죽음을 막습니다.")
+    add("선공기 공세", actions(simulation.PROTECT | {"Quick Guard", "Psychic Terrain"}, PRIORITY_BLOCK),
+        "상대의 우선도, 대상과 필드 상태를 확인하세요.")
     return rows
 
 
-# ------------------------------------------------------------------ 위험 상대와 대응법
-def threats(e: Engine, team, fmt, meta) -> list[dict]:
+def threats(e: Engine, team, fmt, meta, *, leads=(), attacks=()) -> list[dict]:
     rows = []
     for b in meta:
         per = [(a, e.matchup(a, b, fmt)) for a in team]
         score = e.team_score([m["score"] for _, m in per])
-        hits = sorted(((a, m) for a, m in per if m["hit"]), key=lambda x: -x[1]["score"])
-        danger = sorted(((a, m) for a, m in per if m["taken"] and m["taken"]["pct"] >= 80), key=lambda x: -x[1]["taken"]["pct"])
-        steps = []
+        hits = sorted(((a, m["hit"]) for a, m in per if m["hit"] and m["hit"]["pct"] > 0),
+                      key=lambda pair: -pair[1]["pct"] * pair[1]["acc"])
+        steps, damage = [], []
         if hits:
-            a, m = hits[0]
-            h = m["hit"]
-            mk = e.M[h["move"]]["ko"] or h["move"]
-            if h["pct"] >= 100:
-                steps.append(f"{n(a)}의 {mk}(으)로 한 번에 쓰러뜨립니다 ({h['pct']:.0f}%, {'선공' if m['faster'] else '후공 — 한 대 맞고 때립니다'}).")
-            elif h["pct"] >= 50:
-                steps.append(f"{n(a)}의 {mk}(으)로 2타에 쓰러뜨립니다 ({h['pct']:.0f}%, {'선공' if m['faster'] else '후공'}).")
-            else:
-                steps.append(f"가장 아픈 기술이 {n(a)}의 {mk} {h['pct']:.0f}%로, 혼자서는 잡기 어렵습니다.")
-            if fmt == "Doubles" and len(hits) >= 2 and h["pct"] < 100:
-                a2, m2 = max(hits[1:], key=lambda x: x[1]["hit"]["pct"])
-                total = h["pct"] + m2["hit"]["pct"]
-                if total >= 100:
-                    mk2 = e.M[m2["hit"]["move"]]["ko"] or m2["hit"]["move"]
-                    steps.append(f"{n(a)} + {n(a2)}({mk2}) 집중 공격이면 한 턴에 처리됩니다 (합계 {total:.0f}%).")
+            a, hit = hits[0]
+            move = hit["move"]
+            meta_move = e.M[move]
+            mk = meta_move["ko"] or move
+            damage.append({"mon": mini(a), "move": move, "moveKo": mk,
+                           "pct": hit["pct"], "accuracy": hit["acc"]})
+            timing = " · 후발" if leads and a not in leads else ""
+            steps.append(f"{n(a)}{timing}의 {mk} · 예상 피해 {hit['pct']:.0f}% · 기본 명중 {hit['acc']:g}%.")
+            if move in simulation.REACTIVE:
+                condition = "아직 행동하지 않은 상대가 선공 공격기를 골라야 합니다." if move == "Upper Hand" else "아직 행동하지 않은 상대가 공격기를 골라야 합니다."
+                steps.append(f"{mk} 성공 조건 · {condition} 방어·변화기·교체에는 실패할 수 있습니다.")
+            elif move in simulation.FIRST_TURN:
+                steps.append(f"{mk}는 첫 행동 턴에만 쓸 수 있습니다. 방어·선공기 차단과 상대 특성을 확인하세요.")
+            elif move in simulation.WEATHER_CHARGE:
+                steps.append("해당 날씨나 파워풀허브가 없으면 준비 턴이 필요합니다.")
+            if fmt == "Doubles" and meta_move.get("target") == "allAdjacent":
+                partners = [p for p in team if p is not a and (ally := e.damage(a, move, p, fmt)) and ally["pct"] > 0]
+                if partners:
+                    steps.append(f"{mk}는 같은 턴에 나온 아군도 공격합니다 · {names(partners)}.")
+            seen = next((r for r in attacks if (r["actor"], r["move"], r["target"]) == (a["id"], move, b["id"])), None)
+            if seen:
+                damage[0]["observed"] = {k: seen[k] for k in ("attempts", "hits", "kos")}
+        danger = sorted(((a, m["taken"]) for a, m in per if m["taken"] and m["taken"]["pct"] >= 80),
+                        key=lambda x: -x[1]["pct"])
         if danger:
-            a, m = danger[0]
-            mk = e.M[m["taken"]["move"]]["ko"] or m["taken"]["move"]
-            steps.append(f"{names(a for a, _ in danger[:3])}은(는) 맞대면을 피하세요 — {n(a)}이(가) {mk}에 {m['taken']['pct']:.0f}% 받습니다.")
-        safe = [a for a, m in per if not m["taken"] or m["taken"]["pct"] < 40]
-        if safe and danger:
-            steps.append(f"받아내기 좋은 포켓몬: {names(safe[:2])}.")
+            a, hit = danger[0]
+            mk = e.M[hit["move"]]["ko"] or hit["move"]
+            steps.append(f"{n(a)}이(가) {n(b)}의 {mk}에 받는 예상 피해 · {hit['pct']:.0f}%.")
         rows.append({"mon": mini(b), "rank": e.rank(b["id"], fmt), "score": round(score, 1), "label": e.label(score),
-                     "steps": steps,
-                     "answer": mini(hits[0][0]) if hits else None})
+                     "steps": steps, "damage": damage, "answer": mini(hits[0][0]) if hits else None})
     rows.sort(key=lambda r: r["score"])
     return [r for r in rows if r["score"] < 62][:6] or rows[:3]
 
@@ -380,18 +344,163 @@ def polish(obj):
     return obj
 
 
-def team_guide(e: Engine, sets: list[dict], fmt: str, top_n: int = 20) -> dict | None:
-    team = [e.resolve(s, fmt) for s in sets if s.get("id") in e.P]
+def opening_claim(e, action, members, pick, report):
+    actor, move = members.get(action["actor"]), action["move"]
+    if not actor or actor["id"] not in pick["leads"] or not pick.get("openingRuns"):
+        return None
+    ids, move_ids, conditions = [actor["id"]], [], []
+    if move == "switch" and action.get("into") in pick["back"]:
+        ids.append(action["into"])
+        text = f"{n(actor)} → {n(members[action['into']])}"
+        conditions.append("교체할 후발이 필요합니다.")
+    elif (move in actor["moves"] and simulation.move_supported(e, move)) or move == "Struggle":
+        move_ids.append(e.move_ids.get(move, "struggle"))
+        target = e.P.get(action.get("target"))
+        aim = f" → {n(target)}" if target else ""
+        text = f"{n(actor)} · {e.M.get(move, {}).get('ko') or move}{aim}"
+        if move in simulation.REACTIVE:
+            conditions.append("상대가 아직 행동하지 않았고 공격기를 골라야 합니다.")
+            if move == "Upper Hand":
+                conditions.append("대상의 공격기는 선공기여야 합니다.")
+        if move in simulation.FIRST_TURN:
+            conditions.append("등장한 뒤 처음 행동하는 턴에만 쓸 수 있습니다.")
+        if move in simulation.PROTECT:
+            conditions.append("연속 사용이나 방어 관통에 따라 결과가 달라집니다.")
+        if e.M.get(move, {}).get("target") == "allAdjacent":
+            conditions.append("같은 턴에 나온 아군도 영향을 받을 수 있습니다.")
+    else:
+        return None
+    sample = pick.get("sample") or {}
+    return {"claimId": f"opening-{sample.get('seed', 0)}-{actor['id']}", "scope": "selected4",
+            "status": "SIM_OBSERVED", "requiredPokemonIds": ids, "requiredMoveIds": move_ids,
+            "preconditions": conditions, "text": text,
+            "proposal": {"leads": pick["leads"], "backs": pick["back"]},
+            "simulation": {"games": pick["openingRuns"], "wins": pick["openingWins"],
+                           "policyVersion": regulation.POLICY_VERSION, "difficulty": report.get("difficulty"),
+                           "seed": sample.get("seed"), "opponentPool": sample.get("pool", "search")}}
+
+
+def selection_evidence(e, fmt, team, report):
+    """Turn observed selections into plans without attaching whole-roster moves."""
+    members = {m["id"]: m for m in team}
+    plans = []
+    for block in (report or {}).get("strategies", ()):
+        for pick in block.get("picks", ())[:1]:
+            ids = [*pick["leads"], *pick["back"]]
+            if (len(ids) != min(battle_lab.limit(fmt), len(team)) or len(set(ids)) != len(ids)
+                    or not set(ids) <= members.keys()):
+                continue
+            if len(pick["leads"]) != min(2 if fmt == "Doubles" else 1, len(team)):
+                continue
+            lead = [members[i] for i in pick["leads"]]
+            chosen = [members[i] for i in ids]
+            actions = pick.get("openingActions", ())
+            claims = [opening_claim(e, action, members, pick, report) for action in actions]
+            claims = claims if all(claims) else []
+            effects = pick.get("activations", {})
+            plans.append({"style": block["style"], "against": block["label"], "runs": pick["runs"],
+                          "win": pick["win"], "loss": pick.get("loss"), "draw": pick.get("draw"),
+                          "lead": [mini(m) for m in lead],
+                          "back": [mini(members[i]) for i in pick["back"]],
+                          "bench": [mini(m) for m in team if m["id"] not in ids],
+                          "opening": [c["text"] for c in claims], "openingClaims": claims,
+                          "openingRuns": pick.get("openingRuns", 0) if claims else 0,
+                          "openingWins": pick.get("openingWins", 0) if claims else 0, "activations": effects,
+                          "axes": axes(e, chosen, fmt, leads=lead, effects=effects),
+                          "sample": pick.get("sample"),
+                          "openingAgreement": round(pick.get("openingRuns", 0) / max(1, pick["runs"]), 3) if claims else 0,
+                          "difficulty": report.get("difficulty")})
+    return plans
+
+
+def alternative_axes(e, fmt, team, meta, selected):
+    """Give conflicting modes their own legal selection, including the setter."""
+    width = 2 if fmt == "Doubles" else 1
+    size = min(battle_lab.limit(fmt), len(team))
+    selected_keys = {a["key"] for a in selected}
+    core = []
+    for ability, move in WEATHER_MOVES.items():
+        key = simulation.WEATHER[ability]
+        setters = [r for r in team if r["ability"] == ability or has_support(r, move)
+                   or key == "snow" and has_support(r, "Chilly Reception")]
+        if setters and (key not in selected_keys or len(selected_keys & set(simulation.WEATHER.values())) > 1):
+            core.append((key, setters[0], None))
+    if fmt == "Doubles":
+        setter = next((m for m in team if has_support(m, "Trick Room")), None)
+        slow = min((m for m in attackers(e, team, fmt) if m is not setter), key=lambda m: m["speed"], default=None)
+        selected_room = next((a for a in selected if a["key"] == "trickroom"), None)
+        if setter and slow and (not selected_room or not selected_room["opening"]):
+            core.append(("trickroom", setter, slow))
+    out = []
+    for key, setter, partner in core:
+        others = [r for r in team if r not in (setter, partner)]
+        if key in simulation.WEATHER.values():
+            others = [r for r in others if simulation.WEATHER.get(r["ability"], key) == key
+                      and all(simulation.WEATHER_MOVES.get(m, key) == key for m in r["moves"])]
+        group = [setter] + ([partner] if partner else [])
+        if len(group) + len(others) < size:
+            continue
+        weights = {m["id"]: sum(e.matchup(m, foe, fmt)["score"] for foe in meta) for m in others}
+        for mon in sorted(others, key=lambda m: -weights[m["id"]]):
+            if len(group) == size:
+                break
+            if mon["mega"] and any(m["mega"] for m in group):
+                continue
+            group.append(mon)
+        if len(group) != size:
+            for mon in sorted(others, key=lambda m: -weights[m["id"]]):
+                if mon not in group:
+                    group.append(mon)
+                if len(group) == size:
+                    break
+        axis = next((a for a in axes(e, group, fmt, leads=group[:width], foes=meta) if a["key"] == key), None)
+        if axis:
+            out.append({**axis, "lead": [mini(m) for m in group[:width]],
+                        "back": [mini(m) for m in group[width:]], "evidence": "theory"})
+    return out
+
+
+def team_guide(e: Engine, sets: list[dict], fmt: str, top_n: int = 20, *, report=None) -> dict | None:
+    sets = [s for s in sets if s.get("id") in e.P]
+    team = battle_lab._resolve(e, fmt, sets)
     if not team:
         return None
+    coverage = simulation.rules_report(e, fmt, sets)
+    missing = {(i["pokemon"], e.move_names.get(i.get("id"), i["name"])) for i in coverage["issues"]
+               if i["kind"] == "move" and i["status"] == "UNSIMULATABLE"}
+    if missing:
+        team = [{**m, "moves": [move for move in m["moves"] if (m["id"], move) not in missing]} for m in team]
     meta = e.meta(fmt, top_n)
     ws = [weight(e.rank(b["id"], fmt)) for b in meta]
+    plans = selection_evidence(e, fmt, team, report)
+    width = min(2 if fmt == "Doubles" else 1, len(team))
+    lead = max(plans, key=lambda p: (p["runs"], p["win"]), default=None)
+    attacks = ()
+    if lead:
+        order = [m["id"] for m in lead["lead"] + lead["back"]]
+        selected = [next(m for m in team if m["id"] == pid) for pid in order]
+        block = next(b for b in report["strategies"] if b["style"] == lead["style"])
+        attacks = block["picks"][0].get("attacks", ())
+        lead = {**lead, "evidence": "simulation", "why": []}
+    else:
+        indices, _ = battle_lab._choose(e, fmt, team, meta, Random(0))
+        selected = [team[i] for i in indices]
+        lead = {"lead": [mini(m) for m in selected[:width]], "back": [mini(m) for m in selected[width:]],
+                "bench": [mini(m) for m in team if m not in selected], "why": [], "evidence": "selection"}
+    leads = selected[:width]
+    operating = axes(e, selected, fmt, leads=leads, effects=lead.get("activations"), foes=meta)
     return polish({
-        "axes": axes(e, team, fmt),
-        "lead": default_lead(e, team, fmt, meta, ws),
-        "winConditions": win_conditions(e, team, fmt, meta, ws),
-        "synergies": synergies(e, team, fmt),
-        "prep": prep(e, team, fmt),
-        "threats": threats(e, team, fmt, meta),
+        "axes": operating,
+        "rosterAxes": axes(e, team, fmt, foes=meta),
+        "lead": lead,
+        "alternatives": alternative_axes(e, fmt, team, meta, operating),
+        "plans": plans,
+        "testStyles": [{"id": key, "label": auto_team.STYLES[key].label}
+                       for key in battle_lab._split_pools(e, fmt, "search")],
+        "winConditions": win_conditions(e, selected, fmt, meta, ws),
+        "synergies": synergies(e, selected, fmt),
+        "prep": prep(e, selected, fmt, leads),
+        "threats": threats(e, selected, fmt, meta, leads=leads, attacks=attacks),
+        "rulesCoverage": coverage,
         "complete": len(team) >= (4 if fmt == "Doubles" else 3),
     })

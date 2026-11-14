@@ -53,12 +53,24 @@ class ResearchTest(unittest.TestCase):
         board = self.lab.leaderboard(self.engine, "Doubles", minimum=1, limit=5)
         self.assertTrue(board)
         self.assertEqual(len(board[0]["members"]), 6)
+        self.assertTrue(board[0]["guide"]["plans"])
+        self.assertEqual(board[0]["guide"]["lead"]["evidence"], "simulation")
         self.assertEqual(board, sorted(board, key=lambda t: -t["low"]))
         status = self.lab.status(self.engine, "Doubles")
         self.assertGreater(status["battles"], 0)
         seeds = self.lab.seeds(self.engine, "Doubles", lambda roster: len(roster) == 6, minimum=1)
         self.assertTrue(seeds)
         self.assertTrue(all(arch in auto_team.STYLES for arch, _ in seeds))
+
+    def test_holdout_scores_are_persisted_without_changing_search_scores(self):
+        fmt, e = "Doubles", self.engine
+        version = regulation.version_key(e.d)
+        before = {r["sig"]: (r["games"], r["wins"]) for r in self.lab.rows(fmt, version)}
+        self.lab.evaluate_holdout(e, fmt, version)
+        after = {r["sig"]: (r["games"], r["wins"]) for r in self.lab.rows(fmt, version)}
+        self.assertEqual(before, after)
+        rows = self.lab.leaderboard(e, fmt, minimum=1, limit=60)
+        self.assertTrue(any(row.get("holdout", {}).get("kind") == "synthetic_core_holdout" for row in rows))
 
 
 if __name__ == "__main__":

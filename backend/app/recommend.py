@@ -94,12 +94,14 @@ def ranker_cores(e: Engine, fmt: str, size: int = 2, top: int = 8):
 def _matches(e, fmt, team, rosters, games, seed):
     """각 랭커 파티와 games 판. 양쪽 모두 상대 6마리를 보고 4마리를 고른다 (같은 seed 면 같은 판)."""
     player = battle_lab._resolve(e, fmt, team)
+    player_preview = [e.default_resolved(s["id"], fmt) for s in player]
     for index, (ranker, sets) in enumerate(rosters):
         opponents = battle_lab._resolve(e, fmt, list(sets))
+        opponent_preview = [e.default_resolved(s["id"], fmt) for s in opponents]
         for game in range(games):
             rng = Random(seed * 7919 + index * 104729 + game)
-            ours, _ = battle_lab._choose(e, fmt, player, opponents, rng)
-            theirs, _ = battle_lab._choose(e, fmt, opponents, player, rng)
+            ours, _ = battle_lab._choose(e, fmt, player, opponent_preview, rng)
+            theirs, _ = battle_lab._choose(e, fmt, opponents, player_preview, rng)
             yield index, ours, theirs, rng.randrange(2 ** 31)
 
 
@@ -226,8 +228,8 @@ def recommend(e: Engine, fmt: str, *, joker: str = "allow", depth: str = "standa
         if joker == "off" and any(is_joker(e, fmt, pid) for pid in ids):
             continue
         required = [_variants(e, fmt, meta, pid) for pid in ids]
-        if origin.get("jokerSet"):  # 조커 파인더가 메타 상대로 고른 세트도 후보에 넣는다.
-            required[0].append(auto_team._candidate(e, fmt, meta, origin.pop("jokerSet")))
+        if (joker_set := origin.pop("jokerSet", None)) and not simulation.unsupported(e, fmt, joker_set):
+            required[0].append(auto_team._candidate(e, fmt, meta, joker_set))
         if any(not rows for rows in required):
             continue
         available = pool
@@ -284,7 +286,7 @@ def recommend(e: Engine, fmt: str, *, joker: str = "allow", depth: str = "standa
     out = []
     for index, (score, origin, goals, roster, team, report, ranks) in enumerate(candidates, 1):
         analysis = e.analyze_team(team, fmt)
-        guide = team_guide(e, team, fmt) or {}
+        guide = team_guide(e, team, fmt, report=report) or {}
         members = [_member(e, s, fmt) for s in team]
         jokers = []
         for m, c in zip(members, roster):
@@ -298,13 +300,13 @@ def recommend(e: Engine, fmt: str, *, joker: str = "allow", depth: str = "standa
         report["strategyUse"] = [{"label": auto_team.STYLES[k].label, "runs": activations[k]}
                                  for k in goals if k in auto_team.WEATHER_STYLES | {"tailwind", "trickroom", "psychic"}]
         names = {c.id: c.resolved["ko"] or c.resolved["name"] for c in roster}
-        lead = " + ".join(names.get(pid, pid) for pid in report["lead"]["ids"])
+        lead = " + ".join(names[m["id"]] for m in guide.get("lead", {}).get("lead", ()))
         out.append({
             "id": f"lab-{index}", "name": f"{origin['label'].split(' · ', 1)[-1]} · {lead}", "format": fmt,
             "complete": True, "origin": origin, "goals": list(goals),
             "members": members, "jokers": jokers, "metaScore": analysis["metaScore"],
             "warnings": analysis["warnings"][:4], "score": round(score, 3),
-            "simulation": report, "rankers": ranks,
+            "simulation": report, "rankers": ranks, "guide": guide,
             "profile": {k: sum(k in c.features for c in roster) for k in ("fast_attacker", "physical", "special", "bulky")},
             "analysis": {
                 "damageSplit": analysis["damageSplit"],

@@ -249,7 +249,7 @@ def pokemon_detail(pid: str, format: Format = "Doubles", season: str | None = No
                                       for a in m["abilities"]]} for m in p["megas"]],
         "usage": usage,
         "history": [{"season": s, "rank": p["ranks"].get(s, {}).get(format)} for s in seasons],
-        "learnset": [{"name": m, **{k: d["moves"][m][k] for k in ("ko", "type", "category", "power", "accuracy",
+        "learnset": [{"name": m, "id": e.move_ids[m], **{k: d["moves"][m][k] for k in ("ko", "type", "category", "power", "accuracy",
                                                                    "priority")}} for m in p["learnset"]],
         "defaultSet": None if historical else e.default_set(pid, format),
         "resolved": None if historical else e.describe(e.default_resolved(pid, format), format),
@@ -454,17 +454,24 @@ class BattleRequest(BaseModel):
     format: Format = "Doubles"
     team: list[TeamSet] = Field(min_length=1, max_length=6)
     seed: int | None = Field(default=None, ge=0, lt=2 ** 31)
+    opponentPool: Literal["search", "holdout"] = "search"
 
 
 class BattleStart(BattleRequest):
     selection: list[str] | None = Field(default=None, min_length=1, max_length=4)
     difficulty: simulation.Difficulty = "ultra"
     manual: bool = False
+    cpuStyle: Literal["balanced", "aggressive", "defensive", "setup", "pivot", "counter"] = "balanced"
 
 
 class BatchRequest(BattleRequest):
     runs: int = Field(default=50, ge=1, le=200)
     difficulty: simulation.Difficulty = "ultra"
+
+
+class PickVerification(BattleRequest):
+    selection: list[str] = Field(min_length=1, max_length=4)
+    style: str | None = None
 
 
 class MoveAction(BaseModel):
@@ -487,6 +494,7 @@ class WaitAction(BaseModel):
 
 class BattleTurn(BaseModel):
     turn: int = Field(ge=1, le=simulation.MAX_TURNS)
+    megaSlot: int | None = Field(default=None, ge=0, le=1)
     actions: list[Annotated[MoveAction | SwitchAction | WaitAction, Field(discriminator="kind")]] | None = Field(
         default=None, max_length=2)
 
@@ -515,7 +523,7 @@ def battle_seed(req: BattleRequest) -> int:
 def scout_battle(req: BattleRequest):
     e = engine()
     try:
-        return battle_lab.scout(e, req.format, battle_team(e, req), battle_seed(req))
+        return battle_lab.scout(e, req.format, battle_team(e, req), battle_seed(req), req.opponentPool)
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
 
@@ -525,7 +533,8 @@ def start_battle(req: BattleStart):
     e = engine()
     try:
         return _battles.start(battle_lab.start(e, req.format, battle_team(e, req), battle_seed(req), req.selection,
-                                              req.difficulty, manual=req.manual))
+                                              req.difficulty, manual=req.manual, cpu_style=req.cpuStyle,
+                                              split=req.opponentPool))
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
 
@@ -534,7 +543,7 @@ def start_battle(req: BattleStart):
 def battle_turn(battle_id: str, req: BattleTurn):
     actions = [a.model_dump() for a in req.actions] if req.actions is not None else None
     try:
-        return _battles.advance(battle_id, req.turn, actions)
+        return _battles.advance(battle_id, req.turn, actions, req.megaSlot)
     except KeyError as error:
         raise HTTPException(404, "battle expired") from error
     except ValueError as error:
@@ -546,6 +555,21 @@ def simulate_battles(req: BatchRequest):
     e = engine()
     try:
         return battle_lab.batch(e, req.format, battle_team(e, req), req.runs, battle_seed(req), req.difficulty)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+
+
+@app.post("/api/team/guide/verify")
+def verify_team_guide(req: PickVerification):
+    from . import guide
+
+    e = engine()
+    team = battle_team(e, req)
+    try:
+        result = battle_lab.verify_pick(e, req.format, team, req.selection, req.style,
+                                        seed=battle_seed(req))
+        result["plans"] = guide.selection_evidence(e, req.format, battle_lab._resolve(e, req.format, team), result)
+        return result
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
 
@@ -736,6 +760,165 @@ def image(kind: str, name: str):
         except Exception:
             raise HTTPException(404)
     return FileResponse(path, media_type="image/png", headers={"Cache-Control": "public, max-age=604800"})
+
+
+# ---------- Team Workspace (docs/VEXTRUM_WORKBENCH_ARCHITECTURE.md) ----------
+class WorkbenchRequest(BaseModel):
+    format: Format = "Doubles"
+    team: list[TeamSet] = Field(default_factory=list, max_length=6)
+    teamRevision: int = 0
+
+
+class ReplaceRequest(WorkbenchRequest):
+    slot: int
+    mode: Literal["best", "weakness", "keep", "pivot", "joker", "owned"] = "best"
+    locks: list[dict] = Field(default_factory=list, max_length=6)
+    owned: list[str] = Field(default_factory=list, max_length=400)
+    targetType: str | None = None
+    limit: int = 6
+
+
+class ValidateRequest(WorkbenchRequest):
+    slot: int
+    candidates: list[TeamSet] = Field(default_factory=list, max_length=6)
+    games: int = 40
+    holdout: int = 80
+    difficulty: Literal["ultra", "master", "champion"] = "master"
+
+
+class VsPokemonRequest(WorkbenchRequest):
+    foe: str
+
+
+class VsTeamRequest(WorkbenchRequest):
+    enemy: list[str] = Field(default_factory=list, max_length=6)
+    picks: list[list[str]] = Field(default_factory=list, max_length=3)
+    games: int = 30
+
+
+class ExperimentRequest(BaseModel):
+    format: Format = "Doubles"
+    teamRevision: int = 0
+    a: list[TeamSet] = Field(max_length=6)
+    b: list[TeamSet] = Field(max_length=6)
+    leadA: list[str] | None = None
+    leadB: list[str] | None = None
+    games: int = 60
+    difficulty: Literal["poke", "great", "ultra", "master", "champion"] = "master"
+    styles: list[str] | None = None
+    archetypes: list[str] | None = None
+
+
+class FeedbackRequest(WorkbenchRequest):
+    records: list[dict] = Field(default_factory=list, max_length=500)
+
+
+def _sets(team):
+    return [s.model_dump(exclude_unset=True) for s in team[:6]]
+
+
+@app.post("/api/workbench/fast")
+def workbench_fast(req: WorkbenchRequest):
+    """편집 즉시 반영하는 정적 분석 (모의전 없음)."""
+    from . import workbench
+
+    return workbench.fast(engine(), req.format, _sets(req.team), req.teamRevision)
+
+
+@app.post("/api/workbench/replace")
+def workbench_replace(req: ReplaceRequest):
+    from . import workbench
+
+    try:
+        return workbench.replacements(engine(), req.format, _sets(req.team), req.slot, req.mode, req.locks,
+                                      req.owned, req.targetType, max(1, min(12, req.limit)), req.teamRevision)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+
+
+def _job(kind, req, scope, fn, *args):
+    from . import workbench
+    from .research import LAB
+
+    def run(entry, *a):
+        LAB.busy += 1  # 실험 중에는 자동 연구가 쉰다
+        try:
+            return fn(entry, *a)
+        finally:
+            LAB.busy -= 1
+
+    return {"id": workbench.JOBS.start(kind, req.teamRevision, scope, run, *args), "teamRevision": req.teamRevision}
+
+
+@app.post("/api/workbench/replace/validate")
+def workbench_validate(req: ValidateRequest):
+    from . import workbench
+
+    if not req.candidates:
+        raise HTTPException(400, "검증할 후보를 골라 주세요")
+    return _job("replace", req, f"replace:{req.slot}", workbench.validate_replacements, engine(), req.format,
+                _sets(req.team), req.slot, _sets(req.candidates), max(10, min(200, req.games)),
+                max(20, min(400, req.holdout)), req.difficulty)
+
+
+@app.post("/api/workbench/matchup/pokemon")
+def workbench_vs_pokemon(req: VsPokemonRequest):
+    from . import workbench
+
+    try:
+        return workbench.vs_pokemon(engine(), req.format, _sets(req.team), req.foe, req.teamRevision)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+
+
+@app.post("/api/workbench/matchup/team")
+def workbench_vs_team(req: VsTeamRequest):
+    from . import workbench
+
+    return workbench.vs_team(engine(), req.format, _sets(req.team), req.enemy, req.teamRevision)
+
+
+@app.post("/api/workbench/matchup/validate")
+def workbench_vs_team_validate(req: VsTeamRequest):
+    from . import workbench
+
+    if not req.picks:
+        raise HTTPException(400, "비교할 선출을 골라 주세요")
+    return _job("matchup", req, "matchup", workbench.validate_vs_team, engine(), req.format, _sets(req.team),
+                req.enemy, req.picks, max(10, min(120, req.games)))
+
+
+@app.post("/api/workbench/experiment")
+def workbench_experiment(req: ExperimentRequest):
+    from . import workbench
+
+    return _job("experiment", req, "experiment", workbench.experiment, engine(), req.format, _sets(req.a),
+                _sets(req.b), max(10, min(400, req.games)), req.difficulty, req.styles, req.archetypes,
+                req.leadA, req.leadB)
+
+
+@app.get("/api/workbench/job/{job}")
+def workbench_job(job: str):
+    from . import workbench
+
+    view = workbench.JOBS.view(job)
+    if view is None:
+        raise HTTPException(404, "작업을 찾을 수 없습니다")
+    return view
+
+
+@app.post("/api/workbench/job/{job}/cancel")
+def workbench_cancel(job: str):
+    from . import workbench
+
+    return {"cancelled": workbench.JOBS.cancel(job)}
+
+
+@app.post("/api/workbench/feedback")
+def workbench_feedback(req: FeedbackRequest):
+    from . import workbench
+
+    return workbench.feedback(engine(), req.format, req.records, _sets(req.team) or None)
 
 
 # ---------- Flutter 웹 빌드가 있으면 같은 서버에서 서빙 ----------

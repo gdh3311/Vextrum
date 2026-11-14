@@ -34,6 +34,44 @@ class SimRulesTest(unittest.TestCase):
     def foes(self):
         return [self.s(p) for p in ("incineroar", "whimsicott", "sneasler", "kingambit")]
 
+    def test_canonical_ground_moves_keep_their_distinct_effects_and_labels(self):
+        e = self.e
+        resolved = e.resolve(self.s("garchomp", moves=["stompingtantrum", "bulldoze"]), FMT)
+        self.assertEqual(resolved["moves"], ["Stomping Tantrum", "Bulldoze"])
+        self.assertEqual(e.M["Stomping Tantrum"]["ko"], "분함의발구르기")
+        self.assertEqual(e.M["Bulldoze"]["ko"], "땅고르기")
+        self.assertEqual(e.M["Stomping Tantrum"]["target"], "normal")
+        self.assertEqual(e.M["Bulldoze"]["target"], "allAdjacent")
+
+    def test_stomping_tantrum_boost_after_immunity_and_expires(self):
+        b = self.battle([self.s("garchomp", moves=["Stomping Tantrum", "Earthquake"], item=None)],
+                        [self.s("dragonite", item=None), self.s("kingambit", item=None)])
+        actor = b.teams[0][0]
+        target = b.teams[1][1]
+        base = b._damage(actor, target, "Stomping Tantrum", False)[0]
+        self.assertFalse(b._attack(0, 0, actor, "Stomping Tantrum", 0, 0, ()))
+        b.turn = 2
+        self.assertGreater(b._damage(actor, target, "Stomping Tantrum", False)[0], 1.8 * base)
+        b.turn = 3
+        self.assertEqual(b._damage(actor, target, "Stomping Tantrum", False)[0], base)
+
+    def test_stomping_tantrum_protected_attack_is_neutral(self):
+        b = self.battle([self.s("garchomp", moves=["Stomping Tantrum"], item=None)],
+                        [self.s("kingambit", item=None)])
+        actor = b.teams[0][0]
+        target = b.teams[1][0]
+        base = b._damage(actor, target, "Stomping Tantrum", False)[0]
+        target.protected = True
+        self.assertFalse(b._attack(0, 0, actor, "Stomping Tantrum", 0, 0, ()))
+        b.turn = 2
+        self.assertEqual(b._damage(actor, target, "Stomping Tantrum", False)[0], base)
+
+    def test_unsupported_effects_report_the_exact_set_elements(self):
+        sets = [self.s("sableye", moves=["Trick", "Protect"], item="Eject Button")]
+        report = simulation.rules_report(self.e, FMT, sets)
+        self.assertEqual(report["status"], "UNSIMULATABLE")
+        self.assertEqual({r["name"] for r in report["issues"]}, {"Trick", "Eject Button"})
+
     # ---------------- 메가진화
     def mega_sets(self):
         e = self.e
@@ -48,6 +86,22 @@ class SimRulesTest(unittest.TestCase):
         self.assertFalse(any(f.mon["mega"] for f in b.teams[0]))
         self.assertIsNotNone(b.teams[0][0].mega_form)
         self.assertIsNotNone(b.teams[0][1].mega_form)
+
+    def test_manual_mega_can_be_held_and_invalid_actions_do_not_consume_it(self):
+        g, d = self.mega_sets()
+        g, d = ({**s, "moves": ["Protect"]} for s in (g, d))
+        foe = self.s("chandelure", moves=["Protect"], item=None)
+        b = simulation.Battle(self.e, FMT, [g, d], [foe], 2, log=False, manual=True)
+        actions = [{"slot": i, "kind": "move", "move": "Protect", "target": None} for i in range(2)]
+        b.advance(actions)
+        self.assertTrue(b.mega_left[0])
+        with self.assertRaises(ValueError):
+            b.advance(actions, mega_slot=2)
+        self.assertTrue(b.mega_left[0])
+        b.advance(actions, mega_slot=1)
+        self.assertFalse(b.mega_left[0])
+        self.assertFalse(b.teams[0][0].mon["mega"])
+        self.assertTrue(b.teams[0][1].mon["mega"])
 
     def test_one_mega_per_battle_chosen_at_turn_start(self):
         g, d = self.mega_sets()

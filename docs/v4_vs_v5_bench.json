@@ -1,0 +1,974 @@
+{
+  "method": "matched-opponents pilot; fixed quick settings; measured wall time, not an equal-time experiment",
+  "pool": "audit",
+  "seed": 79651061,
+  "gamesPerCandidate": 27,
+  "cpu": "master",
+  "cpuStyles": [
+    "balanced",
+    "aggressive",
+    "defensive",
+    "setup",
+    "pivot",
+    "counter"
+  ],
+  "data": {
+    "source": "https://championsbattledata.com",
+    "sourceSeason": "M7",
+    "sourceGeneratedAt": "2026-11-12T04:55:32.392Z",
+    "officialSeason": "M8",
+    "regulation": "MC",
+    "rules": {
+      "start": "2026-09-09",
+      "end": "2026-12-02",
+      "megaPerBattle": 1,
+      "itemClause": true,
+      "pick": "6 → 4 (더블 선봉 2·후발 2)",
+      "source": "https://champions-news.pokemon-home.com/en/page/816.html"
+    },
+    "seasonMismatch": true,
+    "versions": {
+      "simulator": "sim-2026.11.13-r2",
+      "policy": "cpu-tiers-v4",
+      "rules": "champions-mc-2026.11",
+      "opponents": "synthetic-core-split-v1",
+      "data": "2026-11-12T04:55:32.392Z"
+    },
+    "rankMeaning": "순위(position)만 제공됨 — 사용률(%)로 바꾸지 않고 가중치 1/√순위로만 쓴다",
+    "note": "원본 데이터가 아직 새 시즌 폴더를 열지 않아, 공식 시즌과 원본 표기 시즌이 다릅니다. 순위·채용률은 원본이 표기한 시즌의 표본입니다."
+  },
+  "conditions": [
+    {
+      "condition": "rain",
+      "engines": {
+        "v4": {
+          "seconds": 32.92,
+          "candidates": [
+            {
+              "members": [
+                "archaludon",
+                "pelipper",
+                "basculegion",
+                "dragonite",
+                "kingambit",
+                "whimsicott"
+              ],
+              "outcomes": [
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0
+              ],
+              "rate": 0.6666666666666666
+            },
+            {
+              "members": [
+                "vivillonfancy",
+                "klefki",
+                "salamence",
+                "sneasler",
+                "incineroar",
+                "rillaboom"
+              ],
+              "outcomes": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0
+              ],
+              "rate": 0.5185185185185185
+            }
+          ]
+        },
+        "v5": {
+          "seconds": 34.16,
+          "candidates": [
+            {
+              "members": [
+                "archaludon",
+                "pelipper",
+                "basculegion",
+                "dragonite",
+                "kingambit",
+                "whimsicott"
+              ],
+              "outcomes": [
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0
+              ],
+              "rate": 0.6666666666666666
+            },
+            {
+              "members": [
+                "vivillonfancy",
+                "klefki",
+                "salamence",
+                "sneasler",
+                "incineroar",
+                "rillaboom"
+              ],
+              "outcomes": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0
+              ],
+              "rate": 0.5185185185185185
+            }
+          ]
+        },
+        "v6": {
+          "seconds": 15.93,
+          "candidates": [
+            {
+              "members": [
+                "taurospaldeaaqua",
+                "klefki",
+                "salamence",
+                "arcaninehisui",
+                "rillaboom",
+                "sneasler"
+              ],
+              "outcomes": [
+                1.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "rate": 0.48148148148148145
+            },
+            {
+              "members": [
+                "basculegion",
+                "klefki",
+                "salamence",
+                "sneasler",
+                "garchomp",
+                "scovillain"
+              ],
+              "outcomes": [
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rate": 0.48148148148148145
+            },
+            {
+              "members": [
+                "samurotthisui",
+                "klefki",
+                "salamence",
+                "rillaboom",
+                "sneasler",
+                "incineroar"
+              ],
+              "outcomes": [
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.5,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0
+              ],
+              "rate": 0.46296296296296297
+            }
+          ]
+        }
+      },
+      "comparisons": {
+        "v5-v4": {
+          "delta": 0.0,
+          "ci": [
+            0.0,
+            0.0
+          ]
+        },
+        "v6-v4": {
+          "delta": -0.11728395061728397,
+          "ci": [
+            -0.321,
+            0.08
+          ]
+        }
+      },
+      "cores": [
+        [
+          "Clefable",
+          "Vivillon"
+        ],
+        [
+          "Charizard",
+          "Leafeon"
+        ],
+        [
+          "Baxcalibur",
+          "Ninetales"
+        ],
+        [
+          "Archaludon",
+          "Sableye"
+        ],
+        [
+          "Cofagrigus",
+          "Kingambit"
+        ],
+        [
+          "Excadrill",
+          "Tyranitar"
+        ],
+        [
+          "Delphox",
+          "Sylveon"
+        ],
+        [
+          "Gardevoir",
+          "Kingambit"
+        ],
+        [
+          "Gardevoir",
+          "Indeedee"
+        ],
+        [
+          "Cofagrigus",
+          "Gardevoir"
+        ],
+        [
+          "Incineroar",
+          "Primarina"
+        ],
+        [
+          "Hippowdon",
+          "Lycanroc"
+        ],
+        [
+          "Aurorus",
+          "Baxcalibur"
+        ],
+        [
+          "Charizard",
+          "Leafeon"
+        ],
+        [
+          "Cofagrigus",
+          "Kingambit"
+        ],
+        [
+          "Leafeon",
+          "Vivillon"
+        ],
+        [
+          "Kleavor",
+          "Rillaboom"
+        ],
+        [
+          "Farigiraf",
+          "Indeedee"
+        ],
+        [
+          "Archaludon",
+          "Sableye"
+        ],
+        [
+          "Gardevoir",
+          "Pawmot"
+        ],
+        [
+          "Excadrill",
+          "Tyranitar"
+        ],
+        [
+          "Baxcalibur",
+          "Golisopod"
+        ],
+        [
+          "Aurorus",
+          "Baxcalibur"
+        ],
+        [
+          "Vileplume",
+          "Whimsicott"
+        ],
+        [
+          "Farigiraf",
+          "Indeedee"
+        ],
+        [
+          "Indeedee",
+          "Kingambit"
+        ],
+        [
+          "Dragonite",
+          "Vivillon"
+        ]
+      ]
+    },
+    {
+      "condition": "trickroom",
+      "engines": {
+        "v4": {
+          "seconds": 38.53,
+          "candidates": [
+            {
+              "members": [
+                "gallade",
+                "dragonite",
+                "kingambit",
+                "talonflame",
+                "basculegion",
+                "scovillain"
+              ],
+              "outcomes": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rate": 0.25925925925925924
+            },
+            {
+              "members": [
+                "dragonite",
+                "kingambit",
+                "medicham",
+                "talonflame",
+                "basculegion",
+                "camerupt"
+              ],
+              "outcomes": [
+                0.0,
+                0.0,
+                0.5,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0
+              ],
+              "rate": 0.2037037037037037
+            },
+            {
+              "members": [
+                "golisopod",
+                "espeon",
+                "incineroar",
+                "garchomp",
+                "rillaboom",
+                "talonflame"
+              ],
+              "outcomes": [
+                1.0,
+                0.5,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.5,
+                1.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rate": 0.4074074074074074
+            }
+          ]
+        },
+        "v5": {
+          "seconds": 40.54,
+          "candidates": [
+            {
+              "members": [
+                "gallade",
+                "dragonite",
+                "kingambit",
+                "talonflame",
+                "basculegion",
+                "scovillain"
+              ],
+              "outcomes": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rate": 0.25925925925925924
+            },
+            {
+              "members": [
+                "dragonite",
+                "kingambit",
+                "medicham",
+                "talonflame",
+                "basculegion",
+                "camerupt"
+              ],
+              "outcomes": [
+                0.0,
+                0.0,
+                0.5,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0
+              ],
+              "rate": 0.2037037037037037
+            },
+            {
+              "members": [
+                "golisopod",
+                "espeon",
+                "incineroar",
+                "garchomp",
+                "rillaboom",
+                "talonflame"
+              ],
+              "outcomes": [
+                1.0,
+                0.5,
+                1.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.5,
+                1.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rate": 0.4074074074074074
+            }
+          ]
+        },
+        "v6": {
+          "seconds": 14.15,
+          "candidates": [
+            {
+              "members": [
+                "dragonite",
+                "kingambit",
+                "medicham",
+                "talonflame",
+                "basculegion",
+                "scovillain"
+              ],
+              "outcomes": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.5,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rate": 0.16666666666666666
+            },
+            {
+              "members": [
+                "mawile",
+                "dragonite",
+                "indeedeef",
+                "basculegion",
+                "kingambit",
+                "whimsicott"
+              ],
+              "outcomes": [
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                1.0
+              ],
+              "rate": 0.2962962962962963
+            },
+            {
+              "members": [
+                "gallade",
+                "dragonite",
+                "kingambit",
+                "talonflame",
+                "basculegion",
+                "whimsicott"
+              ],
+              "outcomes": [
+                1.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                0.5,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rate": 0.3888888888888889
+            }
+          ]
+        }
+      },
+      "comparisons": {
+        "v5-v4": {
+          "delta": 0.0,
+          "ci": [
+            0.0,
+            0.0
+          ]
+        },
+        "v6-v4": {
+          "delta": -0.006172839506172844,
+          "ci": [
+            -0.083,
+            0.062
+          ]
+        }
+      },
+      "cores": [
+        [
+          "Gardevoir",
+          "Indeedee"
+        ],
+        [
+          "Baxcalibur",
+          "Ninetales"
+        ],
+        [
+          "Blaziken",
+          "Volcarona"
+        ],
+        [
+          "Excadrill",
+          "Tyranitar"
+        ],
+        [
+          "Scovillain",
+          "Slowking"
+        ],
+        [
+          "Grimmsnarl",
+          "Wyrdeer"
+        ],
+        [
+          "Overqwil",
+          "Sableye"
+        ],
+        [
+          "Sylveon",
+          "Volcarona"
+        ],
+        [
+          "Staraptor",
+          "Sylveon"
+        ],
+        [
+          "Indeedee",
+          "Mr. Rime"
+        ],
+        [
+          "Swampert",
+          "Volcarona"
+        ],
+        [
+          "Charizard",
+          "Leafeon"
+        ],
+        [
+          "Excadrill",
+          "Tyranitar"
+        ],
+        [
+          "Overqwil",
+          "Sableye"
+        ],
+        [
+          "Aurorus",
+          "Baxcalibur"
+        ],
+        [
+          "Kleavor",
+          "Salamence"
+        ],
+        [
+          "Golisopod",
+          "Mimikyu"
+        ],
+        [
+          "Corviknight",
+          "Wyrdeer"
+        ],
+        [
+          "Leafeon",
+          "Vivillon"
+        ],
+        [
+          "Garchomp",
+          "Vivillon"
+        ],
+        [
+          "Aurorus",
+          "Baxcalibur"
+        ],
+        [
+          "Gardevoir",
+          "Indeedee"
+        ],
+        [
+          "Excadrill",
+          "Tyranitar"
+        ],
+        [
+          "Overqwil",
+          "Volcarona"
+        ],
+        [
+          "Kingambit",
+          "Mr. Mime"
+        ],
+        [
+          "Aerodactyl",
+          "Kingambit"
+        ],
+        [
+          "Vileplume",
+          "Whimsicott"
+        ]
+      ]
+    }
+  ]
+}

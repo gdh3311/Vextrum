@@ -346,11 +346,13 @@ class DoublesPreview:
         fake_out = [f for f in foes if "Fake Out" in self.enemy_moves[f["id"]]
                     and any(self._fake_out({**f, "moves": ["Fake Out"]}, m, lead, terrain) for m in lead)]
         if fake_out:
-            cautions.append(f"{name(fake_out[0])}의 속이다 가능성을 열어 두고 첫 턴 방어를 고려하세요.")
+            guards = [name(m) for m in lead if set(m["moves"]) & GUARD]
+            caution = f"{name(fake_out[0])}의 속이다 가능성이 있습니다."
+            cautions.append(caution + (f" {' · '.join(guards)}의 방어를 고려하세요." if guards else ""))
         if terrain == "psychic":
             cautions.append("사이코필드가 깔리면 접지한 상대에게 선공기가 막힙니다.")
         if any("Trick Room" in self.enemy_moves[f["id"]] for f in foes):
-            cautions.append("트릭룸이 깔리면 느린 쪽부터 행동합니다. 방어와 교체로 지속 턴을 흘리세요.")
+            cautions.append("트릭룸은 시동 턴 포함 5턴이며, 같은 우선도 안에서 느린 쪽이 먼저 움직입니다.")
         elif any("Tailwind" in self.enemy_moves[f["id"]] for f in foes):
             cautions.append("상대 순풍이 깔리면 아래 행동 순서가 바뀔 수 있습니다.")
         if double_mega:
@@ -365,7 +367,7 @@ class DoublesPreview:
                        for side, mons in (("mine", lead), ("foe", foes)) for m in mons], key=lambda row: -row["speed"])
         return {
             "enemyLead": scenario["members"], "enemyBack": scenario["back"], "confirmed": bool(scenario.get("confirmed")),
-            "level": scenario["level"], "prob": scenario["prob"], "score": round(self._pair_score(
+            "level": scenario["level"], "prob": scenario["prob"], "evidence": "theory", "score": round(self._pair_score(
                 [m["id"] for m in lead], scenario["ids"]), 1),
             "focus": mini(focus), "goal": "상대 시동 지연" if focus["id"] in setters else "압박이 큰 상대부터 견제",
             "strategies": [s["label"] for s in active[:3]],

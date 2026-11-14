@@ -12,6 +12,7 @@ import 'sim_insights.dart';
 import 'party_lab.dart';
 import 'party_simulation.dart';
 import 'team_switcher.dart';
+import 'team_guide.dart';
 import '../i18n.dart';
 
 List<Json> partySets(Json party) =>
@@ -125,7 +126,7 @@ class PartyCard extends ConsumerStatefulWidget {
 class _PartyCardState extends ConsumerState<PartyCard> {
   bool saving = false;
 
-  Future<void> _save({bool play = false}) async {
+  Future<void> _save({bool play = false, Json? practice}) async {
     setState(() => saving = true);
     final p = widget.party;
     try {
@@ -134,7 +135,7 @@ class _PartyCardState extends ConsumerState<PartyCard> {
           .saveParty(p['name'] as String, partySets(p), p['format'] as String);
       if (!mounted) return;
       if (play) {
-        context.go('/battle');
+        context.go('/battle', extra: practice);
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -172,6 +173,32 @@ class _PartyCardState extends ConsumerState<PartyCard> {
         if (p['note'] != null) Text(p['note'] as String),
         if (p['simulation'] case final Json simulation)
           PartySimulationResult(simulation, members: members),
+        if (p['holdout'] case final Json sample)
+          LabExpansionTile(
+            title: Text("보류 상대 · ${fmtPct(100 * (sample['rate'] as num))} · ${sample['runs']}판"),
+            tilePadding: EdgeInsets.zero,
+            expandedCrossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("탐색에서 제외한 합성 코어 ${sample['coreCount']}종 · 마스터볼 CPU"),
+              if (sample['ci'] case final List interval)
+                Text("코어 기준 95% 추정 범위 ${fmtPct(100 * (interval[0] as num))}–${fmtPct(100 * (interval[1] as num))}"),
+              for (final match in (sample['strategies'] as List).cast<Json>())
+                Text("${match['label']} · ${match['runs']}판 · ${match['win']}승 ${match['draw']}무 ${match['loss']}패"),
+            ],
+          ),
+        if (p['guide'] case final Json guide)
+          LabExpansionTile(
+            title: const Text('선출과 운영 가이드'),
+            tilePadding: EdgeInsets.zero,
+            expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [TeamGuide(guide,
+              sets: partySets(p),
+              format: p['format'] as String,
+              onPractice: (plan) {
+                if (!saving) _save(play: true, practice: plan);
+              },
+            )],
+          ),
         if (p['rankers'] case final Json rankers) RankerMatchups(rankers),
         if (p['rosterSearch'] is List && (p['rosterSearch'] as List).isNotEmpty)
           PartyRosterChanges((p['rosterSearch'] as List).cast<Json>()),
@@ -436,9 +463,7 @@ class _StrategyPanel extends StatelessWidget {
           Expanded(child: Text('왜 이 팀인가', style: theme.textTheme.titleSmall)),
         ]),
         const SizedBox(height: 8),
-        Text(tr('주 승리 조건 · {}').replaceFirst('{}', '${strategy['primary']}')),
-        if (strategy['secondary'] != null)
-          Text(tr('막혔을 때 · {}').replaceFirst('{}', '${strategy['secondary']}')),
+        const Text('6마리 구성에서 발견한 전략 요소'),
         const SizedBox(height: 8),
         Wrap(spacing: 6, runSpacing: 4, children: [
           for (final t in tags)

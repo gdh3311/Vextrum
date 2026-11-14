@@ -17,11 +17,12 @@ class PartyEvaluationSummary extends StatelessWidget {
     final ranker = evaluation['objective'] == 'ranker' &&
         ((evaluation['rankerGames'] as num?) ?? 0) > 0;
     final search = evaluation['rosterSearch'] as Json?;
+    final holdoutRuns = (evaluation['holdoutRuns'] as num?) ?? 0;
     return Section(
       ranker ? '메타·랭커 종합 순위' : stable ? '전략별 안정성 순위' : '시뮬레이션 승률 순위',
       subtitle:
           "${evaluation['screened']}팀을 각각 ${evaluation['screenRuns']}판씩 평가하고, "
-          "${evaluation['finalists']}팀을 새 상대군에서 ${evaluation['finalRuns']}판씩 다시 검증했습니다.",
+          "${evaluation['finalists']}팀을 새 표본에서 ${evaluation['finalRuns']}판씩 평가했습니다.",
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(
           ranker
@@ -33,6 +34,9 @@ class PartyEvaluationSummary extends StatelessWidget {
                   .replaceFirst('{}', tr(cpuLabels[evaluation['cpu']] ?? '하이퍼볼')),
           style: Theme.of(context).textTheme.bodySmall,
         ),
+        if (holdoutRuns > 0)
+          Text("선정 완료 후 보류 상대 코어로 팀당 $holdoutRuns판 · 총 ${evaluation['seconds']}초",
+              style: Theme.of(context).textTheme.bodySmall),
         if (search != null && (search['tested'] as int) > 0) ...[
           const SizedBox(height: 5),
           Text(
@@ -182,7 +186,7 @@ class PartySimulationResult extends StatelessWidget {
           tilePadding: EdgeInsets.zero,
           expandedCrossAxisAlignment: CrossAxisAlignment.start,
           expandedAlignment: Alignment.centerLeft,
-          title: const Text('전략별 전적과 대응법'),
+          title: const Text('전략별 모의전 전적'),
           children: [_PartyStrategyTabs(strategies)],
         ),
       ]),
@@ -220,8 +224,6 @@ class _PartyStrategyTabsState extends State<_PartyStrategyTabs> {
       Text(
           "${active['label']} · ${active['win']}승 ${active['loss']}패 ${active['draw']}무",
           style: theme.textTheme.titleSmall),
-      const SizedBox(height: 3),
-      Text(active['counterplay'] as String, style: theme.textTheme.bodySmall),
     ]);
   }
 }

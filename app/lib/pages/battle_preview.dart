@@ -339,7 +339,7 @@ class _DoublesBriefingState extends State<DoublesBriefing> {
         ]),
       ),
       Section(
-        '상대 선출과 첫 턴 플랜',
+        '상대 선출 예상과 이론상 첫 턴',
         subtitle: '선봉·후발은 조합과 채용 통계로 추정합니다. 게임에서 확인한 선봉은 직접 선택할 수 있습니다.',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Wrap(spacing: 6, runSpacing: 4, children: [

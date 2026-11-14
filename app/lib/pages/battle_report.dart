@@ -196,7 +196,7 @@ class _StrategyDetail extends StatelessWidget {
             Text(data['plan'] as String),
             if (data['counterplay'] case final String counterplay) ...[
               const SizedBox(height: 8),
-              Text('내가 시도할 대응', style: theme.textTheme.titleSmall),
+              Text('상대 전략의 일반적인 대응', style: theme.textTheme.titleSmall),
               Text(counterplay),
             ],
             const SizedBox(height: 8),

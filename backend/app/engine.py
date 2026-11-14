@@ -93,9 +93,12 @@ class Engine:
         self.d = dataset
         self.P: dict = dataset["pokemon"]
         self.M: dict = dataset["moves"]
+        from .collector import tid
         from .mechanics import patch_moves
 
         patch_moves(self.M)  # 챔피언스에서 바뀐 위력·명중·타입
+        self.move_names = {tid(name): name for name in self.M}
+        self.move_ids = {name: move_id for move_id, name in self.move_names.items()}
         self._repair_stones()
         self._default: dict = {}
         self._matchups: dict = {}
@@ -168,7 +171,8 @@ class Engine:
                 v = math.floor(v * 0.9)
             stats[k] = v
         ability = mega["abilities"][0] if mega else (s.get("ability") or base["ability"])
-        moves = [m for m in (s.get("moves") if s.get("moves") is not None else base["moves"]) if m in self.M][:4]
+        moves = [self.move_names.get(m, m) for m in (s["moves"] if s.get("moves") is not None else base["moves"])]
+        moves = [m for m in moves if m in self.M][:4]
         speed = stats["spe"] * (1.5 if item == "Choice Scarf" else 1)
         return {
             "id": p["id"], "name": form["name"], "ko": form.get("ko"), "baseName": p["name"], "sprite": form["sprite"],
@@ -188,12 +192,12 @@ class Engine:
     def damage(self, a: dict, move: str, b: dict, fmt: str, *,
                spread: bool | None = None, full_hp: bool = True, recharge_discount: bool = True,
                weather: str | None = None, psychic_terrain: bool = False,
-               estimate_intimidate: bool = True) -> dict | None:
+               estimate_intimidate: bool = True, power_multiplier: float = 1) -> dict | None:
         """평균 데미지를 상대 HP 대비 %로 추정한다 (급소/랭크 변화/날씨 지속 등은 무시한 근사치)."""
         m = self.M.get(move)
         if not m or m["category"] == "Status" or not m["power"] or m.get("selfdestruct"):
             return None
-        mtype, power, phys = m["type"], m["power"] * m.get("hits", 1), m["category"] == "Physical"
+        mtype, power, phys = m["type"], m["power"] * m.get("hits", 1) * power_multiplier, m["category"] == "Physical"
         flags = m.get("flags", [])
         aa, ba = a["ability"], (None if a["ability"] in MOLD else b["ability"])
         if move == "Weather Ball" and weather:

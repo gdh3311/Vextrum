@@ -6,18 +6,19 @@
 from datetime import datetime, timezone
 
 # 결과가 의존하는 버전 (명세 3.1): 규칙·시뮬레이터·CPU 정책이 바뀌면 이전 성적을 그대로 잇지 않는다.
-SIMULATOR_VERSION = "sim-2026.11.13"  # 방음 수정, 도구 효과 추가, 패배 사건 기록
-POLICY_VERSION = "cpu-tiers-v3"  # 비공개 세트를 보지 않는 CPU (몬스터볼~챔피언)
+SIMULATOR_VERSION = "sim-2026.11.13-r2"  # 분함의발구르기, 미구현 요소 분리
+POLICY_VERSION = "cpu-tiers-v4"  # 날씨·트릭룸 선출, 트릭룸 해제, 연구 상대 스타일 혼합
 RULES_VERSION = "champions-mc-2026.11"
+OPPONENT_VERSION = "synthetic-core-split-v1"
 
 
 def versions(dataset):
     return {"simulator": SIMULATOR_VERSION, "policy": POLICY_VERSION, "rules": RULES_VERSION,
-            "data": dataset.get("generatedAt")}
+            "opponents": OPPONENT_VERSION, "data": dataset.get("generatedAt")}
 
 
 def version_key(dataset):
-    return f"{dataset.get('generatedAt')}|{SIMULATOR_VERSION}|{POLICY_VERSION}"
+    return "|".join(str(v) for v in versions(dataset).values())
 
 
 # 공식 발표 기준 (출처 URL 함께 보관). 확인되지 않은 시즌은 넣지 않는다.

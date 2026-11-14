@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import patch
 
-from app import auto_team, battle_lab, collector, roster_search, season_notice, simulation
+from app import auto_team, battle_lab, collector, guide, roster_search, season_notice, simulation
 from app.progress import Progress
 from app.engine import Engine
 
@@ -16,6 +16,83 @@ class BattleLabTest(unittest.TestCase):
 
     def team(self, fmt):
         return [{"id": p["id"]} for p in self.engine.ranked(fmt)[:6]]
+
+    def test_hybrid_guide_matches_selection_and_replays_the_observed_opening(self):
+        fmt = "Doubles"
+        e = self.engine
+        sets = [
+            {"id": "hippowdon", "ability": "Sand Stream", "moves": ["Earthquake", "Yawn"], "mega": None},
+            {"id": "ninetalesalola", "ability": "Snow Warning", "moves": ["Blizzard", "Aurora Veil"], "mega": None},
+            {"id": "garchomp", "moves": ["Earthquake", "Dragon Claw", "Protect"], "mega": None},
+            {"id": "chandelure", "moves": ["Trick Room", "Shadow Ball", "Heat Wave"], "mega": None, "item": None},
+            {"id": "golisopod", "moves": ["Sucker Punch", "Liquidation", "First Impression"],
+             "mega": "Mega Golisopod"},
+            {"id": "sylveon", "moves": ["Hyper Voice", "Protect"], "mega": None},
+        ]
+        data = guide.team_guide(e, sets, fmt)
+        selected = {m["id"] for key in ("lead", "back") for m in data["lead"][key]}
+        self.assertTrue(all(m["id"] in selected for axis in data["axes"] for m in axis["members"]))
+        for row in data["prep"]:
+            if row["label"] == "트릭룸":
+                self.assertNotIn("도발", row["advice"])
+                self.assertNotIn("속이다", row["advice"])
+        modes = {row["key"]: row for row in data["alternatives"]}
+        for key, setter, excluded in (("sand", "hippowdon", "ninetalesalola"),
+                                      ("snow", "ninetalesalola", "hippowdon")):
+            if key in modes:
+                line = modes[key]
+                self.assertEqual(line["lead"][0]["id"], setter)
+                self.assertNotIn(excluded, {m["id"] for m in line["lead"] + line["back"]})
+
+        chosen = ["chandelure", "golisopod", "garchomp", "sylveon"]
+        report = battle_lab.verify_pick(e, fmt, sets, chosen, "trickroom", runs=3)
+        plan = guide.selection_evidence(e, fmt, battle_lab._resolve(e, fmt, sets), report)[0]
+        self.assertEqual([m["id"] for m in plan["lead"] + plan["back"]], chosen)
+        self.assertEqual(plan["runs"], 3)
+        attacks = report["strategies"][0]["picks"][0]["attacks"]
+        self.assertTrue(attacks)
+        self.assertTrue(all(a["actor"] in chosen and a["kos"] <= a["hits"] <= a["attempts"] for a in attacks))
+        sample = plan["sample"]
+        battle = battle_lab.start(e, fmt, sets, sample["seed"], chosen, plan["difficulty"],
+                                  cpu_style=sample["cpuStyle"])
+        while not battle.winner:
+            battle.advance()
+        self.assertEqual(battle.winner, sample["result"])
+        self.assertEqual(len(plan["opening"]), len(battle.opening_actions))
+        self.assertGreaterEqual(plan["openingRuns"], 1)
+        self.assertTrue(plan["openingClaims"])
+        self.assertTrue(all(c["status"] == "SIM_OBSERVED" and set(c["requiredPokemonIds"]) <= set(chosen)
+                            for c in plan["openingClaims"]))
+
+    def test_opponent_core_pools_do_not_leak_and_holdout_replays(self):
+        e, fmt = self.engine, "Doubles"
+        pools = {split: {battle_lab.core_key(core) for _, cores, _ in battle_lab._split_pools(e, fmt, split).values()
+                         for core in cores} for split in ("search", "holdout", "audit")}
+        self.assertTrue(all(pools.values()))
+        self.assertFalse(pools["search"] & (pools["holdout"] | pools["audit"]))
+        self.assertFalse(pools["holdout"] & pools["audit"])
+        team = [e.default_set(pid, fmt) for pid in ("garchomp", "incineroar", "chandelure", "sylveon")]
+        report = battle_lab.compare_teams(e, fmt, [team], 9, 871, split="holdout")[0]
+        self.assertTrue(set(report["opponentCores"]) <= pools["holdout"])
+        pick = report["strategies"][0]["picks"][0]
+        sample = pick["sample"]
+        replay = battle_lab.start(e, fmt, team, sample["seed"], [*pick["leads"], *pick["back"]],
+                                  cpu_style=sample["cpuStyle"], split=sample["pool"])
+        while not replay.winner:
+            replay.advance()
+        self.assertEqual(replay.winner, sample["result"])
+
+    def test_reactive_move_is_counted_as_attempt_without_a_hit_on_protect(self):
+        fmt = "Singles"
+        mine = [{"id": "kingambit", "moves": ["Sucker Punch"], "item": None, "mega": None}]
+        foe = [{"id": "garchomp", "moves": ["Protect"], "item": None, "mega": None}]
+        battle = simulation.Battle(self.engine, fmt, mine, foe, 3)
+        battle._resolve_actions([{"slot": 0, "kind": "move", "move": "Sucker Punch", "target": 0}],
+                                [{"slot": 0, "kind": "move", "move": "Protect", "target": None}])
+        key = ("kingambit", "Sucker Punch", "garchomp")
+        self.assertEqual(battle.executed_attacks[(*key, "attempts")], 1)
+        self.assertEqual(battle.executed_attacks[(*key, "hits")], 0)
+        self.assertEqual(battle.executed_attacks[(*key, "kos")], 0)
 
     def test_random_drafts_have_distinct_sets_and_the_required_core(self):
         for fmt in ("Doubles", "Singles"):

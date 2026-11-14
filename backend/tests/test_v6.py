@@ -29,6 +29,10 @@ class V6Test(unittest.TestCase):
             self.assertEqual(sim["runs"], auto_team.V6_SELECT_RUNS["quick"])
             # 마스터볼 혼합 스타일로 고른다: 스타일별 기록이 남는다
             self.assertGreaterEqual(len(sim.get("cpuStyles", {})), 3)
+            holdout = c["holdout"]
+            self.assertEqual(holdout["runs"], auto_team.HOLDOUT_RUNS["quick"])
+            self.assertEqual(holdout["kind"], "synthetic_core_holdout")
+            self.assertGreater(holdout["coreCount"], 1)
 
     def test_v4_path_is_unchanged(self):
         r = auto_team.build(self.e, "Doubles", [], [], [], depth="quick", tune="off", rankers=False, engine="v4")

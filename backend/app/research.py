@@ -23,7 +23,7 @@ import threading
 import time
 from pathlib import Path
 
-from . import auto_team, collector, parallel, regulation
+from . import auto_team, battle_lab, collector, parallel, regulation, roster_search, simulation
 from .parties import RANKERS
 
 DB = Path(os.environ["RESEARCH_DB"]) if os.environ.get("RESEARCH_DB") else collector.DATA_DIR / "research.sqlite"
@@ -88,7 +88,8 @@ class Context:
 
     def niche(self, roster):
         features = set().union(*(c.features for c in roster))
-        archetype = next((w for w in ("rain", "sun", "sand", "snow") if f"{w}_set" in features), None)
+        weather = ("rain", "sun", "sand", "snow")
+        archetype = next((w for w in weather if {f"{w}_set", f"{w}_core"} <= features), None)
         if not archetype:
             if "trickroom" in features and sum("slow_attacker" in c.features for c in roster) >= 2:
                 archetype = "trickroom"
@@ -107,7 +108,8 @@ class Context:
     def valid(self, roster):
         megas = sum(bool(c.resolved["mega"]) for c in roster)
         return (len(roster) == 6 and megas <= 2
-                and all(auto_team._eligible(c, roster[:i]) for i, c in enumerate(roster)))
+                and all(auto_team._eligible(c, roster[:i]) and not simulation.unsupported(self.e, self.fmt, c.set)
+                        for i, c in enumerate(roster)))
 
 
 class Lab:
@@ -145,6 +147,8 @@ class Lab:
                 CREATE TABLE IF NOT EXISTS events (
                     id INTEGER PRIMARY KEY AUTOINCREMENT, t REAL, fmt TEXT, kind TEXT, text TEXT, sig TEXT);
                 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+                CREATE TABLE IF NOT EXISTS holdouts (
+                    sig TEXT, fmt TEXT, version TEXT, result TEXT, PRIMARY KEY (sig, fmt, version));
             """)
             # WAL: 쓰는 중에도 다른 프로세스가 읽을 수 있다 (벤치·테스트·앱 백엔드가 같은 파일을 쓴다)
             con.execute("PRAGMA journal_mode=WAL")
@@ -237,15 +241,17 @@ class Lab:
             if parent is None or roll < .22:
                 roster, origin = self.fresh(ctx), "draft"
             elif roll < .62:
-                roster, origin = self.swap(ctx, [ctx.candidate(s) for s in parent["sets"]], fmt, version), "swap"
+                roster, origin = self.swap(ctx, parent, fmt, version), "swap"
             elif roll < .82:
                 roster, origin = self.retune(ctx, parent["sets"]), "sets"
             else:
                 other = rng.choice(parents)
                 roster, origin = self.cross(ctx, parent, other, fmt, version), "cross"
             if roster and ctx.valid(roster):
-                # 자식은 부모의 선출 계획을 물려받는다 (빠진 포켓몬이 든 열쇠는 전투에서 무시된다)
-                batch.append((roster, origin, parent["sig"] if parent else None, parent["policy"] if parent else None))
+                ids = {c.id for c in roster}
+                inherited = {key: pick for key, pick in ((parent or {}).get("policy") or {}).items()
+                             if len(pick) == len(set(pick)) == battle_lab.limit(fmt) and set(pick) <= ids}
+                batch.append((roster, origin, parent["sig"] if parent else None, inherited or None))
         # 선출 계획 붙이기: 계획 없는 상위 엘리트 하나에 간이 선출 최적화를 돌려 '팀 + 계획' 새 개체를 만든다.
         if self.generation % 3 == 0:
             bare = next((r for group in elites.values() for r in group
@@ -255,7 +261,8 @@ class Lab:
 
                 self.planned.add(bare["sig"])
                 sets = bare["sets"]
-                report = parallel.compare_teams(e, fmt, [sets], 16, rng.randrange(1 << 30), "ultra")[0]
+                report = parallel.compare_teams(e, fmt, [sets], 16, rng.randrange(1 << 30), "ultra",
+                                                cpu_styles=auto_team.SELECT_STYLES)[0]
                 plan = pick_policy.quick(e, fmt, sets, report, seed=rng.randrange(1 << 30))
                 if plan:
                     batch.append(([ctx.candidate(x) for x in sets], "policy", bare["sig"],
@@ -267,9 +274,27 @@ class Lab:
                          f"{len(batch)}팀 × {games}판 ({', '.join(dict.fromkeys(archetypes))})")
         seed = rng.randrange(1 << 30)
         reports = parallel.compare_teams(e, fmt, [[c.set for c in r] for r, _, _, _ in batch], games, seed, "ultra",
-                                         policies=[pol for _, _, _, pol in batch])
+                                         policies=[pol for _, _, _, pol in batch],
+                                         cpu_styles=auto_team.SELECT_STYLES)
         self.session_battles += len(batch) * games
         self.record(ctx, fmt, version, batch, reports)
+        if self.generation % 4 == 0:
+            self.evaluate_holdout(e, fmt, version)
+
+    def evaluate_holdout(self, e, fmt, version):
+        with self.db_lock:
+            tested = {r[0] for r in self.db().execute("SELECT sig FROM holdouts WHERE fmt=? AND version=?", (fmt, version))}
+        top = next((r for r in self.rows(fmt, version)[:12] if r["games"] >= 40 and r["sig"] not in tested), None)
+        if top is None:
+            return
+        report = parallel.compare_teams(e, fmt, [top["sets"]], 18, 20_915_003, "master",
+                                        policies=[top["policy"]], cpu_styles=(*auto_team.SELECT_STYLES, "counter"),
+                                        split="holdout")[0]
+        result = json.dumps(battle_lab.holdout_summary(report), ensure_ascii=False)
+        with self.db_lock:
+            with self.db() as db:
+                db.execute("INSERT OR IGNORE INTO holdouts VALUES (?, ?, ?, ?)", (top["sig"], fmt, version, result))
+        self.session_battles += report["runs"]
 
     def rows(self, fmt, version):
         with self.db_lock:
@@ -345,12 +370,22 @@ class Lab:
         scored.sort(key=lambda row: -row[0])
         return rng.choice(scored[:12])[1]
 
-    def swap(self, ctx, roster, fmt, version):
-        """멤버 1마리를 바꾼다."""
+    def swap(self, ctx, parent, fmt, version):
+        """패배한 상대에 대응할 멤버를 우선 시험한다."""
+        roster = tuple(ctx.candidate(s) for s in parent["sets"])
+        report = parent["report"] or {}
+        if report.get("strategies") and report.get("runs"):
+            group = (parent["archetype"],)
+            branch = roster_search.Branch(group, roster, report)
+            extra = auto_team.Extra(pairs=ctx.pairs)
+            _, proposals = roster_search._proposals(
+                ctx.e, fmt, branch, ctx.pool, set(), ctx.valid, ctx.weights, extra, 4, set())
+            if proposals:
+                return list(self.rng.choice(proposals))
         slot = self.rng.randrange(6)
         others = roster[:slot] + roster[slot + 1:]
         pick = self.addition(ctx, others, fmt, version)
-        return others[:slot] + [pick] + others[slot:] if pick else None
+        return [*others[:slot], pick, *others[slot:]] if pick else None
 
     def retune(self, ctx, sets):
         from .set_tuner import Tuner
@@ -406,9 +441,12 @@ class Lab:
                 worst = min(report["strategies"], key=lambda r: (r["win"] + .5 * r["draw"]) / max(1, r["runs"]),
                             default=None)
                 summary = json.dumps({
-                    "strategies": [{k: r[k] for k in ("style", "label", "win", "loss", "draw", "runs")}
+                    "strategies": [{k: r[k] for k in ("style", "label", "win", "loss", "draw", "runs", "picks", "lossFoes")}
                                    for r in report["strategies"]],
                     "lead": report.get("lead"),
+                    "runs": report["runs"],
+                    "memberStats": [{"id": row["id"], "picked": row["picked"]} for row in report["memberStats"]],
+                    "difficulty": report["difficulty"],
                     "worst": worst["style"] if worst else None,
                 }, ensure_ascii=False)
                 row = con.execute("SELECT games, wins FROM teams WHERE sig=? AND fmt=? AND version=?",
@@ -480,22 +518,30 @@ class Lab:
                 "teams": len(rows), "battles": total, "niches": len(self.elites(rows)), "events": events}
 
     def team_view(self, e, fmt, r):
+        from .guide import team_guide
         from .parties import _member
 
         members = [_member(e, s, fmt) for s in r["sets"]]
+        guide = team_guide(e, r["sets"], fmt, report=r["report"])
+        lead = guide["lead"]["lead"]
+        label = ARCHETYPES[r["archetype"]]
         return {"id": r["sig"], "format": fmt, "complete": True,
-                "name": f"{ARCHETYPES[r['archetype']]} · " + " + ".join(m["ko"] or m["name"] for m in members[:2]),
+                "name": " + ".join(m["ko"] or m["name"] for m in lead),
                 "archetype": r["archetype"], "archetypeLabel": ARCHETYPES[r["archetype"]],
                 "bucket": r["bucket"], "bucketLabel": BUCKETS[r["bucket"]], "overlap": r["overlap"],
                 "how": r["origin"], "games": r["games"], "wins": round(r["wins"], 1), "warnings": [],
-                "origin": {"label": f"{ARCHETYPES[r['archetype']]} · {BUCKETS[r['bucket']]}",
+                "origin": {"label": f"{label} 구성 · {BUCKETS[r['bucket']]}",
                            "detail": f"승률 {100 * r['wins'] / max(1, r['games']):.0f}% · {r['games']}판 · "
                                      f"랭커 파티와 {r['overlap']}마리 겹침"},
                 "rate": round(r["wins"] / r["games"], 3) if r["games"] else 0, "low": round(r["low"], 3),
-                "members": members, "report": r["report"]}
+                "members": members, "report": r["report"], "guide": guide,
+                "rulesCoverage": simulation.rules_report(e, fmt, r["sets"])}
 
     def leaderboard(self, e, fmt, bucket=None, archetype=None, limit=24, minimum=40):
-        rows = [r for r in self.rows(fmt, regulation.version_key(e.d)) if r["games"] >= minimum
+        version = regulation.version_key(e.d)
+        with self.db_lock:
+            holdouts = dict(self.db().execute("SELECT sig, result FROM holdouts WHERE fmt=? AND version=?", (fmt, version)))
+        rows = [r for r in self.rows(fmt, version) if r["games"] >= minimum
                 and (not bucket or r["bucket"] == bucket) and (not archetype or r["archetype"] == archetype)]
         out, seen = [], set()
         for r in rows:  # 같은 6마리(세트만 다름)는 가장 좋은 하나만
@@ -503,7 +549,10 @@ class Lab:
             if key in seen:
                 continue
             seen.add(key)
-            out.append(self.team_view(e, fmt, r))
+            view = self.team_view(e, fmt, r)
+            if r["sig"] in holdouts:
+                view["holdout"] = json.loads(holdouts[r["sig"]])
+            out.append(view)
             if len(out) == limit:
                 break
         return out

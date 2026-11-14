@@ -30,6 +30,8 @@ def _copy_battle(battle):
     forecast._seen_cache = {}
     forecast.trace = [dict(t) for t in battle.trace]
     forecast.opening = list(battle.opening)
+    forecast.opening_actions = list(battle.opening_actions)
+    forecast.executed_attacks = Counter()
     return forecast
 
 

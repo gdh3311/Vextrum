@@ -42,7 +42,8 @@ enum _Rank {
 }
 
 class BattlePage extends ConsumerWidget {
-  const BattlePage({super.key});
+  const BattlePage({super.key, this.practice});
+  final Json? practice;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -72,6 +73,7 @@ class BattlePage extends ConsumerWidget {
         format: format,
         roster: roster,
         initialTeam: 'saved:$active',
+        practice: practice,
         names: {
           for (final p in pokemon)
             p['id'] as String: (p['ko'] ?? p['name']) as String
@@ -86,12 +88,14 @@ class _BattlePractice extends StatefulWidget {
   final List<_Roster> roster;
   final String initialTeam;
   final Map<String, String> names;
+  final Json? practice;
   const _BattlePractice({
     super.key,
     required this.format,
     required this.roster,
     required this.initialTeam,
     required this.names,
+    this.practice,
   });
 
   @override
@@ -132,6 +136,9 @@ class _BattlePracticeState extends State<_BattlePractice> {
   String teamName = '';
   String foeName = '';
   Json setup = {};
+  String? cpuStyle;
+  String? opponentPool;
+  int? megaSlot;
   final scoutKey = GlobalKey();
   final arenaKey = GlobalKey();
 
@@ -153,6 +160,18 @@ class _BattlePracticeState extends State<_BattlePractice> {
   void initState() {
     super.initState();
     _load();
+    final plan = widget.practice;
+    final sample = plan?['sample'] as Json?;
+    final team = widget.roster.where((r) => r.id == widget.initialTeam).firstOrNull;
+    if (plan != null && sample != null && team != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final pick = [for (final key in ['lead', 'back'])
+          for (final mon in (plan[key] as List).cast<Json>()) mon['id'] as String];
+        _scout(team, seed: sample['seed'] as int, replayRank: _Rank.fromKey(plan['difficulty']),
+            selection: pick, opponentStyle: sample['cpuStyle'] as String?, pool: sample['pool'] as String?);
+      });
+    }
   }
 
   Future<void> _load() async {
@@ -226,14 +245,19 @@ class _BattlePracticeState extends State<_BattlePractice> {
         'team': team.sets,
       };
 
-  Future<void> _scout(_Roster team, {int? seed, _Rank? replayRank}) => _request(
-          '/api/battle/scout', {..._body(team), if (seed != null) 'seed': seed},
+  Future<void> _scout(_Roster team, {int? seed, _Rank? replayRank,
+      List<String>? selection, String? opponentStyle, String? pool}) => _request(
+          '/api/battle/scout', {..._body(team), if (seed != null) 'seed': seed,
+            if (pool != null) 'opponentPool': pool},
           (result) async {
         setState(() {
           scouting = result;
           mode = _BattleMode.manual;
           rank = replayRank ?? rank;
-          order = (result['selection'] as List).cast<String>().toList();
+          order = selection ?? (result['selection'] as List).cast<String>().toList();
+          cpuStyle = opponentStyle;
+          opponentPool = pool;
+          megaSlot = null;
           battle = null;
           choices.clear();
           replacements.clear();
@@ -253,6 +277,8 @@ class _BattlePracticeState extends State<_BattlePractice> {
       if (!batch) 'manual': true,
       if (!batch) 'seed': scouting!['seed'],
       if (!batch) 'selection': order,
+      if (!batch && cpuStyle != null) 'cpuStyle': cpuStyle,
+      if (!batch && opponentPool != null) 'opponentPool': opponentPool,
     };
     await _request(batch ? '/api/battle/batch' : '/api/battle/start', body,
         (result) async {
@@ -262,6 +288,7 @@ class _BattlePracticeState extends State<_BattlePractice> {
             ? '무작위 전략 파티'
             : (result['opponent'] as Json)['label'] as String;
         choices.clear();
+        megaSlot = null;
         replacements.clear();
         editing = null;
         battle = batch ? null : result;
@@ -282,6 +309,7 @@ class _BattlePracticeState extends State<_BattlePractice> {
     await _request('/api/battle/${current['id']}/$endpoint', {
       'turn': current['turn'],
       if (replace && phase != null) 'phase': phase,
+      if (!replace && megaSlot != null) 'megaSlot': megaSlot,
       if (replace)
         'choices': {
           for (final entry in replacements.entries) '${entry.key}': entry.value
@@ -292,6 +320,7 @@ class _BattlePracticeState extends State<_BattlePractice> {
       setState(() {
         battle = result;
         choices.clear();
+        megaSlot = null;
         replacements.clear();
         editing = null;
         _queuePlayback(result);
@@ -825,6 +854,7 @@ class _BattlePracticeState extends State<_BattlePractice> {
       ]);
     }
     final slots = [for (final g in options) g['slot'] as int];
+    final megaOptions = (battle?['megaOptions'] as List? ?? const []).cast<int>();
     final pending = slots.where((slot) => !choices.containsKey(slot)).firstOrNull;
     final now = editing != null && slots.contains(editing) ? editing : pending;
     final switchCount = choices.values.where((action) => action['kind'] == 'switch').length;
@@ -907,6 +937,7 @@ class _BattlePracticeState extends State<_BattlePractice> {
                     choices.remove(now);
                   } else {
                     choices[now] = action;
+                    if (megaSlot == now && action['kind'] != 'move') megaSlot = null;
                     editing = null;
                   }
                 }),
@@ -920,6 +951,16 @@ class _BattlePracticeState extends State<_BattlePractice> {
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       steps,
+      if (megaOptions.isNotEmpty)
+        Wrap(spacing: 8, children: [
+          for (final slot in megaOptions)
+            if (choices[slot] == null || choices[slot]?['kind'] == 'move')
+              FilterChip(
+                label: Text("${_monName(mon(slot))} · ${tr('메가진화')}"),
+                selected: megaSlot == slot,
+                onSelected: locked ? null : (selected) => setState(() => megaSlot = selected ? slot : null),
+              ),
+        ]),
       body,
       Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
         endButton,

@@ -58,6 +58,47 @@ WEATHER_CHARGE = {"Solar Beam": "sun", "Solar Blade": "sun", "Electro Shot": "ra
 LOW_HP_BOOST = {"Blaze": "Fire", "Torrent": "Water", "Overgrow": "Grass", "Swarm": "Bug"}
 SUPPORT |= WEATHER_MOVES.keys()
 SUPPORT |= mx.NEW_SUPPORT
+
+# Known gaps from the simulator audit. Coverage for other effects remains approximate.
+UNIMPLEMENTED_ITEMS = {"Eject Button", "Quick Claw", "Iron Ball", "Leppa Berry", "Red Card", "Big Root",
+                       "Shell Bell", "Metronome"}
+UNIMPLEMENTED_ABILITIES = {"Cursed Body", "Flower Veil", "Illusion", "Moody",
+                           "Frisk", "Pickpocket", "Damp", "Telepathy", "Snow Cloak", "Magician", "Bulletproof"}
+RULE_UNVERIFIED_ABILITIES = {"Emergency Exit", "Wimp Out"}
+UNIMPLEMENTED_MOVES = {"Curse"}  # Ghost Curse currently applies the cost without its residual effect.
+
+
+def move_supported(e, move):
+    move = e.move_names.get(move, move)
+    data = e.M.get(move)
+    return bool(data and not data.get("unknown") and move not in UNIMPLEMENTED_MOVES
+                and (move in SUPPORT or data["power"] and not data.get("selfdestruct")))
+
+
+def unsupported(e, fmt, entry):
+    s = {**e.default_set(entry["id"], fmt), **entry}
+    moves = s["moves"] if s["moves"] is not None else e.default_set(s["id"], fmt)["moves"]
+    problems = [{"kind": "move", "name": move, "id": e.move_ids.get(move, move)}
+                for move in moves if not move_supported(e, move)]
+    form = e.find_mega(e.P[s["id"]], name=s["mega"]) if s["mega"] else None
+    for ability in dict.fromkeys((s["ability"] or e.default_set(s["id"], fmt)["ability"],
+                                  form["abilities"][0] if form else None)):
+        if ability in UNIMPLEMENTED_ABILITIES:
+            problems.append({"kind": "ability", "name": ability})
+    if s["item"] in UNIMPLEMENTED_ITEMS:
+        problems.append({"kind": "item", "name": s["item"]})
+    return [{"pokemon": s["id"], "status": "UNSIMULATABLE", **p} for p in problems]
+
+
+def rules_report(e, fmt, sets):
+    issues = [issue for s in sets for issue in unsupported(e, fmt, s)]
+    for s in sets:
+        base = e.default_set(s["id"], fmt)
+        ability = s.get("ability") or base["ability"]
+        if ability in RULE_UNVERIFIED_ABILITIES:
+            issues.append({"pokemon": s["id"], "kind": "ability", "name": ability, "status": "RULE_UNVERIFIED"})
+    return {"status": "UNSIMULATABLE" if any(r["status"] == "UNSIMULATABLE" for r in issues) else "RULE_UNVERIFIED",
+            "issues": issues, "rulesVersion": mx.RULES_CONTRACT}
 TARGETED_SUPPORT -= {"Nuzzle"}
 STAT_LABELS = {"atk": "공격", "def": "방어", "spa": "특공", "spd": "특방", "spe": "스피드"}
 THAW_MOVES = {"Flare Blitz", "Scald", "Sacred Fire", "Scorching Sands", "Flame Wheel", "Pyro Ball", "Fusion Flare",
@@ -114,6 +155,7 @@ class Fighter:
     encore: int = 0
     encore_move: str | None = None
     last_move: str | None = None
+    failed_move_turn: int = 0
     yawn: int = 0
     destiny: bool = False
     disguise: bool = True
@@ -148,6 +190,7 @@ class Fighter:
         self.sub = self.encore = self.yawn = 0
         self.seeded = self.destiny = False
         self.encore_move = self.last_move = None
+        self.failed_move_turn = 0
 
 
 class Battle:
@@ -180,6 +223,8 @@ class Battle:
                            setup_moves=0) for _ in range(2)]
         self.first_faint = None
         self.opening = []  # 내 편(0)의 첫 턴 행동
+        self.opening_actions = []
+        self.executed_attacks = Counter()  # (공격자, 기술, 대상) → 실제 시도·명중·KO
         self.log: list[dict] = []
         self.keep_log = log
         self.context = context or {}
@@ -217,13 +262,13 @@ class Battle:
     def _mega_gain(f: Fighter) -> int:
         return sum(f.mega_form["stats"].values()) - sum(f.mon["stats"].values())
 
-    def _mega_turn(self):
-        """턴 시작: 아직 메가진화하지 않은 쪽은 필드의 메가 후보 중 능력치가 가장 크게 오르는 하나를 진화시킨다.
-        (실제 게임처럼 배틀 중에 고른다. 교체로 나온 포켓몬은 다음 턴 시작부터 진화할 수 있다.)"""
+    def _mega_turn(self, player_slot=None):
+        """Apply a manual choice or the automatic policy once per side."""
         for side in range(2):
             if not self.mega_left[side]:
                 continue
-            ready = [f for _, f in self._present(side) if f.mega_form and f.hp]
+            ready = [f for slot, f in self._present(side) if f.mega_form and f.hp
+                     and (side != 0 or not self.manual or slot == player_slot)]
             if not ready:
                 continue
             fighter = max(ready, key=self._mega_gain)
@@ -589,7 +634,9 @@ class Battle:
                                  full_hp=target.hp == target.max_hp, recharge_discount=False,
                                  weather="sun" if actor.mon["ability"] == "Mega Sol" else self._wx,
                                  psychic_terrain=self.terrain == "psychic" and self._grounded(actor),
-                                 estimate_intimidate=False)
+                                 estimate_intimidate=False,
+                                 power_multiplier=2 if move == "Stomping Tantrum" and self.turn > 1
+                                 and actor.failed_move_turn == self.turn - 1 else 1)
         if not hit:
             return 0, 100
         accuracy = hit["acc"]
@@ -921,13 +968,17 @@ class Battle:
             actor.protect_chain += 1
             if not actor.protected:
                 self._event("방어에 실패했습니다.")
+                return False
         elif move in HEAL:
-            self._heal(actor, actor.max_hp // 2)
+            return bool(self._heal(actor, actor.max_hp // 2))
         elif move in BOOSTS:
             changed = self._change_stages(actor, BOOSTS[move])
             if changed.get("atk", 0) > 0 or changed.get("spa", 0) > 0:
                 self.activated[side].add("setup")
+            return bool(changed)
         elif move == "Tailwind":
+            if self.tailwind[side]:
+                return False
             self.tailwind[side] = 4
             self.activated[side].add("tailwind")
             self._event(f"{'상대' if side else '내 팀'}의 뒤에서 순풍이 불기 시작했다!")
@@ -937,8 +988,12 @@ class Battle:
                 self.activated[side].add("trickroom")
             self._event("행동 순서가 뒤집혔다!" if self.trick_room else "트릭룸이 풀렸다!")
         elif move in WEATHER_MOVES:
+            if self.weather == WEATHER_MOVES[move]:
+                return False
             self._set_weather(side, WEATHER_MOVES[move], actor)
         elif move in TERRAIN_MOVES:
+            if self.terrain == TERRAIN_MOVES[move]:
+                return False
             self._set_terrain(side, TERRAIN_MOVES[move], actor)
         elif move == "Chilly Reception":
             self._set_weather(side, "snow", actor)
@@ -1029,6 +1084,7 @@ class Battle:
             partner = next((f for _, f in self._present(side) if f is not actor), None)
             if not partner or not self._heal(partner, partner.max_hp // 2):
                 self._event(f"{self._move_name(move)} 실패")
+                return False
         elif move == "Destiny Bond":
             actor.destiny = True
             self._event(f"{actor.name}은(는) 상대를 길동무로 삼으려 하고 있다.")
@@ -1048,20 +1104,23 @@ class Battle:
                 blocked = ability == "Good as Gold" or (move == "Parting Shot" and ability == "Soundproof")
                 if blocked:
                     self._ability(target)
-                elif not target.protected and not self._priority_blocked(side, target, actor, move):
+                elif target.protected:
+                    return None
+                elif not self._priority_blocked(side, target, actor, move):
                     if move == "Parting Shot":
                         if self._lower(target, {"atk": -1, "spa": -1}, actor) or ability == "Mirror Armor":
                             return True
                     elif move != "Taunt":
                         if self._targeted(side, actor, target, move):
-                            return False
+                            return True
                     elif ability != "Oblivious" and not target.taunt:
                         target.taunt = 3
                         self._event(f"{target.name}은(는) 보조기를 쓸 수 없게 됐다.")
                         self._mental_herb(target)
-                        return False
+                        return True
             self._event(f"{self._move_name(move)} 실패")
-        return False
+            return False
+        return True
 
     @staticmethod
     def _accuracy(actor, target, accuracy):
@@ -1136,8 +1195,7 @@ class Battle:
         필드에 있는 포켓몬은 1, 대기 포켓몬은 0.4로 센다. 공격 점수(상대 체력 비율)와 같은 척도."""
         if move == "Tailwind" and (self.tailwind[side] or self.trick_room):
             return 0.
-        if move == "Trick Room" and self.trick_room:
-            return 0.
+        undo_room = move == "Trick Room" and self.trick_room
         on_field = {id(f) for _, f in self._present(side)} | {id(f) for _, f in self._present(1 - side)}
         allies = [f for f in self.teams[side] if f.hp > 0]
         foes = [f for f in self.teams[1 - side] if f.hp > 0]
@@ -1155,7 +1213,8 @@ class Battle:
                 if move == "Tailwind":
                     net += w * (sa < sf < 2 * sa)
                 else:
-                    net += w * ((sa < sf) - (sa > sf))
+                    order = (sa < sf) - (sa > sf)
+                    net += w * (-order if undo_room else order)
         if net <= 0:
             return 0.
         value = .2 * net
@@ -1348,9 +1407,13 @@ class Battle:
         wide = self._spread(actor, move)
         contact = "contact" in self.engine.M.get(move, {}).get("flags", ())
         did_hit = False
+        neutral_result = False
         dealt = 0
         for target in targets:
             opponent = any(target is foe for foe in self.teams[1 - side])
+            observation = (actor.mon["id"], move, target.mon["id"]) if opponent and side == 0 else None
+            if observation:
+                self.executed_attacks[(*observation, "attempts")] += 1
             if move in REACTIVE and not any(
                 queued_actor is target and action["kind"] == "move" and action["move"] not in SUPPORT
                 and (move != "Upper Hand" or queued_priority > 0)
@@ -1360,9 +1423,11 @@ class Battle:
                 continue
             pierce = target.protected and contact and actor.mon["ability"] in {"Unseen Fist", "Piercing Drill"}
             if target.protected and move != "Feint" and not pierce:
+                neutral_result = True
                 self._event(f"{target.name}의 방어에 막혔습니다.", "blocked", ref=self._ref(target))
                 continue
             if wide and self.wide_guard[1 - side if opponent else side]:
+                neutral_result = True
                 self._event(f"{target.name}에게 향한 공격이 와이드가드에 막혔다.")
                 continue
             if opponent and self._priority_blocked(side, target, actor, move, priority):
@@ -1380,11 +1445,14 @@ class Battle:
                     self.trace[side]["low_acc_miss"] += 1
                 continue
             if self._absorb(actor, target, move):
+                neutral_result = True
                 continue
             if raw <= 0:
                 self._event(f"{target.name}에게 효과가 없습니다.", "immune", ref=self._ref(target))
                 continue
             did_hit = True
+            if observation:
+                self.executed_attacks[(*observation, "hits")] += 1
             if move == "Feint":
                 target.protected = False
                 self.wide_guard[1 - side if opponent else side] = False
@@ -1433,6 +1501,8 @@ class Battle:
                     and self._move_type(actor, move) == "Normal" and self.engine.M.get(move, {}).get("power")):
                 self._consume(actor)
             target.hp -= amount
+            if observation and not target.hp:
+                self.executed_attacks[(*observation, "kos")] += 1
             target.taken += amount
             dealt += amount
             if opponent:
@@ -1523,15 +1593,20 @@ class Battle:
             divisor = 4 if move == "Struggle" else 10
             self._hurt(actor, max(1, actor.max_hp // divisor), "은(는) 생명이 조금 깎였다")
         actor.recharge = did_hit and bool(self.engine.M.get(move, {}).get("recharge"))
+        if not (did_hit or neutral_result):
+            actor.failed_move_turn = self.turn
         return did_hit
 
-    def advance(self, my_actions: list[dict] | None = None):
+    def advance(self, my_actions: list[dict] | None = None, mega_slot=None):
         if self._pivot_slot is not None or self.replacement_slots():
             raise ValueError("교체할 대기 포켓몬을 먼저 골라 주세요.")
         if self.manual and my_actions is None:
             raise ValueError("필드에 있는 포켓몬마다 명령을 골라 주세요.")
-        self._mega_turn()
-        mine = self._auto(0) if my_actions is None else my_actions
+        if my_actions is None:
+            self._mega_turn()
+            mine = self._auto(0)
+        else:
+            mine = my_actions
         active = dict(self._present(0))
         by_slot = {a["slot"]: a for a in mine}
         if len(mine) != len(active) or by_slot.keys() != active.keys():
@@ -1542,6 +1617,12 @@ class Battle:
         for slot, a in by_slot.items():
             if not any(self._key(o) == self._key(a) for o in self._options(0, slot, active[slot])):
                 raise ValueError("invalid battle action")
+        if my_actions is not None:
+            if mega_slot is not None and (not self.manual or not self.mega_left[0]
+                    or mega_slot not in active or not active[mega_slot].mega_form
+                    or by_slot[mega_slot]["kind"] != "move"):
+                raise ValueError("이번 턴에 기술을 쓸 메가진화 후보를 골라 주세요.")
+            self._mega_turn(mega_slot)
         if self._resolve_actions(mine, self._auto(1), interactive=self.manual):
             self._end_turn()
 
@@ -1569,14 +1650,17 @@ class Battle:
                 continue
             if not actor.hp or actor.flinched:
                 if actor.hp and actor.flinched:
+                    if kind == "move":
+                        actor.failed_move_turn = self.turn
                     self._event(f"{actor.name}은(는) 풀죽어서 움직이지 못했다!")
                 continue
             move, target = action.get("move"), action.get("target")
             if move not in PROTECT:
                 actor.protect_chain = 0
-            if side == 0 and self.turn == 1 and len(self.opening) < self.width:
-                self.opening.append("교체" if kind == "switch" else move or "대기")
             if kind == "switch":
+                if side == 0 and self.turn == 1:
+                    self.opening.append("교체")
+                    self.opening_actions.append((actor.mon["id"], "switch", self.teams[side][target].mon["id"]))
                 self._switch(side, slot, target, acts_next_turn=True)
             elif kind == "wait":
                 actor.recharge = False
@@ -1588,22 +1672,32 @@ class Battle:
                         (i for i, _ in self._present(1 - side)), None)
                     priority = self._priority(actor, move)
                 if actor.taunt and move in SUPPORT:
+                    actor.failed_move_turn = self.turn
                     self._event(f"{actor.name}의 {self._move_name(move)}은(는) 도발에 막혔다.")
                     continue
                 if not self._can_act(actor, move):
                     actor.charging = None
+                    actor.failed_move_turn = self.turn
                     continue
                 if move != "Destiny Bond":
                     actor.destiny = False
                 actor.last_move = move
                 actor.known_moves.add(move)
+                if side == 0 and self.turn == 1:
+                    self.opening.append(move)
+                    targets = dict(self._present(1))
+                    aimed = targets.get(target)
+                    self.opening_actions.append((actor.mon["id"], move, aimed.mon["id"] if aimed else ""))
                 self._event(f"{'상대 ' if side else ''}{actor.name}의 {self._move_name(move)}!",
                             "move", side=side, ref=self._ref(actor), move=move,
+                            moveId=self.engine.move_ids.get(move, "struggle"),
                             type=self.engine.M.get(move, {}).get("type"))
                 if actor.mon["item"] in CHOICE and move != "Struggle":
                     actor.choice = move
                 if move in SUPPORT:
                     success = self._support(side, slot, actor, move, target)
+                    if success is False:
+                        actor.failed_move_turn = self.turn
                 else:
                     success = self._attack(side, slot, actor, move, target, priority, actions)
                 if success and move in PIVOT and actor.hp and self._bench(side) and any(f.hp for f in self.teams[1 - side]):
@@ -1845,6 +1939,8 @@ class Battle:
                            "slots": [self._pivot_slot], "bench": self._bench(0)}
         return {"id": battle_id, "turn": self.turn, "seed": self.seed, "winner": self.winner,
                 "difficulty": self.difficulty,
+                "megaOptions": [slot for slot, f in self._present(0) if f.mega_form and not f.recharge]
+                if self.manual and self.mega_left[0] and not self.winner and not replacement else [],
                 "replacement": replacement,
                 "field": [f"{name} {turns}턴" for name, turns in field if turns],
                 "teams": [[member(f) if side == 0 or not self.manual or self.winner or i in self.seen[side] else None
@@ -1871,13 +1967,13 @@ class Sessions:
                 self.battles.popitem(last=False)
             return battle.view(key)
 
-    def advance(self, key: str, turn: int, actions: list[dict] | None) -> dict:
+    def advance(self, key: str, turn: int, actions: list[dict] | None, mega_slot=None) -> dict:
         with self.lock:
             battle = self._session(key)
             if turn > battle.turn:
                 raise ValueError("invalid turn")
             if not battle.winner and turn == battle.turn and battle._pivot_slot is None:
-                battle.advance(actions)
+                battle.advance(actions, mega_slot)
             self.battles.move_to_end(key)
             return battle.view(key)
 

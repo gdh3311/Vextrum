@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from itertools import combinations
 from random import Random
+from zlib import crc32
 
 from . import auto_team, simulation
 from .engine import Engine
@@ -16,6 +17,8 @@ PLAYBOOKS = {
     "trickroom": ("트릭룸으로 행동 순서를 뒤집고 느린 공격수를 먼저 움직입니다.", ("trickroom", "slow_attacker")),
     "rain": ("비를 전개해 물 화력, 날씨 기술 또는 쓱쓱을 살립니다.", ("rain_set", "rain_attack")),
     "sun": ("쾌청을 전개해 불 화력, 날씨 기술 또는 엽록소를 살립니다.", ("sun_set", "sun_attack")),
+    "sand": ("모래바람을 전개해 모래헤치기와 바위 타입의 특방을 활용합니다.", ("sand_set", "sand_core")),
+    "snow": ("눈을 전개해 얼음 타입의 방어와 눈보라를 활용합니다.", ("snow_set", "snow_core")),
     "psychic": ("사이코필드로 지상 상대에게 쓰는 선제기를 막고 와이드포스를 강화합니다.", ("psychic_set", "psychic_attack")),
     "setup": ("랭크업 공격수가 강화할 기회를 만들고 내구형 포켓몬으로 빈틈을 메웁니다.", ("setup_attacker", "bulky")),
 }
@@ -67,12 +70,16 @@ COUNTERPLAY = {
     "trickroom": "설치 포켓몬을 첫 턴에 압박해 보세요. 트릭룸이 열리면 느린 포켓몬을 활용하거나 방어로 남은 턴을 줄이세요.",
     "rain": "물 공격을 반감하는 포켓몬을 후발에 남기세요. 날씨를 바꿀 수 있다면 상대의 비 전개 뒤에 내보내 보세요.",
     "sun": "불 공격을 받아줄 후발을 남기고, 날씨를 덮거나 엽록소 포켓몬을 먼저 압박해 보세요.",
+    "sand": "모래헤치기 공격수의 속도와 모래 피해에 영향을 받는 포켓몬을 확인하세요.",
+    "snow": "눈 아래 얼음 타입의 방어가 오릅니다. 오로라베일과 특수 공격의 가능성을 확인하세요.",
     "psychic": "선제기에 의존하는 선출을 피하세요. 에스퍼 공격을 무효화하는 악 타입이나 반감하는 교체 자원을 고려하세요.",
     "setup": "랭크업 공격수를 초반에 압박하고, 상대가 강화를 쌓기 전에 집중 공격으로 교체를 유도해 보세요.",
 }
 FIELD_ROLES = {
     "rain": {"rain_set", "rain_attack", "other_weather"},
     "sun": {"sun_set", "sun_attack", "other_weather"},
+    "sand": {"sand_set", "sand_core"},
+    "snow": {"snow_set", "snow_core"},
     "psychic": {"psychic_set", "psychic_attack"},
     "tailwind": {"tailwind", "attacker"},
     "trickroom": {"trickroom", "slow_attacker"},
@@ -93,14 +100,14 @@ def _compatible(candidate, chosen):
 
 
 def _fits_style(candidate, style):
-    weather = candidate.features & {"rain_set", "sun_set", "other_weather"}
-    return weather <= ({f"{style}_set"} if style in {"rain", "sun"} else set())
+    weather = candidate.features & {f"{kind}_set" for kind in auto_team.WEATHER_STYLES}
+    return weather <= ({f"{style}_set"} if style in auto_team.WEATHER_STYLES else set())
 
 
 @lru_cache(maxsize=6)
 def _draft_pools(e, fmt):
     candidates = {}
-    for entry in auto_team.candidate_sets(e, fmt):
+    for entry in auto_team.candidate_sets(e, fmt, draft=True):
         moves = [m for m in entry["moves"] if m in simulation.SUPPORT or e.M[m]["power"]]
         if not any(e.M[m]["power"] and m not in simulation.FIRST_TURN for m in moves):
             continue
@@ -150,8 +157,28 @@ def _fill_weights(pool, roster, style):
     return weights
 
 
-def _draft(e, fmt, seed, rng):
-    pools = _draft_pools(e, fmt)
+def core_key(pair):
+    return tuple(sorted(c.species for c in pair))
+
+
+def core_split(pair):
+    bucket = crc32("|".join(core_key(pair)).encode()) % 5
+    return {0: "holdout", 1: "audit"}.get(bucket, "search")
+
+
+@lru_cache(maxsize=12)
+def _split_pools(e, fmt, split):
+    result = {}
+    for style, (pool, cores, weights) in _draft_pools(e, fmt).items():
+        rows = [(pair, weight) for pair, weight in zip(cores, weights) if core_split(pair) == split]
+        if rows:
+            pairs, probability = zip(*rows)
+            result[style] = pool, pairs, probability
+    return result
+
+
+def _draft(e, fmt, seed, rng, split="search"):
+    pools = _split_pools(e, fmt, split)
     if not pools:
         raise ValueError("이 배틀 형식의 상대 파티를 구성할 메타 데이터가 부족합니다.")
     style = tuple(pools)[seed % len(pools)]
@@ -174,17 +201,58 @@ def _draft(e, fmt, seed, rng):
     raise ValueError("상대 파티를 구성할 수 없습니다. 상대를 다시 뽑아 주세요.")
 
 
+def core_interval(outcomes, cores, seed=7831):
+    clusters = {}
+    for outcome, core in zip(outcomes, cores, strict=True):
+        row = clusters.setdefault(tuple(core), [0., 0])
+        row[0] += outcome
+        row[1] += 1
+    if len(clusters) < 5:
+        return None
+    groups = list(clusters.values())
+    rng = Random(seed)
+    rates = []
+    for _ in range(1000):
+        resample = rng.choices(groups, k=len(groups))
+        rates.append(sum(w for w, _ in resample) / sum(n for _, n in resample))
+    rates.sort()
+    return [round(rates[25], 3), round(rates[974], 3)]
+
+
+def holdout_summary(report):
+    cores = report["opponentCores"]
+    return {"kind": "synthetic_core_holdout", "runs": report["runs"],
+            "rate": round(sum(report["outcomes"]) / report["runs"], 3),
+            "ci": core_interval(report["outcomes"], cores), "coreCount": len(set(cores)),
+            "difficulty": report["difficulty"], "cpuStyles": list(report["cpuStyles"]),
+            "strategies": [{k: row[k] for k in ("style", "label", "win", "draw", "loss", "runs")}
+                           for row in report["strategies"]]}
+
+
 def _resolve(e, fmt, sets):
     return [e.resolve({**e.default_set(s["id"], fmt), **s}, fmt) for s in sets]
 
 
-def _choose(e, fmt, own, opponents, rng, *, style=None, core=()):
+def _choose(e, fmt, own, opponents, rng, *, style=None, core=(), prefer_mega=False):
     """Score coverage across the full opposing roster, then score the opening."""
     width = 2 if fmt == "Doubles" else 1
     count = min(limit(fmt), len(own))
     matrix = [[e.matchup(m, f, fmt)["score"] for f in opponents] for m in own]
     columns = range(len(opponents))
     roles = [set(e.roles(m, fmt)) for m in own]
+    weather = [{simulation.WEATHER[m["ability"]]} if m["ability"] in simulation.WEATHER else set()
+               for m in own]
+    for m, effects in zip(own, weather):
+        effects.update(simulation.WEATHER_MOVES[move] for move in m["moves"] if move in simulation.WEATHER_MOVES)
+        if "Chilly Reception" in m["moves"]:
+            effects.add("snow")
+
+    def room_gain(i):
+        speed = own[i]["speed"]
+        return sum((speed < foe["speed"]) - (speed > foe["speed"]) for foe in opponents) / len(opponents)
+    room = [room_gain(i) if roles[i] & {"physical", "special", "mixed"} else 0 for i in range(len(own))]
+    setters = {i for i, mon in enumerate(own) if "Trick Room" in mon["moves"]
+               and mon["item"] not in simulation.CHOICE | {"Assault Vest"}}
     candidates = []
     for group in combinations(range(len(own)), count):
         coverage = []
@@ -194,13 +262,23 @@ def _choose(e, fmt, own, opponents, rng, *, style=None, core=()):
         megas = sum(bool(own[i]["mega"]) for i in group)
         # 메가진화는 한 판에 한 마리 → 메가 포켓몬을 데려가되 둘 이상은 손해.
         score = (.79 * sum(coverage) / len(coverage) + .21 * min(coverage) - 6 * max(0, megas - 1)
-                 + 4 * (megas >= 1))
+                 + (11 if prefer_mega else 4) * (megas >= 1))
+        room_group = width == 2 and setters.intersection(group)
+        weather_count = len(set().union(*(weather[i] for i in group)))
+        score -= 3 * max(0, weather_count - 1)
         if core:
             score += 7 * sum(i in group for i in core)
         for leads in combinations(group, min(width, count)):
             pressure = sum(max(matrix[i][j] for i in leads) for j in columns) / len(opponents)
             tempo = sum(bool(roles[i] & {"fakeout", "tailwind", "trickroom"}) for i in leads)
             entry = 0
+            if room_group:
+                leads_room = setters.intersection(leads)
+                partners = [room[i] for i in group if i not in setters]
+                if leads_room and partners:
+                    entry += 7 * max(0, max(partners))
+                    entry += 4 * max((room[i] for i in leads if i not in leads_room), default=0)
+            entry -= 8 * (len(set().union(*(weather[i] for i in leads))) > 1)
             if core and style in FIELD_ROLES and core[0] in leads:
                 entry = 7 + 5 * (core[1] in leads)
             order = (*leads, *(i for i in group if i not in leads))
@@ -219,9 +297,9 @@ class Matchup:
     battle_seed: int
 
 
-def matchup(e: Engine, fmt: str, team: list[dict], seed: int) -> Matchup:
+def matchup(e: Engine, fmt: str, team: list[dict], seed: int, split="search") -> Matchup:
     rng = Random(seed)
-    style, roster = _draft(e, fmt, seed, rng)
+    style, roster = _draft(e, fmt, seed, rng, split)
     return _match_against(e, fmt, _resolve(e, fmt, team), style, roster, rng)
 
 
@@ -274,6 +352,7 @@ def preview_strategy(e, fmt, ids):
     # 주 전략 점수: 날씨·필드는 시동만으로 거의 확정, 속도 조작은 그 속도대를 살릴 포켓몬이 있어야 주 전략이다.
     raw = {
         "rain": 2.2 * tags["rain"], "sun": 2.2 * tags["sun"], "psychic": 1.8 * tags["psychic"],
+        "sand": 1.7 * tags["sand"], "snow": 1.7 * tags["snow"],
         "trickroom": 1.2 * tags["trickroom"] * min(1., .3 + .22 * slow),
         "tailwind": tags["tailwind"] * min(1., .3 + .2 * fast),
     }
@@ -307,11 +386,12 @@ _preview_cache = {}
 def apply_policy(player, ours, policy, family):
     """선출 계획(상대 전략 → 선봉·후발 4마리 순서)이 있으면 그대로 쓴다. 팀에 없는 포켓몬이 있으면 무시.
     혼합 열쇠(mix:a|b)에 맞는 계획이 없으면 아무것도 바꾸지 않는다 (한쪽 전략으로 단정하지 않는다)."""
-    pick = (policy or {}).get(family)
+    policy = policy or {}
+    pick = policy.get(family) or policy.get("*")  # "*": 상대와 상관없이 이 선출 (실험실의 선봉 비교)
     if not pick:
         return ours
     index = {m["id"]: i for i, m in enumerate(player)}
-    if not all(pid in index for pid in pick):
+    if len(pick) != len(ours) or len(set(pick)) != len(ours) or not set(pick) <= index.keys():
         return ours
     return tuple(index[pid] for pid in pick)
 
@@ -323,7 +403,8 @@ def _match_against(e, fmt, player, style, roster, rng, policy=None):
     if policy:  # 난수 소비는 그대로 두고 선출만 바꾼다 (전후 비교가 같은 판이 되도록)
         ours = apply_policy(player, ours, policy, preview_key(e, fmt, [c.id for c in roster]))
     preview = [e.default_resolved(p["id"], fmt) for p in player]
-    their, _ = _choose(e, fmt, opponents, preview, rng, style=style, core=(0, 1))
+    their, _ = _choose(e, fmt, [c.resolved for c in roster], preview, rng,
+                       style=style, core=(0, 1), prefer_mega=True)
     return Matchup(style, roster, player, ours, their, matrix, rng.randrange(2 ** 31))
 
 
@@ -344,8 +425,8 @@ def _opponent(e, fmt, style, roster):
     return {"style": style, "label": auto_team.STYLES[style].label, "plan": plan, "members": members}
 
 
-def scout(e, fmt, team, seed):
-    match = matchup(e, fmt, team, seed)
+def scout(e, fmt, team, seed, split="search"):
+    match = matchup(e, fmt, team, seed, split)
     threat_index = min(range(len(match.roster)), key=lambda j: max(row[j] for row in match.scores))
     counter_index = max(match.ours, key=lambda i: match.scores[i][threat_index])
     return {"seed": seed, "opponent": _opponent(e, fmt, match.style, match.roster),
@@ -355,8 +436,9 @@ def scout(e, fmt, team, seed):
                        "score": match.scores[counter_index][threat_index]}}
 
 
-def start(e, fmt, team, seed, selection, difficulty: simulation.Difficulty = "ultra", *, manual=False):
-    match = matchup(e, fmt, team, seed)
+def start(e, fmt, team, seed, selection, difficulty: simulation.Difficulty = "ultra", *,
+          manual=False, cpu_style="balanced", split="search"):
+    match = matchup(e, fmt, team, seed, split)
     ours = match.ours
     if selection is not None:
         index = {m["id"]: i for i, m in enumerate(match.player)}
@@ -365,8 +447,9 @@ def start(e, fmt, team, seed, selection, difficulty: simulation.Difficulty = "ul
         ours = tuple(index[pid] for pid in selection)
     return simulation.Battle(
         e, fmt, [team[i] for i in ours], [match.roster[i].set for i in match.theirs], match.battle_seed,
-        context={"seed": seed, "opponent": _opponent(e, fmt, match.style, match.roster)},
-        foe_strategy=match.style, difficulty=difficulty, manual=manual)
+        context={"seed": seed, "opponent": _opponent(e, fmt, match.style, match.roster),
+                 "rulesCoverage": simulation.rules_report(e, fmt, [team[i] for i in ours])},
+        foe_strategy=match.style, difficulty=difficulty, manual=manual, cpu_style=cpu_style)
 
 
 def _results():
@@ -391,10 +474,29 @@ class _Detail:
         self.width = width
         self.members, self.foes, self.leads = {}, {}, {}
         self.turns = Counter()
+        self.plans = {}
+        self.attacks = Counter()
         self.games = 0
 
-    def add(self, battle, result):
+    def add(self, battle, result, style, match_seed, cpu_style="balanced", split="search"):
         self.games += 1
+        self.attacks.update(battle.executed_attacks)
+        ids = [f.mon["id"] for f in battle.teams[0]]
+        pick = tuple(ids[:self.width]), tuple(ids[self.width:])
+        group = self.plans.setdefault(style, {})
+        sample = {"seed": match_seed, "cpuStyle": cpu_style, "result": result, "pool": split}
+        line = group.setdefault(pick, {**_results(), "runs": 0, "openings": {}, "activations": Counter(),
+                                       "attacks": Counter(),
+                                       "sample": sample})
+        line["runs"] += 1
+        line[result] += 1
+        line["activations"].update(battle.activated[0])
+        line["attacks"].update(battle.executed_attacks)
+        if battle.opening_actions:
+            opening = line["openings"].setdefault(tuple(battle.opening_actions),
+                                                  {"runs": 0, "wins": 0, "sample": sample})
+            opening["runs"] += 1
+            opening["wins"] += result == "win"
         turns = battle.turn - 1
         self.turns[min(12, max(1, turns))] += 1
         for i, f in enumerate(battle.teams[0]):
@@ -441,6 +543,32 @@ class _Detail:
         return {"memberStats": members, "threats": foes[:6], "leadStats": leads,
                 "turnHistogram": [{"turns": t, "games": self.turns[t]} for t in sorted(self.turns)]}
 
+    def evidence(self):
+        def attacks(counter):
+            grouped = {}
+            for (actor, move, target, key), count in counter.items():
+                grouped.setdefault((actor, move, target), {"attempts": 0, "hits": 0, "kos": 0})[key] = count
+            return [{"actor": a, "move": m, "target": t, **row} for (a, m, t), row in grouped.items()]
+
+        def lines(group):
+            output = []
+            for (lead, back), row in sorted(group.items(), key=lambda entry: -entry[1]["runs"])[:4]:
+                actions, observed = max(row["openings"].items(), key=lambda entry: (entry[1]["runs"], entry[1]["wins"]),
+                                        default=((), {}))
+                output.append({"leads": list(lead), "back": list(back),
+                               **{k: row[k] for k in ("runs", "win", "loss", "draw", "activations")},
+                               "opening": [move if move != "switch" else "교체" for _, move, _ in actions],
+                               "openingActions": [{"actor": actor, "move": move,
+                                                   "into" if move == "switch" else "target": target or None}
+                                                  for actor, move, target in actions],
+                               "openingRuns": observed.get("runs", 0), "openingWins": observed.get("wins", 0),
+                               "attacks": attacks(row["attacks"]),
+                               "sample": observed.get("sample", row["sample"])})
+            return output
+
+        return {"picks": {style: lines(group) for style, group in self.plans.items()},
+                "attacks": attacks(self.attacks)}
+
 
 def _member_stats(mon):
     return {**_brief(mon), "rostered": 0, "picked": 0, "leads": 0,
@@ -470,9 +598,9 @@ def _style_stats(style):
             "example": None}
 
 
-def _match_seeds(e, fmt, runs, seed, styles=None):
+def _match_seeds(e, fmt, runs, seed, styles=None, split="search"):
     rng = Random(seed)
-    pools = tuple(_draft_pools(e, fmt))
+    pools = tuple(_split_pools(e, fmt, split))
     count = len(pools)
     if not count:
         raise ValueError("이 배틀 형식의 상대 파티를 구성할 메타 데이터가 부족합니다.")
@@ -495,23 +623,61 @@ def _play(e, fmt, team, match, difficulty, cpu_style="balanced"):
     return battle
 
 
+def verify_pick(e, fmt, team, selection, style, runs=12, seed=602_731):
+    """Compare one explicit selection with the preview policy on fresh paired games."""
+    player = _resolve(e, fmt, team)
+    size = min(limit(fmt), len(player))
+    if (len(selection) != size or len(set(selection)) != size
+            or not set(selection) <= {m["id"] for m in player}):
+        raise ValueError("팀에서 필요한 수만큼 서로 다른 포켓몬을 선출해 주세요.")
+    if style is not None and style not in _split_pools(e, fmt, "search"):
+        raise ValueError("검증할 상대 전략을 선택해 주세요.")
+    if any(simulation.unsupported(e, fmt, s) for s in team if s["id"] in selection):
+        raise ValueError("이 선출에 시뮬레이터가 구현하지 않은 요소가 있습니다.")
+    from dataclasses import replace
+
+    difficulty = "master"
+    index = {m["id"]: i for i, m in enumerate(player)}
+    order = tuple(index[pid] for pid in selection)
+    detail = _Detail(2 if fmt == "Doubles" else 1)
+    scores = {"win": 1., "draw": .5, "loss": 0.}
+    outcomes = [[], []]
+    for number, match_seed in enumerate(_match_seeds(e, fmt, runs, seed, {style} if style else None)):
+        match = matchup(e, fmt, team, match_seed)
+        cpu_style = auto_team.SELECT_STYLES[number % len(auto_team.SELECT_STYLES)]
+        baseline_supported = not any(simulation.unsupported(e, fmt, team[i]) for i in match.ours)
+        base = _play(e, fmt, team, match, difficulty, cpu_style) if baseline_supported else None
+        tested = base if match.ours == order and base else _play(e, fmt, team, replace(match, ours=order), difficulty, cpu_style)
+        if base is not None:
+            outcomes[0].append(scores[base.winner])
+        outcomes[1].append(scores[tested.winner])
+        detail.add(tested, tested.winner, match.style, match_seed, cpu_style)
+    evidence = detail.evidence()
+    paired_ready = len(outcomes[0]) == runs
+    return {"runs": runs, "baseline": sum(outcomes[0]) / runs if paired_ready else None,
+            "rate": sum(outcomes[1]) / runs, "paired": paired(*outcomes) if paired_ready else None,
+            "difficulty": difficulty, "strategies": [
+                {"style": key, "label": auto_team.STYLES[key].label, "picks": picks}
+                for key, picks in evidence["picks"].items()]}
+
+
 def compare_teams(e, fmt, teams, runs, seed, difficulty: simulation.Difficulty = "ultra", styles=None,
-                  policies=None, cpu_styles=None):
+                  policies=None, cpu_styles=None, split="search"):
     """Use the same six opponents and RNG for every team; each still gets its own preview.
 
     policies: 팀마다 선출 계획 {추정 상대 전략: (선봉1, 선봉2, 후발1, 후발2)} (없으면 기본 선출 휴리스틱)
     cpu_styles: 상대 CPU 플레이 스타일 목록 (판마다 돌아가며). outcomes 에 판별 결과(1·0.5·0)를 남긴다."""
     standings = [{**_results(), "runs": runs, "strategies": {}, "leads": Counter(),
                   "activations": Counter(), "turns": 0, "foeEffects": Counter(), "lossEffects": Counter(),
-                  "lossTags": Counter(), "outcomes": [], "cpuStyles": {}}
+                  "lossTags": Counter(), "outcomes": [], "cpuStyles": {}, "opponentCores": []}
                  for _ in teams]
     policies = policies or [None] * len(teams)
     details = [_Detail(2 if fmt == "Doubles" else 1) for _ in teams]
     resolved = [_resolve(e, fmt, team) for team in teams]
     width = 2 if fmt == "Doubles" else 1
-    for number, match_seed in enumerate(_match_seeds(e, fmt, runs, seed, styles)):
+    for number, match_seed in enumerate(_match_seeds(e, fmt, runs, seed, styles, split)):
         rng = Random(match_seed)
-        style, roster = _draft(e, fmt, match_seed, rng)
+        style, roster = _draft(e, fmt, match_seed, rng, split)
         state = rng.getstate()
         cpu_style = cpu_styles[number % len(cpu_styles)] if cpu_styles else "balanced"
         for team, player, row, detail, policy in zip(teams, resolved, standings, details, policies):
@@ -521,11 +687,12 @@ def compare_teams(e, fmt, teams, runs, seed, difficulty: simulation.Difficulty =
             row[battle.winner] += 1
             score = {"win": 1., "draw": .5, "loss": 0.}[battle.winner]
             row["outcomes"].append(score)
+            row["opponentCores"].append(core_key(roster[:2]))
             by_style = row["cpuStyles"].setdefault(cpu_style, {"runs": 0, "score": 0.})
             by_style["runs"] += 1
             by_style["score"] += score
             row["turns"] += battle.turn - 1
-            detail.add(battle, battle.winner)
+            detail.add(battle, battle.winner, style, match_seed, cpu_style, split)
             row["activations"].update(sorted(battle.activated[0]))
             # 패배 원인 추적: 상대가 전개한 전략(트릭룸·순풍·날씨·필드·랭크업·벽)이 진 판에 얼마나 몰리는가
             effects = sorted(set(battle.activated[1]) & set(LOSS_CAUSES))
@@ -548,13 +715,6 @@ def compare_teams(e, fmt, teams, runs, seed, difficulty: simulation.Difficulty =
                     threat["dealt"] += f.dealt
             lead = tuple(sorted(f.mon["id"] for f in battle.teams[0][:width]))
             row["leads"][lead] += 1
-            # 상대 아키타입별 실제 선출(선봉·후발)과 첫 턴 행동
-            pick = (lead, tuple(sorted(f.mon["id"] for f in battle.teams[0][width:])))
-            plan = strategy.setdefault("picks", {}).setdefault(pick, {"runs": 0, "win": 0, "openings": Counter()})
-            plan["runs"] += 1
-            plan["win"] += battle.winner == "win"
-            if battle.opening:
-                plan["openings"][tuple(battle.opening)] += 1
     for row, detail in zip(standings, details):
         row["avgTurns"] = round(row.pop("turns") / max(1, runs), 1)
         tags = row.pop("lossTags")
@@ -570,13 +730,11 @@ def compare_teams(e, fmt, teams, runs, seed, difficulty: simulation.Difficulty =
         row["ci"] = wilson(row["win"], runs)
         row["difficulty"] = difficulty
         row.update(detail.report())
+        evidence = detail.evidence()
+        row["attacks"] = evidence["attacks"]
         for block in row["strategies"].values():
             block["ci"] = wilson(block["win"], block["runs"])
-            picks = block.pop("picks", {})
-            top = sorted(picks.items(), key=lambda kv: (-kv[1]["runs"], -kv[1]["win"]))[:2]
-            block["picks"] = [{"leads": list(leads), "back": list(back), "runs": v["runs"], "win": v["win"],
-                               "opening": list(v["openings"].most_common(1)[0][0]) if v["openings"] else []}
-                              for (leads, back), v in top]
+            block["picks"] = evidence["picks"][block["style"]]
             block["lossFoes"] = sorted(block["lossFoes"].values(),
                                       key=lambda f: (-f["kos"], -f["dealt"], -f["faced"], f["id"]))[:3]
         row["strategies"] = sorted(row["strategies"].values(), key=lambda block: (
@@ -587,6 +745,8 @@ def compare_teams(e, fmt, teams, runs, seed, difficulty: simulation.Difficulty =
 
 
 def batch(e, fmt, team, runs, seed, difficulty: simulation.Difficulty = "ultra"):
+    if any(simulation.unsupported(e, fmt, s) for s in team):
+        raise ValueError("팀에 시뮬레이터가 구현하지 않은 요소가 있습니다. 운영 가이드에서 확인해 주세요.")
     width = 2 if fmt == "Doubles" else 1
     totals = _results()
     breakdown, overall = {}, {}
@@ -598,7 +758,7 @@ def batch(e, fmt, team, runs, seed, difficulty: simulation.Difficulty = "ultra")
         result, turn_count = battle.winner, battle.turn - 1
         totals[result] += 1
         turns += turn_count
-        detail.add(battle, result)
+        detail.add(battle, result, match.style, match_seed)
         block = breakdown.setdefault(match.style, _style_stats(match.style))
         block["runs"] += 1
         block[result] += 1
@@ -616,14 +776,16 @@ def batch(e, fmt, team, runs, seed, difficulty: simulation.Difficulty = "ultra")
         if not block["example"] or result == "loss" and block["example"]["result"] != "loss":
             block["example"] = {"seed": match_seed, "result": result, "turns": turn_count, "leadSize": width,
                                 "mine": mine, "foe": foe, "opponent": [_brief(c.resolved) for c in match.roster]}
+    evidence = detail.evidence()
     for block in breakdown.values():
+        block["picks"] = evidence["picks"][block["style"]]
         block["ci"] = wilson(block["win"], block["runs"])
         block["avgTurns"] = round(block.pop("turns") / block["runs"], 1)
         block["members"] = list(block["members"].values())
         block["foes"] = sorted(block["foes"].values(), key=lambda row: (-row["loss"], -row["picked"], row["id"]))
         block["lineups"] = sorted(block["lineups"].values(), key=lambda row: -row["runs"])[:5]
     return {"runs": runs, **totals, "avgTurns": round(turns / runs, 1), "seed": seed, "difficulty": difficulty,
-            "ci": wilson(totals["win"], runs), **detail.report(),
+            "ci": wilson(totals["win"], runs), **detail.report(), "attacks": evidence["attacks"],
             "dataset": {"season": next((s for s in e.d["seasons"] if s != "Current"), None),
                         "generatedAt": e.d["generatedAt"]},
             "members": list(overall.values()), "strategies": sorted(breakdown.values(), key=lambda b: b["win"] / b["runs"])}

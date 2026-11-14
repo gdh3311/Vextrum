@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import json
 
+RULES_CONTRACT = "champions-local-2026.11-r1"
+
 # ---------------------------------------------------------------- 기술 데이터 보정 (SV → 챔피언스)
 CHAMPIONS_MOVES = {
     "Apple Acid": {"power": 90}, "Beak Blast": {"power": 120}, "Bone Rush": {"power": 30},

@@ -13,6 +13,7 @@ import 'backend_launcher.dart';
 import 'pages/auto_team_page.dart';
 import 'pages/battle_page.dart';
 import 'pages/research_page.dart';
+import 'pages/workspace_page.dart';
 import 'pages/enemy_page.dart';
 import 'pages/joker_page.dart';
 import 'pages/meta_page.dart';
@@ -99,11 +100,12 @@ final _router = GoRouter(routes: [
     routes: [
       GoRoute(path: '/', pageBuilder: (c, s) => _routePage(s, const MetaPage())),
       GoRoute(path: '/team', pageBuilder: (c, s) => _routePage(s, const TeamPage())),
+      GoRoute(path: '/workspace', pageBuilder: (c, s) => _routePage(s, const WorkspacePage())),
       GoRoute(path: '/team/auto', pageBuilder: (c, s) => _routePage(s, const AutoTeamPage())),
       GoRoute(path: '/enemy', pageBuilder: (c, s) => _routePage(s, const EnemyPage())),
       GoRoute(path: '/jokers', pageBuilder: (c, s) => _routePage(s, const JokerPage())),
       GoRoute(path: '/parties', pageBuilder: (c, s) => _routePage(s, const PartiesPage())),
-      GoRoute(path: '/battle', pageBuilder: (c, s) => _routePage(s, const BattlePage())),
+      GoRoute(path: '/battle', pageBuilder: (c, s) => _routePage(s, BattlePage(practice: s.extra as Json?))),
       GoRoute(path: '/research', pageBuilder: (c, s) => _routePage(s, const ResearchPage())),
       GoRoute(path: '/speed', pageBuilder: (c, s) => _routePage(s, const SpeedPage())),
       GoRoute(path: '/settings', pageBuilder: (c, s) => _routePage(s, const SettingsPage())),
@@ -152,6 +154,7 @@ class MetaLabApp extends ConsumerWidget {
 const _tabs = [
   ('/', LabGlyph.meta, '메타', '메타', Color(0xFF78DACE)),
   ('/team', LabGlyph.team, '팀 빌더', '팀', Color(0xFF83B9FF)),
+  ('/workspace', LabGlyph.stack, '팀 워크스페이스', '워크', Color(0xFF8FD3FF)),
   ('/enemy', LabGlyph.versus, '상대 분석', '상대', Color(0xFFFF9C92)),
   ('/jokers', LabGlyph.crystal, '조커 파인더', '조커', Color(0xFFC3A6FF)),
   ('/speed', LabGlyph.bolt, '스피드 티어', '스피드', Color(0xFF9FD8FF)),

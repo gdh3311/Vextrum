@@ -11,6 +11,44 @@ const _seenKey = 'last_read_app_update';
 const _releases = [
   (
     version: appVersion,
+    date: '2026.11.14',
+    entries: [
+      (
+        glyph: LabGlyph.stack,
+        title: '팀 워크스페이스',
+        detail: '팀을 고치면 규칙·전략·속도·약점·메타 위협 분석이 바로 바뀝니다. 되돌리기, 포켓몬·항목 잠금, 한 자리 교체 추천과 그 이유, 상대 포켓몬·상대 팀 대응, 모의전 실험과 실전 기록 분석을 한 화면에서 이어서 할 수 있습니다.',
+      ),
+      (
+        glyph: LabGlyph.check,
+        title: '추천은 모의전으로 확인',
+        detail: '교체 후보는 정적 지표로 찾고, 같은 상대·같은 난수의 모의전과 별도 상대군 재검증으로 개선·악화·결론 보류를 판정합니다. 팀을 고치면 이전 결과에는 이전 버전 표시가 붙습니다.',
+      ),
+    ],
+  ),
+  (
+    version: '1.15.0',
+    date: '2026.11.13',
+    entries: [
+      (
+        glyph: LabGlyph.book,
+        title: '보류 상대 검증과 메가진화 선택',
+        detail: '자동 구성 후보를 보류 상대 코어로 평가하고, 직접 배틀에서는 메가진화할 포켓몬과 턴을 선택할 수 있습니다.',
+      ),
+    ],
+  ),
+  (
+    version: '1.14.0',
+    date: '2026.11.13',
+    entries: [
+      (
+        glyph: LabGlyph.book,
+        title: '선출과 모의전을 연결한 전략 가이드',
+        detail: '현재 선출의 기술과 특성으로 대응을 안내합니다. 상대 전략별 선출, 실제 첫 턴 행동과 전적을 보고 같은 상대와 연습할 수 있습니다.',
+      ),
+    ],
+  ),
+  (
+    version: '1.13.0',
     date: '2026.11.13',
     entries: [
       (

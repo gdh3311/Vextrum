@@ -35,6 +35,15 @@ class RecommendTest(unittest.TestCase):
         self.assertEqual(a["runs"], len(recommend.ranker_rosters(self.engine, "Doubles")))
         self.assertEqual(a["favored"] + a["even"] + a["unfavored"], len(a["teams"]))
 
+    def test_ranker_selection_does_not_see_the_players_hidden_set(self):
+        e, fmt = self.engine, "Doubles"
+        team = [e.default_set(p["id"], fmt) for p in e.ranked(fmt)[:6]]
+        edited = [{**s, "item": None, "mega": None, "moves": ["Protect"], "points": {"hp": 32}} for s in team]
+        roster = recommend.ranker_rosters(e, fmt)[:3]
+        a = list(recommend._matches(e, fmt, team, roster, 2, 11))
+        b = list(recommend._matches(e, fmt, edited, roster, 2, 11))
+        self.assertEqual([(r[0], r[2:]) for r in a], [(r[0], r[2:]) for r in b])
+
     def test_tailwind_is_valued_when_it_flips_speed(self):
         e = self.engine
         mine = [e.default_set(pid, "Doubles") for pid in ("whimsicott", "garchomp", "kingambit", "basculegion")]

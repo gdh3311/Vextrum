@@ -1289,3 +1289,42 @@ CPU를 최대한 써서 쉬지 않고 연구합니다.	Uses as much CPU as possi
 선출만 변경	Picks only	選出のみ変更
 세트만 변경	Sets only	セットのみ変更
 멤버 변경	Members	メンバー変更
+# ---- 선출과 모의전 가이드
+선출과 모의전을 연결한 전략 가이드	Battle-tested lineup guide	選出と模擬戦をつなぐ戦術ガイド
+현재 선출의 기술과 특성으로 대응을 안내합니다. 상대 전략별 선출, 실제 첫 턴 행동과 전적을 보고 같은 상대와 연습할 수 있습니다.	The guide uses the selected team's moves and abilities. See the lineup, opening actions and results against each strategy, then practice against the same opponent.	選出したポケモンの技と特性に基づくガイドです。戦術別の選出・初手の行動・戦績を確認し、同じ相手と練習できます。
+선출과 운영 가이드	Lineup and game plan	選出と立ち回り
+6마리 구성에서 발견한 전략 요소	Tools available across the six Pokémon	6匹の構成から見つかった戦術要素
+현재 선출의 운영법	Game plan for this lineup	この選出での立ち回り
+아래 선봉과 후발이 가진 기술·특성 기준	Based on the moves and abilities of the lineup below	下の先発と控えが持つ技・特性を基準
+이 선출에서 전개 {}/{}판	Activated in {}/{} games with this lineup	この選出で{}/{}戦発動
+모의전에서 자주 나온 선출	Frequently used lineup in simulations	模擬戦でよく使った選出
+기본 선출 후보	Default lineup candidate	基本選出の候補
+메타 상위권을 기준으로 계산한 선출	Lineup estimated against top meta Pokémon	環境上位を基準に計算した選出
+이론상 공격 범위	Theoretical offensive coverage	理論上の攻撃範囲
+예상 피해와 기본 명중을 반영한 범위 점수	Coverage score based on estimated damage and base accuracy	予想ダメージと基本命中率に基づく範囲スコア
+현재 선출에서 쓸 수 있는 기술과 특성	Moves and abilities available in this lineup	この選出で使える技と特性
+수단 있음	Options available	手段あり
+미확인	Unconfirmed	未確認
+위험한 상대와 예상 피해	Threats and estimated damage	脅威と予想ダメージ
+현재 선출과 상대의 대표 세트로 계산한 이론값	Estimates for this lineup against common opponent sets	この選出と相手の代表的な型で計算した理論値
+모의전 기록 · {}회 시도 · {}회 명중 · {}회 KO	Simulation record · {} attempts · {} hits · {} KOs	模擬戦記録 · 試行{}回 · 命中{}回 · KO{}回
+다른 선출의 전략	Other lineups	別の選出の戦術
+세트에서 계산한 이론상 대응	Theoretical plans based on the sets	型に基づく理論上の対策
+상대 전략별 모의전 기록	Simulation results by opponent strategy	相手の戦術別の模擬戦記録
+관측된 선봉·후발, 첫 턴 행동과 전적	Observed lineup, opening actions and results	観測された先発・控え・初手の行動と戦績
+같은 선출에서 첫 턴 행동 일치율 {}	Opening action agreement with this lineup {}	同じ選出での初手行動の一致率 {}
+같은 상대와 이 선출로 연습	Practice with this lineup against the same opponent	同じ相手とこの選出で練習
+여러 상대 전략	Mixed opponent strategies	複数の相手戦術
+모의전 검증 중…	Running verification…	模擬戦で検証中…
+이 선출로 모의전 검증	Test this lineup in simulations	この選出を模擬戦で検証
+모의전 검증에 실패했습니다. 다시 시도해 주세요.	Verification failed. Try again.	模擬戦の検証に失敗しました。もう一度お試しください。
+상대 전략의 일반적인 대응	General counterplay for this strategy	この戦術への一般的な対策
+상대 선출 예상과 이론상 첫 턴	Predicted opponent lineup and theoretical opening	相手の予想選出と理論上の初手
+전략별 모의전 전적	Simulation results by strategy	戦術別の模擬戦戦績
+6마리의 이론상 대응	Theoretical options across all six	6匹の理論上の対策
+전체 팀의 전략 요소 보기	Show the full team's strategic tools	チーム全体の戦術要素を見る
+# ---- 1.16.0 (workspace)
+팀 워크스페이스	Team workspace	チームワークスペース
+팀을 고치면 규칙·전략·속도·약점·메타 위협 분석이 바로 바뀝니다. 되돌리기, 포켓몬·항목 잠금, 한 자리 교체 추천과 그 이유, 상대 포켓몬·상대 팀 대응, 모의전 실험과 실전 기록 분석을 한 화면에서 이어서 할 수 있습니다.	Edit the team and the rules, strategy, speed, weakness and meta-threat analysis updates right away. Undo, Pokémon and field locks, one-slot replacement suggestions with reasons, opponent Pokémon and team matchups, simulation experiments and real-match analysis all live on one screen.	チームを直すとルール・戦略・素早さ・弱点・メタ脅威の分析がすぐ変わります。元に戻す、ポケモン・項目のロック、1枠の交代候補とその理由、相手ポケモン・相手チームへの対応、模擬戦の実験と実戦記録の分析を一つの画面で続けて行えます。
+추천은 모의전으로 확인	Recommendations checked by simulation	推薦は模擬戦で確認
+교체 후보는 정적 지표로 찾고, 같은 상대·같은 난수의 모의전과 별도 상대군 재검증으로 개선·악화·결론 보류를 판정합니다. 팀을 고치면 이전 결과에는 이전 버전 표시가 붙습니다.	Replacement candidates are found with static measures, then judged better, worse or undecided by simulations on the same opponents and dice rolls and a separate re-check. After an edit, older results are labelled as belonging to the previous version.	交代候補は静的指標で探し、同じ相手・同じ乱数の模擬戦と別の相手群での再検証で改善・悪化・保留を判定します。チームを直すと前の結果には旧バージョンの表示が付きます。

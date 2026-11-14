@@ -3,6 +3,7 @@ from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import lru_cache
+from time import perf_counter
 
 from .engine import ROLE_MOVES, Engine, weight
 from .parties import _member, recommended
@@ -129,6 +130,8 @@ def _candidate(e, fmt, meta, s):
 
 
 def _generated_sets(e, fmt, pid, *, required=False, draft=False):
+    from .simulation import UNIMPLEMENTED_ABILITIES, UNIMPLEMENTED_ITEMS, move_supported
+
     p = e.P[pid]
     base = e.default_set(pid, fmt)
     usage = p["usage"].get(fmt, {})
@@ -143,6 +146,8 @@ def _generated_sets(e, fmt, pid, *, required=False, draft=False):
                 items.append(form["stone"])
     seen = set()
     for item in items:
+        if item in UNIMPLEMENTED_ITEMS:
+            continue
         mega = e.find_mega(p, stone=item)
         chosen_ability = base["ability"] if base["ability"] in p["abilities"] else next(iter(p["abilities"]), None)
         alternatives = [chosen_ability]
@@ -152,7 +157,7 @@ def _generated_sets(e, fmt, pid, *, required=False, draft=False):
 
         def usable(move):
             m = e.M.get(move)
-            if not m or m.get("unknown") or m.get("selfdestruct"):
+            if not move_supported(e, move):
                 return False
             if m["category"] == "Status":
                 if item == "Assault Vest":
@@ -181,6 +186,8 @@ def _generated_sets(e, fmt, pid, *, required=False, draft=False):
             if drop is not None and (e.M[mv]["power"] or any(e.M[m]["power"] for i, m in enumerate(moves) if i != drop)):
                 variants.append(moves[:drop] + [mv] + moves[drop + 1:])
         for ability in dict.fromkeys(alternatives):
+            if ability in UNIMPLEMENTED_ABILITIES or mega and mega["abilities"][0] in UNIMPLEMENTED_ABILITIES:
+                continue
             for variant in variants:
                 key = item, ability, tuple(variant)
                 if key in seen:
@@ -535,6 +542,7 @@ LEAGUE_RUNS = {"quick": 8, "standard": 16, "deep": 32}
 POLICY_TEAMS = 4
 SELECT_STYLES = ["balanced", "aggressive", "defensive", "setup", "pivot"]
 V6_SELECT_RUNS = {"quick": 48, "standard": 96, "deep": 160}
+HOLDOUT_RUNS = {"quick": 27, "standard": 54, "deep": 81}
 
 
 def _league(report):
@@ -733,6 +741,7 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
     # 엔진: v1(단일 지표) · v2/v3(전략 우선·리그 검증) · v4(+선출 계획 공동 최적화·구조 변경·하한 판단)
     #       v5(+탐색 중 간이 선출 최적화·확률적 상대 전략 열쇠·선출 우선 반사실 비교)
     # 실험용 끄기 스위치: "v5-noquick-noseason-noseed" 처럼 붙인다 (기여도 분해 벤치용).
+    started = perf_counter()
     engine, *off = engine.split("-")
     off = set(off)
     v5 = engine == "v5"
@@ -743,7 +752,7 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
     label = engine
     if engine in ("v3", "v4", "v5", "v6"):
         engine = "v2"
-    from . import parallel, roster_search
+    from . import parallel, roster_search, simulation
     from .progress import Progress
     from .recommend import ranker_rosters
 
@@ -802,11 +811,15 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
     fixed = []
     for entry in locked:
         s = {**e.default_set(entry["id"], fmt), **entry}
+        if problems := simulation.unsupported(e, fmt, s):
+            names = ", ".join(row["name"] for row in problems)
+            raise ValueError(f"고정 세트의 모의전 미구현 요소 · {names}. 팀 빌더에서 해당 세트를 확인해 주세요.")
         r = e.resolve(s, fmt)
         # A null field requests the same fallback as the regular team analysis.
         for key in ("moves", "nature", "points"):
             if s[key] is None:
                 s[key] = r[key]
+        s["moves"] = r["moves"]
         c = _candidate(e, fmt, meta, s)
         if not _eligible(c, fixed):
             raise ValueError("고정 세트의 도구가 중복됩니다. 팀 빌더에서 도구를 바꾸거나 한 마리의 고정을 해제해 주세요.")
@@ -833,6 +846,7 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
         return (len(roster) == 6 and fixed_ids <= {c.id for c in roster} and copies(roster) <= overlap_cap
                 and locked_keys <= {set_key(c) for c in roster}
                 and not any(c.species in excluded or not _eligible(c, roster[:i]) for i, c in enumerate(roster))
+                and not any(simulation.unsupported(e, fmt, c.set) for c in roster)
                 and (megas <= 2 if mega == "auto" else megas == (1 if mega == "one" else 0))
                 and (joker != "force" or any(_rank_of(e, fmt, c.id) > JOKER_RANK for c in roster))
                 and (joker != "off" or all(c.id in fixed_ids or _rank_of(e, fmt, c.id) <= JOKER_RANK for c in roster)))
@@ -927,9 +941,9 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
     researched = set()
     needed = sum(minimum for style in goals for _, minimum in STYLES[style].requirements)
     seed_plans = {}
-    for archetype, roster, seed_plan in LAB.seeds(e, fmt, valid, limit=12,
-                                                  originality=originality if v5 and "noseed" not in off else None,
-                                                  with_policy=True):
+    seeds = LAB.seeds(e, fmt, valid, limit=4 if v6 else 12,
+                     originality=originality if (v5 or v6) and "noseed" not in off else None, with_policy=True)
+    for archetype, roster, seed_plan in seeds:
         if seed_plan and v5:
             seed_plans[roster_search.signature(roster)] = {k: tuple(v) for k, v in seed_plan.items()}
         if goals:
@@ -1115,7 +1129,8 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
 
     if copy_rate:
         assessed.sort(key=final_key, reverse=True)
-    track.update(done=1, battles=len(finalists) * final_runs)
+    final_sample = V6_SELECT_RUNS.get(depth, 64) if v6 else final_runs
+    track.update(done=1, battles=len(finalists) * final_sample)
     metrics = {}
     if engine == "v2":
         # 랭크 리그 검증 (명세 6.4): 탐색에 쓰지 않은 난수·상대로
@@ -1192,6 +1207,19 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
             shown = (_pareto(assessed, metrics, team_key, max(3, len(weather)), objective, distance) if metrics
                      else _diverse(assessed, max(3, len(weather)), split_weather, distance=distance))
     track.update("report", total=1, spotlight=[c.id for c in shown[0][1]])
+    from . import battle_lab, regulation
+
+    # Freeze the selected candidates before querying the core holdout.
+    holdout = {}
+    holdout_runs = HOLDOUT_RUNS.get(depth, 54) if v6 else 0
+    if holdout_runs and "noholdout" not in off:
+        track.update(notes=["보류 상대 코어로 독립 평가"])
+        frozen = [[c.set for c in roster] for _, roster, _ in shown]
+        results = parallel.compare_teams(e, fmt, frozen, holdout_runs, 20_915_003, "master",
+                                         cpu_styles=(*SELECT_STYLES, "counter"), split="holdout")
+        for (group, roster, _), observed in zip(shown, results, strict=True):
+            holdout[team_key(group, roster)] = battle_lab.holdout_summary(observed)
+        track.update(battles=len(shown) * holdout_runs)
     candidates = []
     names_seen = set()
     for index, (group, roster, report) in enumerate(shown, 1):
@@ -1209,7 +1237,10 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
                         "complete": all(row["count"] >= row["minimum"] for row in evidence)})
         title = " · ".join(STYLES[key].label for key in group)
         names = {c.id: c.resolved["ko"] or c.resolved["name"] for c in roster}
-        lead = " + ".join(names[pid] for pid in report["lead"]["ids"])
+        from .guide import team_guide
+
+        guide = team_guide(e, sets, fmt, report=report) or {}
+        lead = " + ".join(names[m["id"]] for m in guide.get("lead", {}).get("lead", ()))
         name = f"{title} · {lead}"
         if name in names_seen:
             name = f"{name} ({index}안)"
@@ -1221,9 +1252,6 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
         ]
         profile = {key: sum(key in c.features for c in roster)
                    for key in ("fast_attacker", "physical", "special", "bulky")}
-        from .guide import team_guide
-
-        guide = team_guide(e, sets, fmt) or {}
         weak = sorted((r for r in analysis["typeRows"] if r["weak"] >= 2), key=lambda r: (r["resist"] - r["weak"]))
         members = [_member(e, s, fmt) for s in sets]
         for m, c in zip(members, roster):
@@ -1235,7 +1263,9 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
         candidates.append({"id": f"auto-{index}", "name": name, "format": fmt, "complete": True,
                            "members": members, "metaScore": analysis["metaScore"],
                            "warnings": analysis["warnings"][:4], "fit": fit, "fixedIds": ids,
-                           "simulation": report, "profile": profile,
+                           "simulation": report, "profile": profile, "guide": guide,
+                           "rulesCoverage": simulation.rules_report(e, fmt, sets),
+                           "holdout": holdout.get(team_key(group, roster)),
                            "analysis": {
                                "damageSplit": analysis["damageSplit"],
                                "weakTypes": [{"type": r["type"], "weak": r["weak"], "resist": r["resist"]}
@@ -1274,7 +1304,10 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
     track.update(done=1)
     return {"candidates": candidates, "splitWeather": split_weather,
             "evaluation": {"screened": len(picks), "finalists": len(finalists),
-                           "screenRuns": screen_runs, "finalRuns": final_runs,
+                           "screenRuns": screen_runs, "finalRuns": final_sample,
+                           "seconds": round(perf_counter() - started, 2),
+                           "holdoutRuns": holdout_runs if holdout else 0,
+                           "provenance": regulation.provenance(e.d),
                            "objective": objective, "depth": depth, "cpu": cpu, "joker": joker,
                            "mega": mega, "core": core, "tune": tune, "originality": originality,
                            "ignored": [STYLES[key].label for key in ignored],

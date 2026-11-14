@@ -7,12 +7,14 @@
 상대 전략은 팀 미리보기(6마리 종)로만 추정한다(battle_lab.preview_family). 실제 상대 세트는 쓰지 않는다.
 """
 from itertools import combinations
+from zlib import crc32
 
 from . import battle_lab, parallel
 
 # 미리보기로 추정한 상대 전략 → 그 전략의 상대를 만드는 플레이북
 # (미리보기 추정과 실제 플레이북의 대응을 측정해 정함: 비 89%, 쾌청 82%, 사이코필드 87%, 순풍 60%, 트릭룸 44%)
-FAMILY_STYLES = {"rain": {"rain"}, "sun": {"sun"}, "psychic": {"psychic"}, "tailwind": {"tailwind", "balance", "setup"},
+FAMILY_STYLES = {"rain": {"rain"}, "sun": {"sun"}, "sand": {"sand"}, "snow": {"snow"},
+                 "psychic": {"psychic"}, "tailwind": {"tailwind", "balance", "setup"},
                  "trickroom": {"trickroom", "setup", "balance"}, "balance": {"balance", "setup", "trickroom"}}
 FAMILY_LABELS = {"rain": "비", "sun": "쾌청", "trickroom": "트릭룸", "tailwind": "순풍", "psychic": "사이코필드",
                  "balance": "균형·랭크업", "sand": "모래바람", "snow": "눈"}
@@ -22,17 +24,21 @@ MAX_KEYS = 6  # 비용 상한: 자주 나오는 미리보기 열쇠 6개까지
 
 def _opponents(e, fmt, styles, limit=12):
     pools = battle_lab._draft_pools(e, fmt)
-    seen, out = set(), []
-    for style in styles:
-        if style not in pools:
-            continue
-        pool, _, _ = pools[style]
-        for c in sorted(pool, key=lambda c: -c.popularity):
-            if c.id not in seen:
-                seen.add(c.id)
-                out.append(e.default_resolved(c.id, fmt))
-            if len(out) >= limit:
-                return out
+    out = []
+    queues = [iter(sorted(pools[style][0], key=lambda c: -c.popularity))
+              for style in sorted(styles) if style in pools]
+    seen = set()
+    while queues and len(out) < limit:
+        remaining = []
+        for queue in queues:
+            candidate = next((c for c in queue if c.id not in seen), None)
+            if candidate:
+                seen.add(candidate.id)
+                out.append(e.default_resolved(candidate.id, fmt))
+                remaining.append(queue)
+                if len(out) == limit:
+                    break
+        queues = remaining
     return out
 
 
@@ -91,7 +97,7 @@ def _key_styles(key):
 
 def _candidates(e, fmt, team, report, styles, width, top):
     by_style = {b["style"]: b for b in report.get("strategies", [])}
-    present = [s for s in styles if s in by_style] or list(styles)
+    present = sorted(s for s in styles if s in by_style) or sorted(styles)
     current = [tuple(p["leads"]) + tuple(p["back"]) for s in present for p in by_style.get(s, {}).get("picks", [])[:2]]
     out = []
     size = min(4 if fmt == "Doubles" else 3, len(team))
@@ -110,7 +116,7 @@ def quick(e, fmt, team, report, *, runs=10, seed=6_120_331, difficulty="ultra", 
         candidates = _candidates(e, fmt, team, report, styles, width, top)
         if not candidates:
             continue
-        reports = parallel.compare_teams(e, fmt, [team] * (1 + len(candidates)), runs, seed + hash(key) % 997,
+        reports = parallel.compare_teams(e, fmt, [team] * (1 + len(candidates)), runs, seed + crc32(key.encode()) % 997,
                                          difficulty, styles=styles,
                                          policies=[None] + [{key: pick} for pick in candidates])
         base, trials = reports[0], reports[1:]
@@ -138,7 +144,7 @@ def optimize(e, fmt, team, report, depth="standard", seed=8_812_007, difficulty=
         candidates = candidates[:5]
         if not candidates:
             continue
-        reports = parallel.compare_teams(e, fmt, [team] * (1 + len(candidates)), runs, seed + hash(key) % 997,
+        reports = parallel.compare_teams(e, fmt, [team] * (1 + len(candidates)), runs, seed + crc32(key.encode()) % 997,
                                          difficulty, styles=styles,
                                          policies=[None] + [{key: pick} for pick in candidates])
         base, trials = reports[0], reports[1:]
@@ -148,7 +154,7 @@ def optimize(e, fmt, team, report, depth="standard", seed=8_812_007, difficulty=
         if screen["diff"] > 0:
             # 후보 여러 개 중 최고를 같은 판으로 고르면 운이 섞인다 → 새 상대군에서 계획 없음과 다시 비교한다.
             confirm_games = 4 * runs
-            check = parallel.compare_teams(e, fmt, [team, team], confirm_games, seed + 31_337 + hash(key) % 991,
+            check = parallel.compare_teams(e, fmt, [team, team], confirm_games, seed + 31_337 + crc32(key.encode()) % 991,
                                            difficulty, styles=styles,
                                            policies=[None, {key: candidates[best_i]}])
             stats = battle_lab.paired(check[0]["outcomes"], check[1]["outcomes"])

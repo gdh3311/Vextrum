@@ -126,7 +126,8 @@ class TeamPage extends ConsumerWidget {
       else
         AsyncView<Json?>(
             analysis,
-            (a) => a == null ? const SizedBox() : TeamTabs(guide: a['guide'] as Json?, analysis: _Analysis(a)),
+            (a) => a == null ? const SizedBox() : TeamTabs(guide: a['guide'] as Json?, analysis: _Analysis(a),
+              sets: [for (final slot in team) slot.set], format: fmt),
             onRetry: () => ref.invalidate(analysisProvider)),
     ]);
   }
