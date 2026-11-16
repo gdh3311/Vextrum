@@ -655,11 +655,13 @@ def _match_seeds(e, fmt, runs, seed, styles=None, split="search"):
         yield rng.randrange((2 ** 31 - count) // count) * count + order.pop()
 
 
-def _play(e, fmt, team, match, difficulty, cpu_style="balanced"):
+def _play(e, fmt, team, match, difficulty, cpu_style="balanced", *, check=None):
     battle = simulation.Battle(e, fmt, [team[i] for i in match.ours],
                                [match.roster[i].set for i in match.theirs], match.battle_seed,
                                log=False, foe_strategy=match.style, difficulty=difficulty, cpu_style=cpu_style)
     while not battle.winner:
+        if check is not None:
+            check()
         battle.advance()
     return battle
 
@@ -703,11 +705,13 @@ def verify_pick(e, fmt, team, selection, style, runs=12, seed=602_731):
 
 
 def compare_teams(e, fmt, teams, runs, seed, difficulty: simulation.Difficulty = "ultra", styles=None,
-                  policies=None, cpu_styles=None, split="search"):
+                  policies=None, cpu_styles=None, split="search", *, check=None):
     """Use the same six opponents and RNG for every team; each still gets its own preview.
 
     policies: 팀마다 선출 계획 {추정 상대 전략: (선봉1, 선봉2, 후발1, 후발2)} (없으면 기본 선출 휴리스틱)
     cpu_styles: 상대 CPU 플레이 스타일 목록 (판마다 돌아가며). outcomes 에 판별 결과(1·0.5·0)를 남긴다."""
+    if check is not None:
+        check()
     standings = [{**_results(), "runs": runs, "strategies": {}, "leads": Counter(),
                   "activations": Counter(), "turns": 0, "foeEffects": Counter(), "lossEffects": Counter(),
                   "lossTags": Counter(), "outcomes": [], "cpuStyles": {}, "opponentCores": [],
@@ -718,14 +722,18 @@ def compare_teams(e, fmt, teams, runs, seed, difficulty: simulation.Difficulty =
     resolved = [_resolve(e, fmt, team) for team in teams]
     width = 2 if fmt == "Doubles" else 1
     for number, match_seed in enumerate(_match_seeds(e, fmt, runs, seed, styles, split)):
+        if check is not None:
+            check()
         rng = Random(match_seed)
         style, roster = _draft(e, fmt, match_seed, rng, split)
         state = rng.getstate()
         cpu_style = cpu_styles[number % len(cpu_styles)] if cpu_styles else "balanced"
         for team, player, row, detail, policy in zip(teams, resolved, standings, details, policies):
+            if check is not None:
+                check()
             rng.setstate(state)
             match = _match_against(e, fmt, player, style, roster, rng, policy)
-            battle = _play(e, fmt, team, match, difficulty, cpu_style)
+            battle = _play(e, fmt, team, match, difficulty, cpu_style, check=check)
             row[battle.winner] += 1
             score = {"win": 1., "draw": .5, "loss": 0.}[battle.winner]
             row["outcomes"].append(score)

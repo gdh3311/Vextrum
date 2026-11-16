@@ -235,14 +235,17 @@ class _TeamTile extends StatelessWidget {
 
 /// 다른 화면에서 현재 팀을 고르는 드롭다운 (팀이 둘 이상일 때만 의미가 있다)
 class TeamPickerButton extends ConsumerWidget {
-  const TeamPickerButton({super.key});
+  const TeamPickerButton({super.key, this.fullWidth = false});
+  final bool fullWidth;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final teams = ref.watch(teamListProvider);
     final active = ref.watch(activeTeamIndexProvider).clamp(0, teams.length - 1);
+    final activeName = teams[active].name;
     return PopupMenuButton<int>(
-      tooltip: tr('사용할 팀 선택'),
+      tooltip: fullWidth ? "${tr('사용할 팀 선택')} · $activeName" : tr('사용할 팀 선택'),
       position: PopupMenuPosition.under,
       color: cs.surfaceContainerHighest,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -252,30 +255,57 @@ class TeamPickerButton extends ConsumerWidget {
           PopupMenuItem(
               value: i,
               height: 46,
-              child: Row(children: [
-                SizedBox(
-                    width: 96,
-                    child: Text(teams[i].name,
-                        style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: i == active ? FontWeight.w700 : FontWeight.w500,
-                            color: i == active ? cs.primary : null),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis)),
-                for (final s in teams[i].sprites) Sprite(s, size: 24),
-              ])),
+              child: fullWidth
+                  ? Row(children: [
+                      Expanded(child: _teamName(teams[i].name, i == active, cs, maxLines: 2)),
+                      if (i == active) ...[
+                        const SizedBox(width: 8),
+                        LabIcon(LabGlyph.check, size: 18, color: cs.primary),
+                      ],
+                    ])
+                  : Row(children: [
+                      SizedBox(width: 96, child: _teamName(teams[i].name, i == active, cs)),
+                      for (final s in teams[i].sprites) Sprite(s, size: 24),
+                    ])),
       ],
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 7, 8, 7),
-        decoration: BoxDecoration(color: cs.surfaceContainer, borderRadius: BorderRadius.circular(9)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(teams[active].name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-          const SizedBox(width: 2),
+      child: Ink(
+        padding: fullWidth
+            ? const EdgeInsets.fromLTRB(12, 11, 10, 11)
+            : const EdgeInsets.fromLTRB(12, 7, 8, 7),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainer,
+          borderRadius: BorderRadius.circular(fullWidth ? 12 : 9),
+          border: fullWidth ? Border.all(color: cs.outlineVariant) : null,
+        ),
+        child: Row(mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min, children: [
+          if (fullWidth) ...[
+            LabIcon(LabGlyph.team, size: 19, color: cs.primary),
+            const SizedBox(width: 10),
+          ],
+          Flexible(
+            fit: fullWidth ? FlexFit.tight : FlexFit.loose,
+            child: Text(activeName,
+                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                maxLines: fullWidth ? 2 : 1,
+                overflow: TextOverflow.ellipsis),
+          ),
+          const SizedBox(width: 8),
           LabIcon(LabGlyph.down, size: 18, color: cs.onSurfaceVariant),
         ]),
       ),
     );
   }
+
+  Widget _teamName(String name, bool selected, ColorScheme cs, {int maxLines = 1}) => Text(
+        name,
+        style: TextStyle(
+          fontSize: 13.5,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          color: selected ? cs.primary : null,
+        ),
+        maxLines: maxLines,
+        overflow: TextOverflow.ellipsis,
+      );
 }
 
 /// '전체' + 항목 목록에서 하나를 고르는 필터 드롭다운

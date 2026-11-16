@@ -372,10 +372,10 @@ class ResearchControl(BaseModel):
 
 @app.on_event("startup")
 def start_research():
-    """자동 연구는 서버와 함께 켜진다 (앱에서 끈 적이 있으면 꺼진 채로)."""
+    """사용자가 직접 켜 둔 경우에만 다시 시작한다."""
     from .research import LAB
 
-    if LAB.setting("enabled", True):
+    if LAB.setting("opted_in", False):
         LAB.start(engine)
 
 
@@ -386,6 +386,13 @@ def research_status(format: Format = "Doubles"):
     return LAB.status(engine(), format)
 
 
+@app.get("/api/research/control")
+def research_control_state():
+    from .research import LAB
+
+    return LAB.control_state()
+
+
 @app.post("/api/research/control")
 def research_control(req: ResearchControl):
     from .research import LAB
@@ -393,10 +400,11 @@ def research_control(req: ResearchControl):
     if req.intensity:
         LAB.set_setting("intensity", req.intensity)
     if req.running is True:
-        LAB.start(engine)
+        if not LAB.start(engine):
+            raise HTTPException(409, "연구를 멈추는 중입니다. 중지가 끝나면 다시 켤 수 있습니다.")
     elif req.running is False:
         LAB.stop()
-    return LAB.status(engine(), "Doubles")
+    return LAB.control_state()
 
 
 @app.get("/api/research/teams")

@@ -52,14 +52,16 @@ def _serial(e):
 
 
 def compare_teams(e, fmt, teams, runs, seed, difficulty="ultra", styles=None, policies=None, cpu_styles=None,
-                  split="search"):
+                  split="search", *, check=None):
     from . import battle_lab
 
     # 한 판의 비용은 CPU 랭크마다 다르다 (챔피언은 탐색형이라 하이퍼볼의 약 30배).
     cost = {"champion": 30, "master": 2}.get(difficulty, 1)
     policies = policies or [None] * len(teams)
-    if _serial(e) or len(teams) < 2 or len(teams) * runs * cost < 240:
-        return battle_lab.compare_teams(e, fmt, teams, runs, seed, difficulty, styles, policies, cpu_styles, split)
+    # 취소 가능한 백그라운드 연구는 스레드에서 직접 돌려 중지 요청을 매 턴 확인한다.
+    if check is not None or _serial(e) or len(teams) < 2 or len(teams) * runs * cost < 240:
+        return battle_lab.compare_teams(e, fmt, teams, runs, seed, difficulty, styles, policies, cpu_styles, split,
+                                        check=check)
     chunks = min(WORKERS, len(teams))
     size = -(-len(teams) // chunks)
     parts = [(teams[i:i + size], policies[i:i + size]) for i in range(0, len(teams), size)]

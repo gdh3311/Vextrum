@@ -1,4 +1,4 @@
-"""자동 연구: 서버가 켜져 있는 동안 계속 팀을 만들고, 바꾸고, 싸워 보며 더 강하고 다양한 팀을 찾는다.
+"""자동 연구를 켜면 팀을 만들고, 바꾸고, 싸워 보며 더 강하고 다양한 팀을 찾는다.
 
 한 세대마다
   1. 후보를 만든다 — 새 초안(무작위 전략·에이스·개성), 잘하는 팀의 변이(멤버 1마리 교체·세트 변경), 서로 다른 팀의 교배,
@@ -36,6 +36,10 @@ ARCHETYPES = {
 BUCKETS = {"unique": "독창적", "balanced": "균형", "meta": "메타 중심"}
 ELITES_PER_NICHE = 5
 MAX_TEAMS = 4000
+
+
+class ResearchStopped(Exception):
+    pass
 
 
 def wilson_low(wins, games, z=1.28):
@@ -117,14 +121,13 @@ class Lab:
         self.lock = threading.Lock()
         self.db_lock = threading.Lock()
         self.thread = None
-        self.running = False
+        self._stop = None
         self.busy = 0  # 사용자의 팀 구성 작업이 돌고 있으면 잠시 쉰다
         self.activity = ""
         self.generation = 0
         self.session_battles = 0
         self.started = None
         self.error = None
-        self.engine_getter = None
         self.contexts = {}
         self.planned = set()
         self.rng = random.Random()
@@ -169,42 +172,65 @@ class Lab:
             self.db().commit()
 
     # ---------- 실행 제어
-    def start(self, engine_getter=None):
-        if engine_getter:
-            self.engine_getter = engine_getter
+    def start(self, engine_getter):
         with self.lock:
-            if self.running:
-                return
-            self.running = True
+            if self.thread is not None:
+                return not self._stop.is_set()
+            stop = threading.Event()
+            self.set_setting("opted_in", True)
+            self._stop = stop
             self.started = time.time()
-            self.set_setting("enabled", True)
-            self.thread = threading.Thread(target=self._loop, daemon=True, name="auto-research")
+            self.activity = "연구 준비 중"
+            self.error = None
+            self.thread = threading.Thread(target=self._loop, args=(engine_getter, stop),
+                                           daemon=True, name="auto-research")
             self.thread.start()
+            return True
 
     def stop(self):
-        self.running = False
-        self.set_setting("enabled", False)
+        with self.lock:
+            if self._stop is not None:
+                self._stop.set()
+            with self.db_lock, self.db() as db:
+                db.executemany("INSERT OR REPLACE INTO meta VALUES (?, ?)",
+                               (("opted_in", "false"), ("enabled", "false")))
 
-    def _loop(self):
-        time.sleep(3)  # 서버가 먼저 응답할 수 있게 잠깐 기다린다
-        while self.running:
-            if self.busy:
-                self.activity = "팀 자동 구성이 끝날 때까지 잠시 쉬는 중"
-                time.sleep(1)
-                continue
-            try:
-                e = self.engine_getter()
-                fmt = "Singles" if self.rng.random() < .25 else "Doubles"
-                self.step(e, fmt)
-                self.error = None
-            except Exception as error:  # noqa: BLE001 - 연구가 멈추지 않게 기록만 하고 계속한다
-                import traceback
+    def control_state(self):
+        with self.lock:
+            active = self.thread is not None
+            stopping = active and self._stop.is_set()
+            return {"running": active and not stopping, "stopping": stopping, "intensity": self.intensity()}
 
-                traceback.print_exc()
-                self.error = str(error)
-                time.sleep(5)
-            time.sleep(INTENSITY[self.intensity()][2])
-        self.activity = "멈춤"
+    def _loop(self, engine_getter, stop):
+        def check():
+            if stop.is_set():
+                raise ResearchStopped
+
+        try:
+            stop.wait(3)
+            while not stop.is_set():
+                if self.busy:
+                    self.activity = "팀 구성이나 실험이 끝날 때까지 잠시 쉬는 중"
+                    stop.wait(1)
+                    continue
+                try:
+                    e = engine_getter()
+                    fmt = "Singles" if self.rng.random() < .25 else "Doubles"
+                    self.step(e, fmt, check=check)
+                    self.error = None
+                except ResearchStopped:
+                    break
+                except Exception as error:
+                    import traceback
+
+                    traceback.print_exc()
+                    self.error = str(error)
+                    stop.wait(5)
+                stop.wait(INTENSITY[self.intensity()][2])
+        finally:
+            with self.lock:
+                self.activity = "멈춤"
+                self._stop = self.thread = None
 
     def intensity(self):
         value = self.setting("intensity", "low")
@@ -218,12 +244,14 @@ class Lab:
         return self.contexts[key]
 
     # ---------- 한 세대
-    def step(self, e, fmt):
+    def step(self, e, fmt, *, check=None):
+        if check is not None:
+            check()
         ctx = self.context(e, fmt)
         version = regulation.version_key(e.d)
         count, games, _ = INTENSITY[self.intensity()]
         rng = self.rng
-        self.generation += 1
+        generation = self.generation + 1
         rows = self.rows(fmt, version)
         elites = self.elites(rows)
         batch = []  # (roster, origin, parent)
@@ -235,6 +263,8 @@ class Lab:
         parents = [r for rows_ in elites.values() for r in rows_] or rows[:20]
         attempts = 0
         while len(batch) < count and attempts < count * 6:
+            if check is not None:
+                check()
             attempts += 1
             roll = rng.random()
             parent = rng.choice(parents) if parents else None
@@ -253,35 +283,44 @@ class Lab:
                              if len(pick) == len(set(pick)) == battle_lab.limit(fmt) and set(pick) <= ids}
                 batch.append((roster, origin, parent["sig"] if parent else None, inherited or None))
         # 선출 계획 붙이기: 계획 없는 상위 엘리트 하나에 간이 선출 최적화를 돌려 '팀 + 계획' 새 개체를 만든다.
-        if self.generation % 3 == 0:
+        planned = None
+        if generation % 3 == 0:
             bare = next((r for group in elites.values() for r in group
                          if not r["policy"] and r["sig"] not in self.planned), None)
             if bare:
                 from . import policy as pick_policy
 
-                self.planned.add(bare["sig"])
                 sets = bare["sets"]
                 report = parallel.compare_teams(e, fmt, [sets], 16, rng.randrange(1 << 30), "ultra",
-                                                cpu_styles=auto_team.SELECT_STYLES)[0]
-                plan = pick_policy.quick(e, fmt, sets, report, seed=rng.randrange(1 << 30))
+                                                cpu_styles=auto_team.SELECT_STYLES, check=check)[0]
+                plan = pick_policy.quick(e, fmt, sets, report, seed=rng.randrange(1 << 30), check=check)
+                planned = bare["sig"]
                 if plan:
                     batch.append(([ctx.candidate(x) for x in sets], "policy", bare["sig"],
                                   {k: list(v) for k, v in plan.items()}))
         if not batch:
+            self.generation = generation
             return
         archetypes = [ARCHETYPES[ctx.niche(r)[0]] for r, _, _, _ in batch]
-        self.activity = (f"{'더블' if fmt == 'Doubles' else '싱글'} · {self.generation}세대 · "
+        self.activity = (f"{'더블' if fmt == 'Doubles' else '싱글'} · {generation}세대 · "
                          f"{len(batch)}팀 × {games}판 ({', '.join(dict.fromkeys(archetypes))})")
         seed = rng.randrange(1 << 30)
         reports = parallel.compare_teams(e, fmt, [[c.set for c in r] for r, _, _, _ in batch], games, seed, "ultra",
                                          policies=[pol for _, _, _, pol in batch],
-                                         cpu_styles=auto_team.SELECT_STYLES)
-        self.session_battles += len(batch) * games
+                                         cpu_styles=auto_team.SELECT_STYLES, check=check)
+        if check is not None:
+            check()
         self.record(ctx, fmt, version, batch, reports)
-        if self.generation % 4 == 0:
-            self.evaluate_holdout(e, fmt, version)
+        self.session_battles += len(batch) * games
+        self.generation = generation
+        if planned is not None:
+            self.planned.add(planned)
+        if generation % 4 == 0:
+            self.evaluate_holdout(e, fmt, version, check=check)
 
-    def evaluate_holdout(self, e, fmt, version):
+    def evaluate_holdout(self, e, fmt, version, *, check=None):
+        if check is not None:
+            check()
         with self.db_lock:
             tested = {r[0] for r in self.db().execute("SELECT sig FROM holdouts WHERE fmt=? AND version=?", (fmt, version))}
         top = next((r for r in self.rows(fmt, version)[:12] if r["games"] >= 40 and r["sig"] not in tested), None)
@@ -289,7 +328,9 @@ class Lab:
             return
         report = parallel.compare_teams(e, fmt, [top["sets"]], 18, 20_915_003, "master",
                                         policies=[top["policy"]], cpu_styles=(*auto_team.SELECT_STYLES, "counter"),
-                                        split="holdout")[0]
+                                        split="holdout", check=check)[0]
+        if check is not None:
+            check()
         result = json.dumps(battle_lab.holdout_summary(report), ensure_ascii=False)
         with self.db_lock:
             with self.db() as db:
@@ -508,15 +549,21 @@ class Lab:
     # ---------- 바깥에서 쓰는 조회
     def status(self, e, fmt):
         version = regulation.version_key(e.d)
-        rows = self.rows(fmt, version)
         with self.db_lock:
-            events = [{"t": t, "text": text, "kind": kind} for t, text, kind in self.db().execute(
+            db = self.db()
+            teams, battles = db.execute(
+                "SELECT COUNT(*), COALESCE(SUM(games), 0) FROM teams WHERE fmt=? AND version=?",
+                (fmt, version)).fetchone()
+            niches = db.execute(
+                "SELECT COUNT(*) FROM (SELECT 1 FROM teams WHERE fmt=? AND version=? AND games>=40 "
+                "GROUP BY archetype, bucket)", (fmt, version)).fetchone()[0]
+            events = [{"t": t, "text": text, "kind": kind} for t, text, kind in db.execute(
                 "SELECT t, text, kind FROM events WHERE fmt=? ORDER BY id DESC LIMIT 12", (fmt,))]
-        total = sum(r["games"] for r in rows)
-        return {"running": self.running, "busy": bool(self.busy), "activity": self.activity, "error": self.error,
-                "intensity": self.intensity(), "generation": self.generation,
-                "sessionBattles": self.session_battles, "uptime": round(time.time() - self.started) if self.started and self.running else 0,
-                "teams": len(rows), "battles": total, "niches": len(self.elites(rows)), "events": events}
+        control = self.control_state()
+        return {**control, "busy": bool(self.busy), "activity": self.activity, "error": self.error,
+                "generation": self.generation,
+                "sessionBattles": self.session_battles, "uptime": round(time.time() - self.started) if control["running"] else 0,
+                "teams": teams, "battles": battles, "niches": niches, "events": events}
 
     def team_view(self, e, fmt, r):
         from .guide import team_guide
