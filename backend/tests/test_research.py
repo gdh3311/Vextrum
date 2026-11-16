@@ -1,12 +1,14 @@
 import json
 import os
 import tempfile
+import threading
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 os.environ.setdefault("SIM_PARALLEL", "0")
 
-from app import auto_team, collector, regulation, research  # noqa: E402
+from app import auto_team, battle_lab, collector, regulation, research  # noqa: E402
 from app.engine import Engine  # noqa: E402
 
 
@@ -71,6 +73,83 @@ class ResearchTest(unittest.TestCase):
         self.assertEqual(before, after)
         rows = self.lab.leaderboard(e, fmt, minimum=1, limit=60)
         self.assertTrue(any(row.get("holdout", {}).get("kind") == "synthetic_core_holdout" for row in rows))
+
+
+class ResearchControlTest(unittest.TestCase):
+    def setUp(self):
+        folder = self.enterContext(tempfile.TemporaryDirectory())
+        self.enterContext(patch.object(research, "DB", Path(folder) / "research.sqlite"))
+        self.lab = research.Lab()
+        self.addCleanup(self.lab.db().close)
+
+    def test_startup_requires_opt_in_and_remembers_stop(self):
+        from app import main
+
+        with patch.object(research, "LAB", self.lab), patch.object(self.lab, "start") as start:
+            self.lab.set_setting("enabled", True)
+            main.start_research()
+            start.assert_not_called()
+            self.lab.set_setting("opted_in", True)
+            main.start_research()
+            start.assert_called_once_with(main.engine)
+            self.lab.stop()
+            main.start_research()
+            self.assertEqual(start.call_count, 1)
+        self.assertFalse(self.lab.setting("opted_in"))
+        self.assertFalse(self.lab.setting("enabled"))
+
+    def test_stop_interrupts_active_research_and_serializes_restart(self):
+        entered, allow_check = threading.Event(), threading.Event()
+        engine = object()
+
+        def step(e, fmt, *, check):
+            entered.set()
+            allow_check.wait(10)
+            check()
+            self.fail("Research advanced after cancellation")
+
+        with patch.object(self.lab, "step", side_effect=step):
+            self.assertTrue(self.lab.start(lambda: engine))
+            thread = self.lab.thread
+            try:
+                self.assertTrue(entered.wait(6))
+                self.lab.stop()
+                self.assertTrue(self.lab.control_state()["stopping"])
+                self.assertFalse(self.lab.start(lambda: engine))
+                self.assertFalse(self.lab.setting("opted_in"))
+            finally:
+                self.lab.stop()
+                allow_check.set()
+                thread.join(5)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(self.lab.control_state(), {"running": False, "stopping": False, "intensity": "low"})
+        self.assertIsNone(self.lab.error)
+        self.assertEqual(self.lab.session_battles, 0)
+        self.assertTrue(self.lab.start(lambda: engine))
+        thread = self.lab.thread
+        self.lab.stop()
+        thread.join(5)
+        self.assertFalse(thread.is_alive())
+
+    def test_battle_checks_cancellation_between_turns(self):
+        class Battle:
+            winner = None
+            turns = 0
+
+            def advance(self):
+                self.turns += 1
+
+        sim = Battle()
+        match = type("Match", (), {"ours": [], "roster": [], "theirs": [], "battle_seed": 1, "style": "balance"})()
+
+        def check():
+            if sim.turns == 1:
+                raise research.ResearchStopped
+
+        with patch.object(battle_lab.simulation, "Battle", return_value=sim):
+            with self.assertRaises(research.ResearchStopped):
+                battle_lab._play(None, "Doubles", [], match, "ultra", check=check)
+        self.assertEqual(sim.turns, 1)
 
 
 if __name__ == "__main__":

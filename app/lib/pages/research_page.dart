@@ -1,4 +1,3 @@
-/// 자동 연구: 서버가 켜져 있는 동안 계속 팀을 만들고 싸워 보며 찾은 결과를 보여 준다.
 import 'dart:async';
 
 import 'package:flutter/material.dart' hide Text, Tooltip;
@@ -10,6 +9,7 @@ import '../lab_icons.dart';
 import '../widgets.dart';
 import '../main.dart';
 import 'parties_page.dart';
+import 'research_toggle.dart';
 
 const _buckets = <(String, String)>[
   ('', '전체'),
@@ -32,7 +32,7 @@ const _archetypes = {
 const _intensities = <(String, String, String)>[
   ('low', '낮게', '다른 작업에 방해가 덜 되게 천천히 연구합니다.'),
   ('normal', '보통', '쉬는 시간을 줄이고 세대마다 더 많은 팀을 시험합니다.'),
-  ('max', '최대', 'CPU를 최대한 써서 쉬지 않고 연구합니다.'),
+  ('max', '최대', '세대마다 더 많은 팀을 시험하고 바로 다음 세대로 넘어갑니다.'),
 ];
 
 class ResearchPage extends ConsumerStatefulWidget {
@@ -93,14 +93,18 @@ class _ResearchPageState extends ConsumerState<ResearchPage> {
     }
   }
 
-  Future<void> _control({bool? running, String? intensity}) async {
+  Future<void> _control({String? intensity}) async {
     try {
       await dio.post('/api/research/control', data: {
-        if (running != null) 'running': running,
         if (intensity != null) 'intensity': intensity,
       });
-    } finally {
       await _refresh();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('연구 세기를 저장하지 못했습니다.')),
+        );
+      }
     }
   }
 
@@ -117,6 +121,7 @@ class _ResearchPageState extends ConsumerState<ResearchPage> {
       PageHeader('자동 연구',
           glyph: LabGlyph.spark,
           subtitle: format == 'Doubles' ? '더블배틀' : '싱글배틀'),
+      Section('실행 설정', child: ResearchToggle(onChanged: () => _refresh(all: true))),
       Padding(
         padding: const EdgeInsets.only(bottom: 14),
         child: Text(
@@ -169,13 +174,14 @@ class _ResearchPageState extends ConsumerState<ResearchPage> {
 class ResearchStatusCard extends StatelessWidget {
   const ResearchStatusCard({super.key, required this.status, required this.onControl});
   final Json status;
-  final Future<void> Function({bool? running, String? intensity}) onControl;
+  final Future<void> Function({String? intensity}) onControl;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final running = status['running'] == true;
+    final stopping = status['stopping'] == true;
     final busy = status['busy'] == true;
     final intensity = status['intensity'] as String? ?? 'low';
     final events = (status['events'] as List? ?? const []).cast<Json>();
@@ -198,11 +204,11 @@ class ResearchStatusCard extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              running ? (status['activity'] as String? ?? '') : '연구가 꺼져 있습니다',
+              stopping ? '연구를 멈추는 중입니다' :
+                  running ? (status['activity'] as String? ?? '') : '연구가 꺼져 있습니다',
               style: theme.textTheme.titleSmall,
             ),
           ),
-          Switch(value: running, onChanged: (v) => onControl(running: v)),
         ]),
         if (status['error'] != null)
           Text(tr('마지막 오류: {}').replaceFirst('{}', '${status['error']}'),

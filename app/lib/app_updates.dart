@@ -11,6 +11,22 @@ const _seenKey = 'last_read_app_update';
 const _releases = [
   (
     version: appVersion,
+    date: '2026.11.16',
+    entries: [
+      (
+        glyph: LabGlyph.spark,
+        title: '백그라운드 자동 연구 켜기·끄기',
+        detail: '자동 연구는 기본으로 꺼져 있습니다. 설정과 자동 연구 화면에서 바꿀 수 있고, 끄면 진행 중인 계산을 중단합니다.',
+      ),
+      (
+        glyph: LabGlyph.team,
+        title: '팀 워크스페이스 편집 패널 개선',
+        detail: '팀 이름과 포켓몬별 도구를 읽기 쉽게 배치했습니다. 세트 편집 버튼과 관리 메뉴에서 팀을 수정할 수 있습니다.',
+      ),
+    ],
+  ),
+  (
+    version: '1.19.0',
     date: '2026.11.14',
     entries: [
       (

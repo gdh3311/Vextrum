@@ -71,12 +71,14 @@ def static_picks(e, fmt, team, styles, width, count=4, top=3):
     return out
 
 
-def preview_keys(e, fmt, runs, seed, styles=None):
+def preview_keys(e, fmt, runs, seed, styles=None, *, check=None):
     """이 시드·전략 묶음에서 실제로 나올 상대들의 미리보기 열쇠 → 그 열쇠를 만든 플레이북들 (빈도순)."""
     from random import Random
 
     out = {}
     for match_seed in battle_lab._match_seeds(e, fmt, runs, seed, styles):
+        if check is not None:
+            check()
         style, roster = battle_lab._draft(e, fmt, match_seed, Random(match_seed))
         key = battle_lab.preview_key(e, fmt, [c.id for c in roster])
         styles_for, count = out.get(key, (set(), 0))
@@ -107,18 +109,18 @@ def _candidates(e, fmt, team, report, styles, width, top):
     return out[:top + 1]
 
 
-def quick(e, fmt, team, report, *, runs=10, seed=6_120_331, difficulty="ultra", keys=3, top=2):
+def quick(e, fmt, team, report, *, runs=10, seed=6_120_331, difficulty="ultra", keys=3, top=2, check=None):
     """탐색 중 간이 선출 최적화 (v5): 자주 나오는 미리보기 열쇠 몇 개만, 후보 2~3개를 한 번 비교한다.
     탐색 단계라 기준은 느슨하다(같은 판 비교에서 이기면 채택). 최종 후보는 optimize 로 다시 엄격하게 검증한다."""
     width = 2 if fmt == "Doubles" else 1
     plan = {}
-    for key, (styles, _) in list(preview_keys(e, fmt, 4 * runs, seed).items())[:keys]:
+    for key, (styles, _) in list(preview_keys(e, fmt, 4 * runs, seed, check=check).items())[:keys]:
         candidates = _candidates(e, fmt, team, report, styles, width, top)
         if not candidates:
             continue
         reports = parallel.compare_teams(e, fmt, [team] * (1 + len(candidates)), runs, seed + crc32(key.encode()) % 997,
                                          difficulty, styles=styles,
-                                         policies=[None] + [{key: pick} for pick in candidates])
+                                         policies=[None] + [{key: pick} for pick in candidates], check=check)
         base, trials = reports[0], reports[1:]
         best = max(range(len(trials)), key=lambda i: sum(trials[i]["outcomes"]))
         if sum(trials[best]["outcomes"]) > sum(base["outcomes"]):

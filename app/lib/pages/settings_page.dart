@@ -16,6 +16,7 @@ import '../team_state.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'enemy_page.dart';
+import 'research_toggle.dart';
 
 /// 이 기기에 저장된 기록 개수 (설정 화면 표시용)
 final _storageProvider = FutureProvider.autoDispose<(int, int)>((ref) async {
@@ -227,6 +228,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 (v) => ref.read(formatProvider.notifier).state = v),
             help: '앱을 열 때 선택되는 형식입니다. 화면 왼쪽 메뉴에서도 바로 바꿀 수 있습니다.',
           )),
+      const Section('자동 연구', child: ResearchToggle()),
       Section('데이터와 연결',
           child: Column(children: [
             row(

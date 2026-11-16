@@ -29,6 +29,8 @@ class _FakeServer implements HttpClientAdapter {
         'megas': [],
         'defaultSet': {'id': id, 'moves': ['Protect'], 'item': null},
       };
+    } else if (o.path == '/api/items') {
+      out = [{'name': 'Choice Specs', 'ko': '구애안경'}];
     } else if (o.path == '/api/workbench/fast') {
       final rev = (o.data as Map)['teamRevision'] as int;
       fastCalls.add(rev);
@@ -116,20 +118,31 @@ void main() {
   });
 
   testWidgets('워크스페이스는 넓은 화면·좁은 화면 모두 오류 없이 그린다', (tester) async {
-    SharedPreferences.setMockInitialValues({});
     dio.httpClientAdapter = _FakeServer();
     addTearDown(tester.view.reset);
     for (final width in [1400.0, 390.0]) {
+      SharedPreferences.setMockInitialValues({});
       tester.view.physicalSize = Size(width, 2400);
       tester.view.devicePixelRatio = 1;
       final container = ProviderContainer();
+      const longTeamName = '균형형 · 플라엣테와 파이어로를 중심으로 만든 더블배틀 팀';
       await tester.runAsync(() async {
         await Future<void>.delayed(const Duration(milliseconds: 50));
-        await container.read(teamProvider.notifier).add('garchomp');
-        await container.read(teamProvider.notifier).add('kingambit');
+        final team = container.read(teamProvider.notifier);
+        await team.add('garchomp', set: {'id': 'garchomp', 'item': 'Choice Specs'});
+        for (final id in ['kingambit', 'floette', 'charizard', 'sneasler', 'talonflame']) {
+          await team.add(id);
+        }
+        team.rename(0, longTeamName);
       });
       await tester.pumpWidget(UncontrolledProviderScope(
-          container: container, child: const MaterialApp(home: Scaffold(body: WorkspacePage()))));
+          container: container, child: MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(width == 390 ? 1.3 : 1)),
+              child: child!,
+            ),
+            home: const Scaffold(body: WorkspacePage()),
+          )));
       for (var k = 0; k < 3; k++) {
         // 분석 요청은 화면이 처음 그려질 때 시작된다
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
@@ -138,6 +151,23 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('팀 워크스페이스'), findsOneWidget);
       expect(find.text('현재 팀'), findsOneWidget);
+      expect(find.text('6 / 6'), findsOneWidget);
+      expect(find.text('구애안경'), findsOneWidget);
+      expect(tester.getTopLeft(find.text(longTeamName)).dy,
+          greaterThan(tester.getBottomRight(find.text('현재 팀')).dy));
+      await tester.tap(find.byTooltip('포켓몬 관리').first);
+      await tester.pumpAndSettle();
+      final lock = find.ancestor(
+          of: find.text('포켓몬 잠금'), matching: find.byType(CheckedPopupMenuItem<String>));
+      await tester.tap(lock);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('잠긴 항목 · 포켓몬'));
+      await tester.pumpAndSettle();
+      final remove = find.ancestor(
+          of: find.text('팀에서 빼기'), matching: find.byType(PopupMenuItem<String>));
+      expect(tester.widget<PopupMenuItem<String>>(remove).enabled, isFalse);
+      Navigator.of(tester.element(find.text('팀에서 빼기'))).pop();
+      await tester.pumpAndSettle();
       expect(find.textContaining('교체 추천'), findsWidgets);
       expect(find.textContaining('정적 분석'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());

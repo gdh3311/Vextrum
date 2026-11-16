@@ -29,33 +29,34 @@ class _WorkspacePageState extends ConsumerState<WorkspacePage> {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
     final team = ref.watch(teamProvider);
     if (slot >= team.length && team.isNotEmpty) slot = team.length - 1;
     final left = _TeamColumn(selected: slot, onSelect: (i) => setState(() => slot = i));
     const center = _AnalysisColumn();
     final right = _ToolColumn(slot: slot, tab: tab, onTab: (t) => setState(() => tab = t));
-    final header = PageHeader('팀 워크스페이스',
+    const header = PageHeader('팀 워크스페이스',
         glyph: LabGlyph.team,
         subtitle: '팀을 고치면 가운데 분석이 바로 바뀝니다. 오른쪽에서 교체 후보·상대 대응·모의전 실험을 같은 팀으로 이어서 할 수 있습니다.');
-    if (width >= 1200) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          header,
-          Expanded(
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              SizedBox(width: 320, child: SingleChildScrollView(child: left)),
-              const SizedBox(width: 16),
-              Expanded(child: SingleChildScrollView(child: center)),
-              const SizedBox(width: 16),
-              SizedBox(width: 440, child: SingleChildScrollView(child: right)),
-            ]),
-          ),
-        ]),
-      );
-    }
-    return ListView(padding: const EdgeInsets.all(16), children: [header, left, right, center]);
+    return LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth >= 1100) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            header,
+            Expanded(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                SizedBox(width: 320, child: SingleChildScrollView(child: left)),
+                const SizedBox(width: 16),
+                const Expanded(child: SingleChildScrollView(child: center)),
+                const SizedBox(width: 16),
+                SizedBox(width: 440, child: SingleChildScrollView(child: right)),
+              ]),
+            ),
+          ]),
+        );
+      }
+      return ListView(padding: const EdgeInsets.all(16), children: [header, left, right, center]);
+    });
   }
 }
 
@@ -74,21 +75,28 @@ class _TeamColumn extends ConsumerWidget {
     final locks = ref.watch(lockProvider.notifier).of(name, team.length);
     ref.watch(lockProvider);
     final cs = Theme.of(context).colorScheme;
+    final itemNames = {
+      for (final item in ref.watch(itemsProvider).valueOrNull ?? const <Json>[])
+        item['name']: item['ko'],
+    };
 
     Future<void> add() async {
       final list = await ref.read(pokemonListProvider.future);
       if (!context.mounted) return;
       final picked = await showPokemonPicker(context, list, ref.read(formatProvider));
-      if (picked == null) return;
+      if (picked == null || !context.mounted) return;
       ref.read(historyProvider.notifier).record();
       await notifier.add(picked['id'] as String);
     }
 
     return Section('현재 팀',
-        subtitle: '편집은 되돌릴 수 있습니다. 잠근 포켓몬·항목은 추천을 적용해도 바뀌지 않습니다.',
-        trailing: const TeamPickerButton(),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
+        trailing: Text('${team.length} / 6',
+            semanticsLabel: '${team.length}마리 / 최대 6마리',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const TeamPickerButton(fullWidth: true),
+          const SizedBox(height: 6),
+          Wrap(children: [
             IconButton(
                 tooltip: '되돌리기',
                 onPressed: history.undo.isEmpty ? null : () => ref.read(historyProvider.notifier).undo(),
@@ -101,10 +109,8 @@ class _TeamColumn extends ConsumerWidget {
                 tooltip: '팀 복제',
                 onPressed: () => notifier.duplicate(ref.read(activeTeamIndexProvider)),
                 icon: const LabIcon(LabGlyph.copy, size: 18)),
-            const Spacer(),
-            Text('버전 ${ref.watch(teamRevisionProvider) % 100000}',
-                style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
           ]),
+          const Divider(height: 12),
           for (var i = 0; i < team.length; i++)
             _SlotTile(
                 index: i,
@@ -113,7 +119,8 @@ class _TeamColumn extends ConsumerWidget {
                 selected: i == selected,
                 onSelect: () => onSelect(i),
                 teamName: name,
-                count: team.length),
+                count: team.length,
+                itemName: itemNames[team[i].set['item']] as String?),
           if (team.length < 6)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -132,6 +139,7 @@ class _SlotTile extends ConsumerWidget {
   final VoidCallback onSelect;
   final String teamName;
   final int count;
+  final String? itemName;
   const _SlotTile(
       {required this.index,
       required this.slot,
@@ -139,14 +147,29 @@ class _SlotTile extends ConsumerWidget {
       required this.selected,
       required this.onSelect,
       required this.teamName,
-      required this.count});
+      required this.count,
+      required this.itemName});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final set = slot.set;
     final lockedMon = locks['pokemon'] ?? false;
-    final anyLock = locks.values.any((v) => v);
+    final lockedFields = lockFields.where((field) => locks[field] == true);
+    final lockedLabels = lockedFields.map((field) => tr(lockLabels[field]!)).join(', ');
+    final mega = (slot.detail['megas'] as List).cast<Json>()
+        .where((form) => form['name'] == set['mega']).firstOrNull;
+    final detail = mega ?? slot.detail;
+    final name = '${detail['ko'] ?? detail['name']}';
+    final type = (detail['types'] as List?)?.firstOrNull as String?;
+    final item = set['item'] as String?;
+
+    void remove() {
+      if (lockedMon) return;
+      ref.read(historyProvider.notifier).record();
+      ref.read(lockProvider.notifier).removeAt(teamName, index, count);
+      ref.read(teamProvider.notifier).removeAt(index);
+    }
 
     void edit() {
       ref.read(historyProvider.notifier).record();
@@ -165,50 +188,87 @@ class _SlotTile extends ConsumerWidget {
     }
 
     return Card(
-      color: selected ? cs.primaryContainer.withOpacity(.35) : null,
-      margin: const EdgeInsets.only(top: 6),
-      child: InkWell(
-        onTap: onSelect,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(children: [
-            Sprite(slot.sprite, size: 40),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${slot.detail['ko'] ?? slot.detail['name']}',
-                    style: const TextStyle(fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis),
-                Text('${set['item'] ?? '도구 없음'}',
-                    style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant), overflow: TextOverflow.ellipsis),
-              ]),
+      color: selected ? Color.alphaBlend(cs.primary.withOpacity(.10), cs.surfaceContainer) : cs.surfaceContainerLow,
+      margin: const EdgeInsets.only(top: 7),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: selected ? cs.primary.withOpacity(.70) : cs.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: Row(children: [
+          Expanded(
+            child: Semantics(
+              selected: selected,
+              child: InkWell(
+                onTap: onSelect,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(9, 8, 4, 8),
+                  child: Row(children: [
+                    SpriteBadge(slot.sprite, type: type, size: 38),
+                    const SizedBox(width: 9),
+                    Expanded(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name, maxLines: 2, overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 14, height: 1.2, fontWeight: FontWeight.w700,
+                                color: selected ? cs.primary : cs.onSurface)),
+                        const SizedBox(height: 3),
+                        Row(children: [
+                          if (item != null) ...[
+                            ItemIcon(item, size: 15),
+                            const SizedBox(width: 4),
+                          ],
+                          Expanded(child: Text(itemName ?? item ?? '도구 없음',
+                              maxLines: 2, overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, height: 1.2, color: cs.onSurfaceVariant))),
+                        ]),
+                      ],
+                    )),
+                  ]),
+                ),
+              ),
             ),
-            IconButton(
-                tooltip: lockedMon ? '포켓몬 잠금 해제' : '포켓몬 잠금',
-                onPressed: () => ref.read(lockProvider.notifier).toggle(teamName, index, 'pokemon', count),
-                icon: LabIcon(lockedMon ? LabGlyph.lock : LabGlyph.unlock,
-                    size: 16, color: lockedMon ? cs.primary : null)),
-            PopupMenuButton<String>(
-              tooltip: '항목 잠금',
-              icon: LabIcon(LabGlyph.dots, size: 16, color: anyLock ? cs.primary : null),
-              itemBuilder: (_) => [
-                for (final f in lockFields.skip(1))
-                  CheckedPopupMenuItem(value: f, checked: locks[f] ?? false, child: Text('${lockLabels[f]} 잠금')),
-              ],
-              onSelected: (f) => ref.read(lockProvider.notifier).toggle(teamName, index, f, count),
-            ),
-            IconButton(tooltip: '세트 편집', onPressed: edit, icon: const LabIcon(LabGlyph.pencil, size: 16)),
-            IconButton(
-                tooltip: '빼기',
-                onPressed: lockedMon
-                    ? null
-                    : () {
-                        ref.read(historyProvider.notifier).record();
-                        ref.read(lockProvider.notifier).removeAt(teamName, index, count);
-                        ref.read(teamProvider.notifier).removeAt(index);
-                      },
-                icon: const LabIcon(LabGlyph.trash, size: 16)),
-          ]),
-        ),
+          ),
+          IconButton(
+            tooltip: '세트 편집',
+            onPressed: edit,
+            icon: const LabIcon(LabGlyph.pencil, size: 17),
+          ),
+          PopupMenuButton<String>(
+            tooltip: lockedFields.isEmpty ? tr('포켓몬 관리') : "${tr('잠긴 항목')} · $lockedLabels",
+            position: PopupMenuPosition.under,
+            icon: LabIcon(lockedFields.isEmpty ? LabGlyph.dots : LabGlyph.lock,
+                size: 17, color: lockedFields.isEmpty ? cs.onSurfaceVariant : cs.primary),
+            itemBuilder: (_) => [
+              for (final field in lockFields)
+                CheckedPopupMenuItem(
+                  value: field,
+                  checked: locks[field] ?? false,
+                  child: Text('${lockLabels[field]} 잠금'),
+                ),
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'remove',
+                enabled: !lockedMon,
+                child: Row(children: [
+                  LabIcon(LabGlyph.trash, size: 17,
+                      color: lockedMon ? cs.onSurface.withOpacity(.38) : cs.error),
+                  const SizedBox(width: 10),
+                  const Text('팀에서 빼기'),
+                ]),
+              ),
+            ],
+            onSelected: (field) {
+              if (field == 'remove') {
+                remove();
+              } else {
+                ref.read(lockProvider.notifier).toggle(teamName, index, field, count);
+              }
+            },
+          ),
+        ]),
       ),
     );
   }

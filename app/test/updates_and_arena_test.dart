@@ -48,7 +48,7 @@ void main() {
     await tester.tap(find.byTooltip('새 업데이트 보기'));
     await tester.pumpAndSettle();
     expect(find.text('업데이트 내역'), findsOneWidget);
-    expect(find.text('경기 전 예측과 실전 기록 비교'), findsOneWidget);
+    expect(find.text('백그라운드 자동 연구 켜기·끄기'), findsOneWidget);
     await tester.tap(find.byTooltip('닫기'));
     await tester.pumpAndSettle();
 
