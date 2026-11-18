@@ -22,6 +22,7 @@ import 'pages/pokemon_page.dart';
 import 'pages/pokemon_overview.dart';
 import 'pages/settings_page.dart';
 import 'pages/speed_page.dart';
+import 'pages/damage_page.dart';
 import 'pages/team_page.dart';
 import 'settings.dart';
 import 'theme.dart';
@@ -110,6 +111,7 @@ final _router = GoRouter(routes: [
       GoRoute(path: '/battle', pageBuilder: (c, s) => _routePage(s, BattlePage(practice: s.extra as Json?))),
       GoRoute(path: '/research', pageBuilder: (c, s) => _routePage(s, const ResearchPage())),
       GoRoute(path: '/speed', pageBuilder: (c, s) => _routePage(s, const SpeedPage())),
+      GoRoute(path: '/damage', pageBuilder: (c, s) => _routePage(s, const DamagePage())),
       GoRoute(path: '/settings', pageBuilder: (c, s) => _routePage(s, const SettingsPage())),
       GoRoute(
           path: '/pokemon/:id',
@@ -160,6 +162,7 @@ const _tabs = [
   ('/enemy', LabGlyph.versus, '상대 분석', '상대', Color(0xFFFF9C92)),
   ('/jokers', LabGlyph.crystal, '조커 파인더', '조커', Color(0xFFC3A6FF)),
   ('/speed', LabGlyph.bolt, '스피드 티어', '스피드', Color(0xFF9FD8FF)),
+  ('/damage', LabGlyph.shield, '데미지 계산', '데미지', Color(0xFFFFB38A)),
   ('/parties', LabGlyph.archive, '파티 탐색', '파티', Color(0xFFFFCB6D)),
   ('/battle', LabGlyph.controller, '가상 배틀', '배틀', Color(0xFFA8DF98)),
   ('/research', LabGlyph.spark, '자동 연구', '연구', Color(0xFFFF9EDB)),

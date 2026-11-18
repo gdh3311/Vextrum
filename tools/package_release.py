@@ -64,7 +64,8 @@ def main():
              "--specpath", WORK, "--paths", ".", "--collect-submodules", "app",
              "--collect-submodules", "uvicorn",
              # 학습된 팀 강도 모델 (엔진 v7). 데이터 파일은 PyInstaller 가 자동으로 넣지 않는다.
-             "--add-data", f"{BACKEND / 'app' / 'team_model.json'};app"], BACKEND)
+             "--add-data", f"{BACKEND / 'app' / 'team_model.json'};app",
+             "--add-data", f"{BACKEND / 'app' / 'item_text.json'};app"], BACKEND)
     out = DIST / "Vextrum"
     if out.exists():
         shutil.rmtree(out)

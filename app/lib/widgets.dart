@@ -20,6 +20,10 @@ const typeColor = {
 };
 const statKeys = ['hp', 'atk', 'def', 'spa', 'spd', 'spe'];
 const statKo = {'hp': 'HP', 'atk': '공격', 'def': '방어', 'spa': '특공', 'spd': '특방', 'spe': '스피드'};
+/// 데이터셋의 stats 는 레벨 50 실수치(능력 포인트 0)다: HP = 종족값 + 75, 나머지 = 종족값 + 20.
+/// 화면의 '종족값'은 거기서 되돌려 계산한다.
+int speciesBase(String key, num level50) => (level50 - (key == 'hp' ? 75 : 20)).round();
+
 const categoryKo = {'Physical': '물리', 'Special': '특수', 'Status': '변화'};
 
 /// 성격 -> (상승, 하락)
@@ -369,7 +373,105 @@ class PickItem<T> {
   final Widget? leading;
   final String? trailing;
   final String? group;
-  const PickItem(this.value, this.title, {this.subtitle, this.leading, this.trailing, this.group});
+  final String? tooltip; // 마우스를 올리면 보이는 설명 (예: 도구 효과)
+  const PickItem(this.value, this.title, {this.subtitle, this.leading, this.trailing, this.group, this.tooltip});
+}
+
+/// 도구 설명 (/api/items 의 desc: {ko, en, ja}) — 앱 언어 → 영어 → 한국어 순으로 고른다.
+String? itemDesc(Json? item) {
+  final d = item?['desc'];
+  if (d is! Map) return null;
+  return (d[currentLang] ?? d['en'] ?? d['ko']) as String?;
+}
+
+/// 포켓몬 챔피언스의 '능력 보정(성격)' 표처럼 고른다: 가로줄 = 올라가는 능력, 세로줄 = 내려가는 능력.
+/// 같은 능력이 만나는 칸은 보정 없음. 칸마다 이 포켓몬의 채용률을 함께 보여 준다.
+const _gridStats = ['atk', 'def', 'spa', 'spd', 'spe'];
+const _neutralFor = {'atk': 'Hardy', 'def': 'Docile', 'spa': 'Bashful', 'spd': 'Quirky', 'spe': 'Serious'};
+
+String natureFor(String? up, String? down) {
+  if (up == null || down == null || up == down) return _neutralFor[up] ?? 'Hardy';
+  return natureEffects.entries.firstWhere((e) => e.value[0] == up && e.value[1] == down).key;
+}
+
+Future<String?> showNatureGrid(BuildContext context, String? current, Map natures, Map usage) {
+  final cur = natureEffects[current] ?? const [null, null];
+  return showDialog<String>(
+    context: context,
+    builder: (context) {
+      final cs = Theme.of(context).colorScheme;
+      const up = Color(0xFFF0616D), down = Color(0xFF2F6FED);
+      Widget head(String text, Color color) => Center(
+          child: Text(text, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: color)));
+      Widget cell(String rowStat, String colStat) {
+        final name = natureFor(rowStat, colStat);
+        final neutral = rowStat == colStat;
+        final selected = current == name || (neutral && cur[0] == null && current != null && _neutralFor[rowStat] == current);
+        final pct = usage[name] as num?;
+        return Padding(
+          padding: const EdgeInsets.all(2),
+          child: Material(
+            color: selected
+                ? cs.primary.withOpacity(.28)
+                : neutral
+                    ? cs.surfaceContainerHighest.withOpacity(.35)
+                    : cs.surfaceContainerHighest.withOpacity(.8),
+            borderRadius: BorderRadius.circular(8),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => Navigator.pop(context, name),
+              child: Container(
+                height: 54,
+                decoration: selected
+                    ? BoxDecoration(border: Border.all(color: cs.primary, width: 2), borderRadius: BorderRadius.circular(8))
+                    : null,
+                alignment: Alignment.center,
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text(neutral ? tr('보정 없음') : '${(natures[name] as Map?)?['ko'] ?? name}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: neutral ? cs.onSurfaceVariant : null)),
+                  if (pct != null && pct >= .5)
+                    Text(fmtPct(pct), style: TextStyle(fontSize: 11, color: cs.primary, fontWeight: FontWeight.w700)),
+                ]),
+              ),
+            ),
+          ),
+        );
+      }
+
+      return AlertDialog(
+        title: const Text('성격 (능력 보정)'),
+        content: SizedBox(
+          width: 520,
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('가로줄은 1.1배로 올라가는 능력, 세로줄은 0.9배로 내려가는 능력입니다. HP는 바뀌지 않습니다.',
+                style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant)),
+            const SizedBox(height: 10),
+            Table(
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+              columnWidths: const {0: FixedColumnWidth(64)},
+              children: [
+                TableRow(children: [
+                  Center(child: Text('↑ / ↓', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant))),
+                  for (final c in _gridStats) Padding(padding: const EdgeInsets.only(bottom: 4), child: head('${tr(statKo[c]!)} ↓', down)),
+                ]),
+                for (final r in _gridStats)
+                  TableRow(children: [
+                    head('${tr(statKo[r]!)} ↑', up),
+                    for (final c in _gridStats) cell(r, c),
+                  ]),
+              ],
+            ),
+          ]),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('닫기'))],
+      );
+    },
+  );
 }
 
 /// 검색 가능한 선택 다이얼로그 (한글/영문 모두 검색)
@@ -415,13 +517,16 @@ Future<T?> showPicker<T>(BuildContext context, String title, List<PickItem<T>> i
                                   fontWeight: FontWeight.w700,
                                   color: Theme.of(context).colorScheme.primary)),
                         ),
-                      ListTile(
-                        dense: true,
-                        leading: it.leading,
-                        title: Text(it.title),
-                        subtitle: it.subtitle == null ? null : Text(it.subtitle!),
-                        trailing: it.trailing == null ? null : Text(it.trailing!),
-                        onTap: () => Navigator.pop(context, it.value),
+                      _maybeTip(
+                        it.tooltip,
+                        ListTile(
+                          dense: true,
+                          leading: it.leading,
+                          title: Text(it.title),
+                          subtitle: it.subtitle == null ? null : Text(it.subtitle!),
+                          trailing: it.trailing == null ? null : Text(it.trailing!),
+                          onTap: () => Navigator.pop(context, it.value),
+                        ),
                       ),
                     ]);
                   },
@@ -435,6 +540,10 @@ Future<T?> showPicker<T>(BuildContext context, String title, List<PickItem<T>> i
     },
   );
 }
+
+Widget _maybeTip(String? message, Widget child) => message == null || message.isEmpty
+    ? child
+    : Tooltip(message: message, waitDuration: const Duration(milliseconds: 350), preferBelow: false, child: child);
 
 /// 포켓몬 선택 다이얼로그: 스프라이트 그리드 + 검색
 Future<Json?> showPokemonPicker(BuildContext context, List<Json> all, String fmt) {

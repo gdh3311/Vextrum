@@ -15,6 +15,7 @@ import sqlite3
 import urllib.parse
 import urllib.request
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query
@@ -261,7 +262,20 @@ def pokemon_detail(pid: str, format: Format = "Doubles", season: str | None = No
 def items():
     e = engine()
     stones = {m["stone"] for p in e.P.values() for m in p["megas"] if m["stone"]}
-    return [{"name": n, "ko": v["ko"], "stone": n in stones} for n, v in e.d["items"].items()]
+    text = _item_text()
+    return [{"name": n, "ko": v["ko"], "stone": n in stones, "desc": text.get(n)} for n, v in e.d["items"].items()]
+
+
+_item_text_cache: dict | None = None
+
+
+def _item_text() -> dict:
+    """도구 설명 (tools/build_item_text.py 가 만든 app/item_text.json, 언어별 ko/en/ja)."""
+    global _item_text_cache
+    if _item_text_cache is None:
+        path = Path(__file__).resolve().parent / "item_text.json"
+        _item_text_cache = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    return _item_text_cache
 
 
 class TeamSet(BaseModel):
@@ -711,6 +725,35 @@ def speed_tiers(req: SpeedRequest):
     return {"format": req.format,
             "meta": speed.meta_rows(e, req.format, max(10, min(150, req.topN))),
             "team": speed.team_rows(e, req.format, [s.model_dump(exclude_unset=True) for s in req.team[:6]])}
+
+
+class DamageRequest(BaseModel):
+    format: Format = "Doubles"
+    attacker: TeamSet
+    defender: TeamSet
+    weather: Literal["auto", "none", "sun", "rain", "sand", "snow"] = "auto"
+    spread: bool | None = None
+    crit: bool = False
+    helpingHand: bool = False
+    screen: bool = False
+    psychicTerrain: bool = False
+    atkStage: int = Field(0, ge=-6, le=6)
+    defStage: int = Field(0, ge=-6, le=6)
+    hpPct: int = Field(100, ge=1, le=100)
+
+
+@app.post("/api/damage")
+def damage_calc(req: DamageRequest):
+    """데미지 계산기: 공격 측 기술 4개 각각의 최소~최대 데미지와 몇 번에 쓰러뜨리는지."""
+    from . import damage_calc as dc
+
+    e = engine()
+    if req.attacker.id not in e.P or req.defender.id not in e.P:
+        raise HTTPException(404, "포켓몬을 찾을 수 없습니다")
+    return dc.calc(e, req.format, req.attacker.model_dump(exclude_unset=True), req.defender.model_dump(exclude_unset=True),
+                   weather=req.weather, spread=req.spread, crit=req.crit, helping_hand=req.helpingHand,
+                   screen=req.screen, atk_stage=req.atkStage, def_stage=req.defStage,
+                   psychic_terrain=req.psychicTerrain, hp_pct=req.hpPct)
 
 
 class PasteRequest(BaseModel):

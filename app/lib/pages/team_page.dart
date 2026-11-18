@@ -258,6 +258,8 @@ class _SetEditorState extends ConsumerState<SetEditor> {
     final learn = _learnMap(d);
     final allItems = ref.watch(itemsProvider).valueOrNull ?? const <Json>[];
     final itemKo = {for (final i in allItems) i['name']: i['ko']};
+    final itemBy = {for (final i in allItems) i['name'] as String: i};
+    final baseStats = ((mega?['stats'] ?? d['stats']) as Map);
     final natures = (ref.watch(infoProvider).valueOrNull?['natures'] ?? const {}) as Map;
     final moves = [...(s['moves'] as List? ?? const []).cast<String>()];
     final pts = {for (final k in statKeys) k: (((s['points'] ?? const {}) as Map)[k] ?? 0) as int};
@@ -282,17 +284,22 @@ class _SetEditorState extends ConsumerState<SetEditor> {
               subtitle: i['name'] as String,
               leading: ItemIcon(i['name'] as String, size: 28),
               trailing: fmtPct(i['pct'] as num),
+              tooltip: itemDesc(itemBy[i['name']]),
               group: '이 포켓몬이 자주 지니는 도구'),
         for (final m in megas)
           if (m['stone'] != null && !usedNames.contains(m['stone']))
             PickItem(m['stone'] as String, '${itemKo[m['stone']] ?? m['stone']}',
                 subtitle: '${m['stone']} → ${m['ko'] ?? m['name']}',
                 leading: ItemIcon(m['stone'] as String, size: 28),
+                tooltip: itemDesc(itemBy[m['stone']]),
                 group: '메가스톤'),
         for (final i in allItems)
           if (i['stone'] != true && !usedNames.contains(i['name']) && !ownStones.contains(i['name']))
             PickItem(i['name'] as String, '${i['ko'] ?? i['name']}',
-                subtitle: i['name'] as String, leading: ItemIcon(i['name'] as String, size: 28), group: '전체 도구'),
+                subtitle: i['name'] as String,
+                leading: ItemIcon(i['name'] as String, size: 28),
+                tooltip: itemDesc(i),
+                group: '전체 도구'),
       ];
       final v = await showPicker(context, '도구 선택', list);
       if (v == null) return;
@@ -337,13 +344,7 @@ class _SetEditorState extends ConsumerState<SetEditor> {
       final usedNat = {
         for (final n in ((usage?['natures'] ?? const []) as List).cast<Json>()) n['name']: n['pct'] as num
       };
-      final names = natureEffects.keys.toList()
-        ..sort((a, b) => (usedNat[b] ?? -1).compareTo(usedNat[a] ?? -1));
-      final v = await showPicker(context, '성격 선택', [
-        for (final n in names)
-          PickItem(n, natureLabel(n, (natures[n] as Map?)?['ko'] as String?),
-              trailing: usedNat[n] == null ? null : fmtPct(usedNat[n]))
-      ]);
+      final v = await showNatureGrid(context, s['nature'] as String?, natures, usedNat);
       if (v != null) put({'nature': v});
     }
 
@@ -421,7 +422,9 @@ class _SetEditorState extends ConsumerState<SetEditor> {
                   return Wrap(spacing: 12, runSpacing: 12, children: [
                     SizedBox(
                       width: w,
-                      child: field(
+                      child: _tipped(
+                          itemDesc(itemBy[s['item']]),
+                          field(
                           '도구',
                           Row(children: [
                             ItemIcon(s['item'] as String?, size: 24),
@@ -431,7 +434,7 @@ class _SetEditorState extends ConsumerState<SetEditor> {
                                     ? const Text('도구 없음')
                                     : NameBlock(itemKo[s['item']] as String?, s['item'] as String, size: 13)),
                           ]),
-                          pickItem),
+                          pickItem)),
                     ),
                     SizedBox(
                       width: w,
@@ -499,6 +502,20 @@ class _SetEditorState extends ConsumerState<SetEditor> {
                             onPressed: () => put({'points': {for (final k in statKeys) k: sp[k]}})),
                     ]),
                   ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Row(children: [
+                    const SizedBox(width: 62),
+                    SizedBox(
+                        width: 92,
+                        child: Text('종족값', style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant))),
+                    Expanded(child: Text('능력 포인트', style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant))),
+                    SizedBox(
+                        width: 70,
+                        child: Text('실수치',
+                            textAlign: TextAlign.right, style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant))),
+                  ]),
+                ),
                 for (final k in statKeys)
                   Row(children: [
                     SizedBox(
@@ -511,6 +528,7 @@ class _SetEditorState extends ConsumerState<SetEditor> {
                                   ? const Color(0xFFF0616D)
                                   : (k == fx[1] ? const Color(0xFF2F6FED) : null))),
                     ),
+                    SizedBox(width: 92, child: _BaseBar(speciesBase(k, (baseStats[k] ?? 0) as num))),
                     Expanded(
                       child: Slider(
                         value: pts[k]!.toDouble(),
@@ -530,7 +548,12 @@ class _SetEditorState extends ConsumerState<SetEditor> {
                         width: 40,
                         child: Text('${stats[k]}',
                             textAlign: TextAlign.right,
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700))),
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: k == fx[0]
+                                    ? const Color(0xFFF0616D)
+                                    : (k == fx[1] ? const Color(0xFF2F6FED) : null)))),
                   ]),
               ]),
             ),
@@ -538,6 +561,42 @@ class _SetEditorState extends ConsumerState<SetEditor> {
         ]),
       ),
     );
+  }
+}
+
+Widget _tipped(String? message, Widget child) => message == null || message.isEmpty
+    ? child
+    : Tooltip(message: message, waitDuration: const Duration(milliseconds: 350), child: child);
+
+/// 종족값 숫자 + 막대 (막대는 180을 가득으로, 색은 낮음→높음)
+class _BaseBar extends StatelessWidget {
+  const _BaseBar(this.value);
+  final num value;
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final v = value.toDouble();
+    final color = v < 60
+        ? const Color(0xFFF0616D)
+        : v < 90
+            ? const Color(0xFFE0A93B)
+            : v < 120
+                ? const Color(0xFF34C77B)
+                : const Color(0xFF3BB4E0);
+    return Row(children: [
+      SizedBox(
+          width: 30,
+          child: Text('${value.round()}',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, fontFeatures: [FontFeature.tabularFigures()]))),
+      Expanded(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+              value: (v / 180).clamp(0, 1), minHeight: 6, color: color, backgroundColor: cs.surfaceContainerHighest),
+        ),
+      ),
+      const SizedBox(width: 6),
+    ]);
   }
 }
 

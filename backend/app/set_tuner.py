@@ -61,8 +61,17 @@ def _attacks(e, moves):
 
 
 class Tuner:
-    def __init__(self, e: Engine, fmt: str, top: int = 24):
+    def __init__(self, e: Engine, fmt: str, top: int = 24, model=None):
+        """model: 세트 특징이 있는 team_model.TeamModel (선택). 있으면 (1) 학습된 도구·기술 교체 후보를 더하고
+        (2) 시뮬레이션에 올릴 후보 순서를 계산 점수 순위와 모델 증가분 순위의 합으로 정한다. 채택은 여전히 시뮬레이션이 한다."""
         self.e, self.fmt = e, fmt
+        self.model = model
+        self.learned = {}
+        if model is not None:
+            for key, w in model.w.items():
+                if key[:2] in ("m:", "i:") and "|" in key:
+                    pid, name = key[2:].split("|", 1)
+                    self.learned.setdefault(pid, {}).setdefault(key[0], {})[name] = w
         self.meta = [f for f in e.meta(fmt, top)]
         self.w = [weight(e.rank(f["id"], fmt) or 250) for f in self.meta]
         total = sum(self.w)
@@ -202,6 +211,44 @@ class Tuner:
                            "HP·화력 최대" if attacks else "HP·방어·특방 분산 (내구)"))
         return [v for v in out if v.set["points"] != s.get("points") or v.set["nature"] != s.get("nature")]
 
+    def prior(self, old, new):
+        """모델이 본 세트 차이의 로짓 증가분 (모델이 없으면 0)."""
+        return self.model.set_gain(new) - self.model.set_gain(old) if self.model is not None else 0.
+
+    def model_variants(self, s, used, top=2):
+        """연구 전적에서 학습된 도구·기술 한 개 교체 중 모델이 가장 높게 보는 것들."""
+        learned = self.learned.get(s["id"])
+        if not learned:
+            return []
+        e, out = self.e, []
+        r = e.resolve(s, self.fmt)
+        items = learned.get("i", {})
+        if not r["mega"] and (not s.get("item") or s["item"] in SIMULATED_ITEMS):
+            cur = items.get(s.get("item"), 0.)
+            ranked = sorted(((w - cur, it) for it, w in items.items()
+                             if it != s.get("item") and it not in used and it in SIMULATED_ITEMS
+                             and it in e.d["items"] and not e.find_mega(e.P[s["id"]], stone=it)), reverse=True)
+            out += [Variant("item", {**s, "item": it},
+                            f"{_name(e, 'item', s.get('item'))} → {_name(e, 'item', it)} (학습)")
+                    for gain, it in ranked[:top] if gain > 0]
+        moves = learned.get("m", {})
+        legal = set(e.P[s["id"]].get("learnset", [])) | {row["name"] for row in e.P[s["id"]]["usage"].get(self.fmt, {}).get("moves", [])}
+        swaps = sorted(((moves.get(m_in, 0.) - moves.get(m_out, 0.), m_out, m_in)
+                        for m_out in s["moves"] for m_in in moves
+                        if m_in not in s["moves"] and m_in in legal and m_in in e.M and m_in not in UNMODELED),
+                       reverse=True)
+        seen = set()
+        for gain, m_out, m_in in swaps:
+            if gain <= 0 or len(seen) >= top:
+                break
+            if m_in in seen:
+                continue
+            seen.add(m_in)
+            new = [m_in if m == m_out else m for m in s["moves"]]
+            out.append(Variant("moves", {**s, "moves": new},
+                               f"{_name(e, 'move', m_out)} → {_name(e, 'move', m_in)} (학습)"))
+        return out
+
     # ---------- 탐색
     def candidates(self, team, locked=frozenset(), per_member=8):
         trials = []
@@ -212,11 +259,20 @@ class Tuner:
             base = self.value(s, gaps)
             used = {m.get("item") for j, m in enumerate(team) if j != i and m.get("item")}
             options = [*self.items(s, used), *self.abilities(s), *self.moves(s, gaps), *self.spreads(s)]
+            if self.model is not None:
+                known = [v.set for v in options]
+                options += [v for v in self.model_variants(s, used) if v.set not in known]
             options = [v for v in options if not unsupported(self.e, self.fmt, v.set)]
             for v in options:
                 v.score = self.value(v.set, gaps) - base
             # 계산 점수는 순서를 정하는 데만 쓰고, 종류별로 고르게 남긴다.
             options.sort(key=lambda v: -v.score)
+            if self.model is not None:
+                # 계산 점수 순위 + 모델 증가분 순위 (둘 다 낮을수록 좋음). 동점이면 계산 점수 순서.
+                by_prior = sorted(range(len(options)), key=lambda k: -self.prior(s, options[k].set))
+                prior_rank = {k: pos for pos, k in enumerate(by_prior)}
+                order = sorted(range(len(options)), key=lambda k: (k + prior_rank[k], k))
+                options = [options[k] for k in order]
             picked, per_kind = [], {}
             for v in options:
                 if per_kind.get(v.kind, 0) < 3 and len(picked) < per_member:
