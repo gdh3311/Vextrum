@@ -1,4 +1,5 @@
 """Build editable six-Pokémon drafts around selected play styles and fixed sets."""
+import os
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -345,7 +346,7 @@ def _score(chosen, goals, weights, extra=DEFAULT_EXTRA):
         types = {t for c in chosen for t in c.resolved["types"]}
         core = 3 * len(TYPE_CORES[extra.core][0] & types)
     if extra.model is not None:
-        quality = extra.model_scale * extra.model.logit([c.species for c in chosen])
+        quality = extra.model_scale * extra.model.logit([c.species for c in chosen], [c.set for c in chosen])
     else:
         quality = coverage * .55 + variety * 1.25 + teammates * .4 - pressure
     return (quality + goal_points + core
@@ -400,7 +401,7 @@ def _extensions(group, pool, goals, weights, extra):
     model = extra.model
     if model is not None:
         group_species = [c.species for c in group]
-        group_logit = model.logit(group_species)
+        group_logit = model.logit(group_species, [c.set for c in group])
     out = []
     for c in pool:
         if c.species in species or (c.set.get("item") and c.set.get("item") in items):
@@ -435,7 +436,7 @@ def _extensions(group, pool, goals, weights, extra):
             worst = max(o + (c.species in team) for o, team in zip(overlaps, extra.ranker_teams))
             copy = extra.overlap * max(0, worst - 3) ** 1.5
         if model is not None:
-            quality = extra.model_scale * (group_logit + model.added(group_species, c.species))
+            quality = extra.model_scale * (group_logit + model.added(group_species, c.species, c.set))
         else:
             quality = coverage * .55 + variety * 1.25 + mates * .4 - pressure
         score = (quality + goal_points + core
@@ -826,7 +827,8 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
 
         from dataclasses import replace as _replace
 
-        model = team_model.load()
+        # alt: 벤치 전용 — 환경 변수 TEAM_MODEL_ALT 의 다른 학습 결과로 비교한다
+        model = team_model.load(os.environ.get("TEAM_MODEL_ALT") if "alt" in off else None)
         if model is not None:
             extra = _replace(extra, model=model,
                              model_scale=extra.model_scale * (2 if "x2" in off else 1))  # x2: 실험 스위치

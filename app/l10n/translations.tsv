@@ -1331,3 +1331,5 @@ CPU를 최대한 써서 쉬지 않고 연구합니다.	Uses as much CPU as possi
 # ---- 1.20.0 (learned team model)
 실제 전투 결과로 배운 팀 구성	Team building learned from battle results	実際の対戦結果から学んだチーム構築
 자동 연구에 쌓인 6만여 팀의 전적으로 포켓몬별 강도와 함께 쓸 때의 시너지를 학습했습니다. 팀 자동 구성이 이 모델로 후보를 고르고, 보류 상대 검증에서 이전 엔진보다 승률이 올랐고 팀도 더 다양해졌습니다.	Each Pokémon's strength and the synergy between teammates were learned from the records of over 60,000 teams in auto research. Auto team building now picks candidates with this model; on held-out opponents it wins more than the previous engine and builds more varied teams.	自動研究に蓄積された6万以上のチームの戦績から、ポケモンごとの強さと組み合わせのシナジーを学習しました。チーム自動構築はこのモデルで候補を選び、保留相手での検証で前のエンジンより勝率が上がり、チームも多様になりました。
+도구·기술까지 보는 팀 모델 실험	Team model experiment with items and moves	道具・技まで見るチームモデルの実験
+팀 모델이 포켓몬별 도구·기술·특성 차이까지 학습할 수 있게 했습니다. 보류 상대 검증에서 승률 차이가 확인되지 않아 기본 팀 자동 구성은 1.20.0과 같게 두었습니다.	The team model can now learn differences in each Pokémon's item, moves and Ability. Held-out validation showed no win-rate difference, so default auto team building stays the same as 1.20.0.	チームモデルがポケモンごとの道具・技・特性の違いまで学習できるようにしました。保留相手での検証で勝率の差が確認されなかったため、標準の自動チーム構築は1.20.0と同じにしています。

@@ -32,6 +32,34 @@ class TeamModelTest(unittest.TestCase):
         group = ["A", "B", "D"]
         self.assertAlmostEqual(model.logit(group + ["C"]) - model.logit(group), model.added(group, "C"), places=9)
 
+    def test_learns_set_effects(self):
+        # 같은 종 A 의 두 세트: 도구 X 를 들면 강하고, 기술 Slam 은 약하다
+        rng = random.Random(4)
+        names = list("ABCDEFGH")
+        rows = []
+        for _ in range(4000):
+            team = rng.sample(names, 6)
+            sets = [{"id": n.lower(), "moves": ["Tackle"], "item": f"I{n}", "ability": "Z"} for n in team]
+            z = 0.
+            if "A" in team:
+                a = sets[team.index("A")]
+                a["item"] = rng.choice(["X", "Y"])
+                a["moves"] = rng.choice([["Tackle"], ["Tackle", "Slam"]])
+                z += .8 * (a["item"] == "X") - .6 * ("Slam" in a["moves"])
+            p = 1 / (1 + 2.718281828 ** -z)
+            rows.append((team, sets, 24, sum(rng.random() < p for _ in range(24))))
+        m = team_model.TeamModel(team_model.train(rows, epochs=20, sets=True))
+        self.assertGreater(m.w["i:a|X"], m.w["i:a|Y"] + .4)
+        self.assertLess(m.w["m:a|Slam"], m.w.get("m:a|Tackle", 0.) - .3)
+        # 세트를 넣어도 한 마리 증가분 = 전체 로짓 차이
+        group, gsets = rows[0][0][:3], rows[0][1][:3]
+        new, nset = rows[0][0][3], rows[0][1][3]
+        self.assertAlmostEqual(m.logit(group + [new], gsets + [nset]) - m.logit(group, gsets),
+                               m.added(group, new, nset), places=9)
+        # 세트 없이 학습하면 세트 특징이 없다 (1.20.0 모델과 같은 형태)
+        plain = team_model.train(rows, epochs=2)
+        self.assertFalse(any(k[:2] in ("m:", "i:", "a:") for k in plain["weights"]))
+
     @unittest.skipUnless(collector.DATASET.is_file(), "requires the collected Champions dataset")
     def test_v7_draft_score_is_consistent_and_falls_back_without_model(self):
         from app.engine import Engine, weight
@@ -39,7 +67,11 @@ class TeamModelTest(unittest.TestCase):
         e = Engine(json.loads(collector.DATASET.read_text(encoding="utf-8")))
         meta, pool = auto_team._pool(e, "Doubles")
         weights = [weight(e.rank(f["id"], "Doubles") or 250) for f in meta]
-        model = team_model.TeamModel({"weights": {"bias": 0., "s:Garchomp": .5}, "pairs": []})
+        weights_ = {"bias": 0., "s:Garchomp": .5}
+        for c in pool[:80]:  # 세트 특징에도 가중치를 줘서 증분 계산을 함께 확인한다
+            for f in team_model.set_features(c.set)[:2]:
+                weights_[f] = .1 + .01 * len(weights_)
+        model = team_model.TeamModel({"weights": weights_, "pairs": []})
         group, seen = [], set()
         for c in pool:
             if c.species not in seen and all(c.set.get("item") != g.set.get("item") for g in group):

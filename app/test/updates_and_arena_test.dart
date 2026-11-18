@@ -48,7 +48,7 @@ void main() {
     await tester.tap(find.byTooltip('새 업데이트 보기'));
     await tester.pumpAndSettle();
     expect(find.text('업데이트 내역'), findsOneWidget);
-    expect(find.text('실제 전투 결과로 배운 팀 구성'), findsOneWidget);
+    expect(find.text('도구·기술까지 보는 팀 모델 실험'), findsOneWidget);
     await tester.tap(find.byTooltip('닫기'));
     await tester.pumpAndSettle();
 
