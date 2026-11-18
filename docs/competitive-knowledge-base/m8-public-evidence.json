@@ -1,0 +1,34 @@
+{
+  "season": "M8",
+  "regulation": "M-C",
+  "format": "Doubles",
+  "checkedAt": "2026-11-14",
+  "snapshotDateAsPublished": "2026-11-13",
+  "source": "https://www.pokemon-zone.com/champions/ranked-seasons/doubles/?page=1",
+  "sourceType": "외부 공개 집계",
+  "populationSize": null,
+  "winRate": null,
+  "leadRate": null,
+  "rankedPokemon": {
+    "sneasler": {"rank": 1, "movePct": {"closecombat": 99.7, "direclaw": 81.1}, "abilityPct": {"Unburden": 85.3}},
+    "garchomp": {"rank": 2, "movePct": {"earthquake": 56.5, "stompingtantrum": 42.9}, "itemPct": {"Choice Scarf": 27.5, "Garchompite Z": 26.5}, "teammatesInListedOrder": ["charizard", "sneasler", "kingambit"]},
+    "rillaboom": {"rank": 3, "itemPct": {"Miracle Seed": 63.4}, "teammatesInListedOrder": ["incineroar", "sneasler", "garchomp"]},
+    "kingambit": {"rank": 4, "movePct": {"suckerpunch": 98.5}, "itemPct": {"Chople Berry": 45.3}},
+    "incineroar": {"rank": 5, "movePct": {"fakeout": 98.0, "partingshot": 89.2}, "abilityPct": {"Intimidate": 99.8}},
+    "charizard": {"rank": 6, "movePct": {"heatwave": 94.5}, "itemPct": {"Charizardite Y": 94.4}},
+    "indeedeef": {"rank": 7, "movePct": {"followme": 99.1, "trickroom": 73.5, "imprison": 8.5}, "teammatesInListedOrder": ["sneasler", "armarouge", "gardevoir"]},
+    "raichu": {"rank": 8, "abilityPct": {"Lightning Rod": 97.8}, "itemPct": {"Raichunite Y": 66.0, "Raichunite X": 29.5}},
+    "whimsicott": {"rank": 9, "movePct": {"tailwind": 97.3, "encore": 69.3}, "itemPct": {"Focus Sash": 76.1}},
+    "basculegion": {"rank": 10, "movePct": {"lastrespects": 99.8}, "abilityPct": {"Adaptability": 95.1}},
+    "archaludon": {"rank": 11, "movePct": {"electroshot": 96.7}, "abilityPct": {"Stamina": 92.2}},
+    "pelipper": {"rank": 12, "movePct": {"wideguard": 67.2, "tailwind": 62.8}, "abilityPct": {"Drizzle": 100.0}}
+  },
+  "publicLadderTeams": [
+    {"observedRank": 15, "publishedDate": "2026-11-13", "trainer": "きょーか", "speciesIds": ["pelipper", "basculegion", "sneasler", "archaludon", "dragonite", "lucario"], "megaNames": ["Mega Dragonite", "Mega Lucario"], "source": "https://www.pokemonchamp.club/en/teams/4445/"}
+  ],
+  "publicTeamsCores": {
+    "sampleSize": 24,
+    "source": "https://www.pokemonchamp.club/en/insights/?format=double&season=M-8",
+    "rows": [{"ids": ["charizard", "garchomp"], "teams": 6}, {"ids": ["whimsicott", "kingambit"], "teams": 5}]
+  }
+}

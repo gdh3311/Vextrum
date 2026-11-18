@@ -286,6 +286,10 @@ class Extra:
     popularity: float = 1.5
     ranker_teams: tuple = ()  # 랭커 파티의 종 집합들
     overlap: float = 0.
+    # v7: 학습된 팀 강도 모델 (team_model.TeamModel). 있으면 초안의 '품질' 항목(상성 범위·약점 압박·다양성·동료)을
+    # 모델 로짓 × model_scale 로 바꾼다. 조건 항목(전략 요구·날씨 충돌·메가·도구·랭커 베끼기·개성 설정)은 그대로.
+    model: object = None
+    model_scale: float = 40.
 
     def pair_bonus(self, ids):
         return sum(bonus for a, b, bonus in self.pairs if a in ids and b in ids)
@@ -340,10 +344,14 @@ def _score(chosen, goals, weights, extra=DEFAULT_EXTRA):
     if extra.core in TYPE_CORES:
         types = {t for c in chosen for t in c.resolved["types"]}
         core = 3 * len(TYPE_CORES[extra.core][0] & types)
-    return (coverage * .55 + goal_points + variety * 1.25 + teammates * .4 + core
+    if extra.model is not None:
+        quality = extra.model_scale * extra.model.logit([c.species for c in chosen])
+    else:
+        quality = coverage * .55 + variety * 1.25 + teammates * .4 - pressure
+    return (quality + goal_points + core
             + extra.popularity * sum(c.popularity for c in chosen) + extra.pair_bonus(ids)
             - extra.copy_penalty(chosen)
-            - pressure - 10 * max(0, megas - 1) - 20 * max(0, megas - 2) - conflict)
+            - 10 * max(0, megas - 1) - 20 * max(0, megas - 2) - conflict)
 
 
 def _keep_best(options, goals, weights, limit=16, extra=DEFAULT_EXTRA):
@@ -389,6 +397,10 @@ def _extensions(group, pool, goals, weights, extra):
     needs = [tuple(STYLES[goal].requirements) for goal in goals]
     resist_scale = 1.8 if extra.core == "resist" else 1.
     pairs_w = list(zip(weights, gmax))
+    model = extra.model
+    if model is not None:
+        group_species = [c.species for c in group]
+        group_logit = model.logit(group_species)
     out = []
     for c in pool:
         if c.species in species or (c.set.get("item") and c.set.get("item") in items):
@@ -422,9 +434,13 @@ def _extensions(group, pool, goals, weights, extra):
         if overlaps is not None and len(group) + 1 >= 4:
             worst = max(o + (c.species in team) for o, team in zip(overlaps, extra.ranker_teams))
             copy = extra.overlap * max(0, worst - 3) ** 1.5
-        score = (coverage * .55 + goal_points + variety * 1.25 + mates * .4 + core
+        if model is not None:
+            quality = extra.model_scale * (group_logit + model.added(group_species, c.species))
+        else:
+            quality = coverage * .55 + variety * 1.25 + mates * .4 - pressure
+        score = (quality + goal_points + core
                  + extra.popularity * (popularity + c.popularity) + pair_base + partner.get(c.id, 0) - copy
-                 - pressure - 10 * max(0, mega - 1) - 20 * max(0, mega - 2) - conflict)
+                 - 10 * max(0, mega - 1) - 20 * max(0, mega - 2) - conflict)
         out.append((score, group + (c,)))
     return out
 
@@ -751,7 +767,7 @@ def regulation_warnings(e):
 def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: list[dict], *,
           exclude: Sequence[str] = (), objective: str = "win", depth: str = "standard", cpu: str = "ultra",
           joker: str = "allow", mega: str = "auto", core: str = "", tune: str = "off", rankers: bool = True,
-          originality: str = "balanced", engine: str = "v6", progress=None):
+          originality: str = "balanced", engine: str = "v7", progress=None):
     # 엔진: v1(단일 지표) · v2/v3(전략 우선·리그 검증) · v4(+선출 계획 공동 최적화·구조 변경·하한 판단)
     #       v5(+탐색 중 간이 선출 최적화·확률적 상대 전략 열쇠·선출 우선 반사실 비교)
     # 실험용 끄기 스위치: "v5-noquick-noseason-noseed" 처럼 붙인다 (기여도 분해 벤치용).
@@ -761,10 +777,11 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
     v5 = engine == "v5"
     # v6: v4 + 평가 편향 제거 — 선별 CPU 스타일 혼합, 최종 선택은 마스터볼 혼합 스타일의 별도 시드,
     #     효과가 확인되지 않은 선출 최적화는 빼고 그 시간을 최종 선택 표본에 쓴다 (진단 보고서 5·7·10장).
-    v6 = engine == "v6"
-    v4 = engine in ("v4", "v5", "v6")
+    v7 = engine == "v7"  # v6 + 학습된 팀 강도 모델 (team_model.py)
+    v6 = engine in ("v6", "v7")
+    v4 = engine in ("v4", "v5", "v6", "v7")
     label = engine
-    if engine in ("v3", "v4", "v5", "v6"):
+    if engine in ("v3", "v4", "v5", "v6", "v7"):
         engine = "v2"
     from . import parallel, roster_search, simulation
     from .progress import Progress
@@ -804,6 +821,15 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
                   popularity=popularity, overlap=overlap,
                   ranker_teams=tuple(frozenset(species(e, pid) for pid in r["ids"] if pid in e.P)
                                      for r in RANKERS if r["format"] == fmt))
+    if v7 and fmt == "Doubles":
+        from . import team_model
+
+        from dataclasses import replace as _replace
+
+        model = team_model.load()
+        if model is not None:
+            extra = _replace(extra, model=model,
+                             model_scale=extra.model_scale * (2 if "x2" in off else 1))  # x2: 실험 스위치
     top_pairs = sorted(extra.pairs, key=lambda row: -row[2])[:6]
     track.update("research", done=1, total=1, spotlight=[pid for a, b, _ in top_pairs[:3] for pid in (a, b)],
                  notes=[f"{track.mon(a)['name']} + {track.mon(b)['name']}" for a, b, _ in top_pairs])
@@ -1391,7 +1417,7 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
                            "objective": objective, "depth": depth, "cpu": cpu, "joker": joker,
                            "mega": mega, "core": core, "tune": tune, "originality": originality,
                            "ignored": [STYLES[key].label for key in ignored],
-                           "rosterSearch": refinement, "engine": label if label in ("v3", "v4", "v5", "v6") else engine, "versions": _versions(e),
+                           "rosterSearch": refinement, "engine": label if label in ("v3", "v4", "v5", "v6", "v7") else engine, "versions": _versions(e),
                            "rankerGames": RANKER_GAMES.get(depth, 2) if ranker_reports else 0,
                            "dataWarnings": regulation_warnings(e)}}
 

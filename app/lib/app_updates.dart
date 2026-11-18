@@ -11,6 +11,17 @@ const _seenKey = 'last_read_app_update';
 const _releases = [
   (
     version: appVersion,
+    date: '2026.11.18',
+    entries: [
+      (
+        glyph: LabGlyph.spark,
+        title: '실제 전투 결과로 배운 팀 구성',
+        detail: '자동 연구에 쌓인 6만여 팀의 전적으로 포켓몬별 강도와 함께 쓸 때의 시너지를 학습했습니다. 팀 자동 구성이 이 모델로 후보를 고르고, 보류 상대 검증에서 이전 엔진보다 승률이 올랐고 팀도 더 다양해졌습니다.',
+      ),
+    ],
+  ),
+  (
+    version: '1.19.1',
     date: '2026.11.16',
     entries: [
       (

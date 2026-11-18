@@ -15,9 +15,9 @@ class V6Test(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.e = Engine(json.loads(collector.DATASET.read_text(encoding="utf-8")))
-        cls.r = auto_team.build(cls.e, "Doubles", [], [], [], depth="quick", tune="off", rankers=False)
+        cls.r = auto_team.build(cls.e, "Doubles", [], [], [], depth="quick", tune="off", rankers=False, engine="v6")
 
-    def test_default_engine_is_v6_and_skips_pick_policy(self):
+    def test_v6_engine_skips_pick_policy(self):
         self.assertEqual(self.r["evaluation"]["engine"], "v6")
         for c in self.r["candidates"]:
             self.assertEqual(c["metrics"]["policy"], [])

@@ -62,7 +62,9 @@ def main():
         run([PYTHON, "-m", "PyInstaller", "run_server.py", "--name", "vextrum-backend", "--noconsole", "--onedir",
              "--noconfirm", "--clean", "--distpath", WORK / "pyi", "--workpath", WORK / "pyi-build",
              "--specpath", WORK, "--paths", ".", "--collect-submodules", "app",
-             "--collect-submodules", "uvicorn"], BACKEND)
+             "--collect-submodules", "uvicorn",
+             # 학습된 팀 강도 모델 (엔진 v7). 데이터 파일은 PyInstaller 가 자동으로 넣지 않는다.
+             "--add-data", f"{BACKEND / 'app' / 'team_model.json'};app"], BACKEND)
     out = DIST / "Vextrum"
     if out.exists():
         shutil.rmtree(out)

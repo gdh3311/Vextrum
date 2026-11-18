@@ -2,6 +2,8 @@
 
 Pokémon Champions 메타 분석 + 팀 빌더 + 조커 파인더. 더블배틀 기본, 싱글배틀 전환 지원.
 
+[Vextrum Competitive Knowledge Base](docs/competitive-knowledge-base/README.md)에서 M8 규칙, 공개 메타 표본, 파티 설계·매치업 자료와 로컬 JSON 생성 방법을 확인할 수 있다.
+
 ```
 backend/   FastAPI + 분석 엔진 (Python), SQLite 순위 스냅샷
 app/       Flutter 앱 (web / windows / android) — Riverpod, GoRouter, Dio
@@ -83,7 +85,9 @@ flutter run --dart-define=API_BASE=http://10.0.2.2:8000   # 안드로이드 에�
   리그에서 따로 싸우게 해 95% 범위와 함께 보여 준다. CPU는 상대의 공개 정보만 본다(`Battle._seen`). 랭크 벤치마크 `tools_bench_tiers.py`.
 - v4 선출 공동 최적화 (`backend/app/policy.py`): 미리보기로 추정한 상대 전략마다 선봉·후발을 같은 판에서 비교하고 새 상대군에서
   다시 확인해 채택. CPU 플레이 스타일(균형·공격·수비·전개·피벗·카운터, `tools_bench_styles.py`). 모든 변경 채택은 같은 판 차이의 신뢰 하한으로.
-- v6 (기본 엔진, `docs/VEXTRUM_V4_DIAGNOSTIC_REPORT.md`): v4 + 평가 편향 제거. 선별 CPU 스타일 혼합, 최종 선택은 탐색에 쓰지 않은
+- v7 (기본 엔진, `docs/TEAM_BUILDER_RESEARCH.md`): v6 + 자동 연구 6.5만 팀으로 학습한 팀 강도 모델(종 강도 + 쌍 시너지 로지스틱 회귀,
+  `backend/app/team_model.py`)이 초안의 품질 점수를 대신한다. 보류 상대에서 v6 대비 챔피언 +4.4%p·마스터볼 +3.8%p, 같은 시간, 더 다양.
+- v6 (`docs/VEXTRUM_V4_DIAGNOSTIC_REPORT.md`): v4 + 평가 편향 제거. 선별 CPU 스타일 혼합, 최종 선택은 탐색에 쓰지 않은
   시드의 마스터볼 혼합 스타일, 보류 효과가 없던 선출 최적화 제거. 독립 보류에서 v4 대비 팀 평균 챔피언 +3.6%p·마스터볼 +5.7%p,
   빌드 시간 절반. 진단 실험 `backend/tools_diag_v4.py`, 시뮬레이터 감사 `backend/tools_audit_sim.py`.
 - v5: 탐색 중간에도 간이 선출 최적화(`policy.quick`)를 돌려 그 계획을 깔고 멤버 교체를 비교한다. 미리보기는
