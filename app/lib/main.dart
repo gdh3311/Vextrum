@@ -23,6 +23,7 @@ import 'pages/pokemon_overview.dart';
 import 'pages/settings_page.dart';
 import 'pages/speed_page.dart';
 import 'pages/damage_page.dart';
+import 'pages/next_season_page.dart';
 import 'pages/team_page.dart';
 import 'settings.dart';
 import 'theme.dart';
@@ -112,6 +113,7 @@ final _router = GoRouter(routes: [
       GoRoute(path: '/research', pageBuilder: (c, s) => _routePage(s, const ResearchPage())),
       GoRoute(path: '/speed', pageBuilder: (c, s) => _routePage(s, const SpeedPage())),
       GoRoute(path: '/damage', pageBuilder: (c, s) => _routePage(s, const DamagePage())),
+      GoRoute(path: '/next', pageBuilder: (c, s) => _routePage(s, const NextSeasonPage())),
       GoRoute(path: '/settings', pageBuilder: (c, s) => _routePage(s, const SettingsPage())),
       GoRoute(
           path: '/pokemon/:id',
@@ -191,6 +193,7 @@ class _Group {
 const _groups = [
   _Group('메타 분석', '메타', LabGlyph.meta, [
     _Dest('/', LabGlyph.meta, '메타', Color(0xFF78DACE)),
+    _Dest('/next', LabGlyph.spark, '다음 시즌', Color(0xFFFFD56B)),
     _Dest('/parties', LabGlyph.archive, '파티 탐색', Color(0xFFFFCB6D)),
     _Dest('/jokers', LabGlyph.crystal, '조커 파인더', Color(0xFFC3A6FF)),
   ]),

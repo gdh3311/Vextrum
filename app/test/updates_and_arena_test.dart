@@ -50,7 +50,7 @@ void main() {
     await tester.tap(find.byTooltip('새 업데이트 보기'));
     await tester.pumpAndSettle();
     expect(find.text('업데이트 내역'), findsOneWidget);
-    expect(find.text('시즌·규정·밸런스 자동 반영'), findsOneWidget);
+    expect(find.text('다음 시즌 미리보기'), findsOneWidget);
     await tester.tap(find.byTooltip('닫기'));
     await tester.pumpAndSettle();
 

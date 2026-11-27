@@ -107,6 +107,7 @@ class _DamagePageState extends ConsumerState<DamagePage> {
           'atkStage': atkStage,
           'defStage': defStage,
           'hpPct': hpPct,
+          'preview': ref.read(previewRulesProvider),
         }).then((r) => r.data as Json));
   }
 
@@ -131,6 +132,7 @@ class _DamagePageState extends ConsumerState<DamagePage> {
   @override
   Widget build(BuildContext context) {
     ref.listen(battleDataVersionProvider, (_, __) => recalc());
+    ref.listen(previewRulesProvider, (_, __) => recalc());
     final fmt = ref.watch(formatProvider);
     final cs = Theme.of(context).colorScheme;
     final items = ref.watch(itemsProvider).valueOrNull ?? const <Json>[];
@@ -279,6 +281,7 @@ class _DamagePageState extends ConsumerState<DamagePage> {
                 ],
                 onChanged: (v) => toggle(() => spread = v),
               ),
+            const PreviewRulesChip(),
             FilterChip(label: const Text('급소'), selected: crit, onSelected: (v) => toggle(() => crit = v)),
             FilterChip(
                 label: const Text('도우미'), selected: helpingHand, onSelected: (v) => toggle(() => helpingHand = v)),

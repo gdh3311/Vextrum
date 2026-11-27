@@ -76,6 +76,44 @@ def engine() -> Engine:
         return _apply_rules(_dataset)
 
 
+_preview_cache: dict = {}
+
+
+def preview_at(now=None):
+    """다음 공식 변경(레귤레이션·시즌·밸런스)이 모두 적용된 시각 — 발표된 것이 없으면 None."""
+    now = now or datetime.now(timezone.utc)
+    changes = live_rules.upcoming(official_news.notices(), now)
+    return changes[-1][0] + timedelta(minutes=1) if changes else None
+
+
+def preview_engine() -> Engine | None:
+    """'다음 시즌 규칙' 엔진: 발표된 변경이 모두 적용된 시각의 규칙. 지금 규칙과 같으면 None."""
+    current = engine()
+    at = preview_at()
+    if at is None:
+        return None
+    with _engine_lock:
+        rules, _ = live_rules.compile_rules(_dataset, official_news.notices(), at)
+        if rules["version"] == current.d.get("rulesVersion"):
+            return None
+        key = (_dataset.get("dataVersion"), rules["version"])
+        if key not in _preview_cache:
+            _preview_cache.clear()
+            e = Engine(_dataset, rules=rules)
+            e.d["preview"] = {"at": at.isoformat()}
+            _preview_cache[key] = e
+        return _preview_cache[key]
+
+
+def engine_for(preview: bool) -> Engine:
+    if not preview:
+        return engine()
+    e = preview_engine()
+    if e is None:
+        raise HTTPException(422, "아직 발표된 다음 시즌 변경이 없습니다.")
+    return e
+
+
 def _apply_rules(dataset):
     """Called under the engine lock. Existing battles keep the engine they started with."""
     global _engine, _rule_state, _name_tables
@@ -338,6 +376,7 @@ class AutoTeamRequest(BaseModel):
     rankers: bool = True
     originality: Literal["meta", "balanced", "unique"] = "balanced"
     engine: Literal["v1", "v2", "v3", "v4", "v5", "v6", "v7"] = "v7"
+    preview: bool = False  # True: 발표된 다음 시즌 규칙으로 (season_preview)
 
 
 @app.post("/api/team/build")
@@ -346,7 +385,7 @@ def auto_team(req: AutoTeamRequest):
 
     locked = [s.model_dump(exclude_unset=True) for s in req.locked]
     try:
-        return builder.build(engine(), req.format, req.styles, req.include, locked,
+        return builder.build(engine_for(req.preview), req.format, req.styles, req.include, locked,
                              exclude=req.exclude, objective=req.objective, depth=req.depth, cpu=req.cpu,
                              joker=req.joker, mega=req.mega, core=req.core, tune=req.tune, rankers=req.rankers,
                              originality=req.originality, engine=req.engine)
@@ -363,7 +402,7 @@ def start_team_build(req: AutoTeamRequest):
     """팀 자동 구성을 뒤에서 돌리고 작업 번호를 돌려준다. 진행 상황은 GET /api/team/build/{job} 으로 받는다."""
     from . import auto_team as builder
 
-    e = engine()
+    e = engine_for(req.preview)
     locked = [s.model_dump(exclude_unset=True) for s in req.locked]
     job = uuid.uuid4().hex[:12]
     entry = {"state": "running", "progress": None, "result": None, "error": None, "created": time.time()}
@@ -750,6 +789,7 @@ def duel_view(req: DuelRequest):
 
 
 class SpeedRequest(BaseModel):
+    preview: bool = False
     format: Format = "Doubles"
     topN: int = 60
     team: list[TeamSet] = []
@@ -760,7 +800,7 @@ def speed_tiers(req: SpeedRequest):
     """메타 상위권의 실전 스피드 분포와 내 팀 스피드"""
     from . import speed
 
-    e = engine()
+    e = engine_for(req.preview)
     return {"format": req.format,
             "meta": speed.meta_rows(e, req.format, max(10, min(150, req.topN))),
             "team": speed.team_rows(e, req.format, [s.model_dump(exclude_unset=True) for s in req.team[:6]])}
@@ -779,6 +819,7 @@ class DamageRequest(BaseModel):
     atkStage: int = Field(0, ge=-6, le=6)
     defStage: int = Field(0, ge=-6, le=6)
     hpPct: int = Field(100, ge=1, le=100)
+    preview: bool = False
 
 
 @app.post("/api/damage")
@@ -786,7 +827,7 @@ def damage_calc(req: DamageRequest):
     """데미지 계산기: 공격 측 기술 4개 각각의 최소~최대 데미지와 몇 번에 쓰러뜨리는지."""
     from . import damage_calc as dc
 
-    e = engine()
+    e = engine_for(req.preview)
     if req.attacker.id not in e.P or req.defender.id not in e.P:
         raise HTTPException(404, "포켓몬을 찾을 수 없습니다")
     return dc.calc(e, req.format, req.attacker.model_dump(exclude_unset=True), req.defender.model_dump(exclude_unset=True),
@@ -917,7 +958,58 @@ def data_status():
                 "regulation": e.rules.get("regulation") if e else None,
                 # ruleAlerts: 사람이 확인해야 하는 것만 (설정 배지). ruleNotes: 자동으로 반영한 것 (배지 없이 표시)
                 "ruleAlerts": _rule_state[3] if e else [],
-                "ruleNotes": _rule_state[4] if e else []}
+                "ruleNotes": _rule_state[4] if e else [],
+                # 발표된 다음 시즌 변경이 모두 적용되는 시각 (없으면 null) — 앱의 '다음 시즌' 화면·토글
+                "nextSeasonAt": next_at.isoformat() if (next_at := preview_at()) else None}
+
+
+class NextSeasonRequest(BaseModel):
+    format: Format = "Doubles"
+    team: list[TeamSet] = Field(default_factory=list, max_length=6)
+
+
+@app.post("/api/next-season")
+def next_season(req: NextSeasonRequest):
+    """발표된 다음 시즌(레귤레이션·밸런스·새 포켓몬)이 지금 메타와 내 팀에 미칠 영향."""
+    from . import season_preview
+
+    now_e = engine()
+    nxt = preview_engine()
+    now = datetime.now(timezone.utc)
+    changes = [{"at": at.isoformat(), "kind": kind, "title": row.get("title"), "url": row["url"],
+                "estimated": estimated, "details": row.get("details", []),
+                **({"regulation": row["regulation"]} if row.get("regulation") else {}),
+                **({"season": row["season"]} if row.get("season") else {})}
+               for at, kind, row, estimated in live_rules.upcoming(official_news.notices(), now)]
+    if nxt is None:
+        return {"available": False, "changes": changes}
+    sets = [s.model_dump(exclude_unset=True) for s in req.team]
+    return {"available": True, "at": nxt.d["preview"]["at"], "regulation": nxt.rules.get("regulation"),
+            **season_preview.report(now_e, nxt, req.format, changes, sets)}
+
+
+_latest_app: dict = {"checked": 0., "value": None}
+
+
+@app.get("/api/app/latest")
+def app_latest():
+    """GitHub 배포 목록의 최신 버전 (6시간 캐시). 앱이 자기 버전과 비교해 새 버전 알림을 띄운다."""
+    if time.time() - _latest_app["checked"] > 6 * 3600:
+        _latest_app["checked"] = time.time()
+        try:
+            req = urllib.request.Request("https://api.github.com/repos/gdh3311/Vextrum/releases?per_page=5",
+                                         headers={"Accept": "application/vnd.github+json", "User-Agent": "Vextrum-update-check"})
+            with urllib.request.urlopen(req, timeout=10) as r:
+                rows = json.load(r)
+            row = next((x for x in rows if not x.get("draft")), None)
+            if row:
+                m = re.search(r"(\d+\.\d+\.\d+)", row["tag_name"])
+                _latest_app["value"] = {"tag": row["tag_name"], "version": m[1] if m else None,
+                                        "url": row["html_url"], "publishedAt": row.get("published_at"),
+                                        "title": row.get("name")}
+        except Exception:  # noqa: BLE001 - 오프라인이면 그냥 알림 없음
+            pass
+    return _latest_app["value"] or {}
 
 
 # ---------- 이미지 프록시 (디스크 캐시) ----------

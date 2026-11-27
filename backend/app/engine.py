@@ -121,6 +121,8 @@ class Engine:
             for pid, moves in rules["learnChanges"].items():
                 self.P[pid]["learnset"] = sorted(set(self.P[pid].get("learnset", [])) | set(moves))
         self._allowed = None if self.rules.get("allowed") is None else frozenset(self.rules["allowed"])
+        self._blocked = frozenset(self.rules.get("blocked", ()))
+        self._blocked_megas = frozenset(self.rules.get("blockedMegas", ()))
         self._allowed_megas = (
             None if self.rules.get("allowedMegas") is None else frozenset(self.rules["allowedMegas"])
         )
@@ -146,7 +148,8 @@ class Engine:
 
     # ---------- 기본 조회 ----------
     def eligible(self, pid: str) -> bool:
-        return pid in self.P and (self._allowed is None or pid in self._allowed)
+        return (pid in self.P and pid not in self._blocked
+                and (self._allowed is None or pid in self._allowed))
 
     def ranked(self, fmt: str) -> list[dict]:
         ps = [p for p in self.P.values() if fmt in p["usage"] and self.eligible(p["id"])]
@@ -167,9 +170,10 @@ class Engine:
 
         if not self.rules.get("megaPerBattle", 1):
             return []
+        megas = [m for m in p["megas"] if tid(m["name"]) not in self._blocked_megas]
         if self._allowed_megas is None:
-            return p["megas"]
-        return [m for m in p["megas"] if tid(m["name"]) in self._allowed_megas]
+            return megas
+        return [m for m in megas if tid(m["name"]) in self._allowed_megas]
 
     def mega_item_allowed(self, p: dict, item: str | None) -> bool:
         return not item or not any(m["stone"] == item for m in p["megas"]) or bool(self.find_mega(p, stone=item))

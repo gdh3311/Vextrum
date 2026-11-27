@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart' hide Text, Tooltip;
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'api.dart';
 
 import 'lab_icons.dart';
 import 'settings.dart';
@@ -11,6 +15,22 @@ const _seenKey = 'last_read_app_update';
 const _releases = [
   (
     version: appVersion,
+    date: '2026.11.27',
+    entries: [
+      (
+        glyph: LabGlyph.spark,
+        title: '다음 시즌 미리보기',
+        detail: '다음 레귤레이션·밸런스 조정이 발표되면 시즌 시작 전에 바뀌는 것, 영향받는 메타 포켓몬, 새 포켓몬의 상성, 내 팀 영향을 보여 줍니다. 팀 자동 구성과 배틀 계산기도 다음 시즌 규칙으로 미리 돌려 볼 수 있습니다.',
+      ),
+      (
+        glyph: LabGlyph.note,
+        title: '새 버전 알림',
+        detail: '새 앱 버전이 배포되면 업데이트 버튼에 표시되고, 업데이트 내역 창에서 다운로드 페이지 링크를 볼 수 있습니다.',
+      ),
+    ],
+  ),
+  (
+    version: '1.22.0',
     date: '2026.11.27',
     entries: [
       (
@@ -428,16 +448,16 @@ const _releases = [
   ),
 ];
 
-class UpdatesButton extends StatefulWidget {
+class UpdatesButton extends ConsumerStatefulWidget {
   const UpdatesButton({super.key, this.compact = false});
 
   final bool compact;
 
   @override
-  State<UpdatesButton> createState() => _UpdatesButtonState();
+  ConsumerState<UpdatesButton> createState() => _UpdatesButtonState();
 }
 
-class _UpdatesButtonState extends State<UpdatesButton> {
+class _UpdatesButtonState extends ConsumerState<UpdatesButton> {
   bool? _unread;
 
   @override
@@ -458,8 +478,11 @@ class _UpdatesButtonState extends State<UpdatesButton> {
 
   Future<void> _open() async {
     setState(() => _unread = false);
+    final latest = ref.read(latestAppProvider).valueOrNull;
     await showDialog<void>(
-        context: context, builder: (_) => const _UpdatesDialog());
+        context: context,
+        builder: (_) => _UpdatesDialog(
+            available: newerVersion(latest?['version'] as String?, appVersion) ? latest : null));
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_seenKey, _releases.first.version);
@@ -469,7 +492,9 @@ class _UpdatesButtonState extends State<UpdatesButton> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final unread = _unread == true;
+    final latest = ref.watch(latestAppProvider).valueOrNull;
+    final newer = newerVersion(latest?['version'] as String?, appVersion);
+    final unread = _unread == true || newer;
     final glyph = Badge(
       isLabelVisible: unread,
       smallSize: 8,
@@ -478,7 +503,7 @@ class _UpdatesButtonState extends State<UpdatesButton> {
     );
     if (widget.compact) {
       return IconButton(
-        tooltip: tr(unread ? '새 업데이트 보기' : '업데이트 내역'),
+        tooltip: tr(newer ? '새 버전이 나왔습니다' : unread ? '새 업데이트 보기' : '업데이트 내역'),
         onPressed: _open,
         icon: glyph,
       );
@@ -497,8 +522,9 @@ class _UpdatesButtonState extends State<UpdatesButton> {
             const Expanded(
                 child: Text('업데이트',
                     style: TextStyle(fontWeight: FontWeight.w600))),
-            Text('v${_releases.first.version}',
-                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11)),
+            Text(newer ? tr('v{} 받기').replaceFirst('{}', '${latest!['version']}') : 'v${_releases.first.version}',
+                style: TextStyle(color: newer ? cs.tertiary : cs.onSurfaceVariant, fontSize: 11,
+                    fontWeight: newer ? FontWeight.w700 : null)),
           ]),
         ),
       ),
@@ -507,7 +533,8 @@ class _UpdatesButtonState extends State<UpdatesButton> {
 }
 
 class _UpdatesDialog extends StatelessWidget {
-  const _UpdatesDialog();
+  const _UpdatesDialog({this.available});
+  final Json? available; // 지금보다 새 배포 버전 (없으면 null)
 
   @override
   Widget build(BuildContext context) {
@@ -523,6 +550,26 @@ class _UpdatesDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (available case final Json next)
+              Container(
+                color: cs.tertiaryContainer,
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+                child: Row(children: [
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(tr('새 버전 v{}가 나왔습니다').replaceFirst('{}', '${next['version']}'),
+                          style: TextStyle(fontWeight: FontWeight.w800, color: cs.onTertiaryContainer)),
+                      SelectableText('${next['url']}',
+                          style: TextStyle(fontSize: 12, color: cs.onTertiaryContainer)),
+                    ]),
+                  ),
+                  IconButton(
+                    tooltip: tr('다운로드 페이지 링크 복사'),
+                    onPressed: () => Clipboard.setData(ClipboardData(text: '${next['url']}')),
+                    icon: LabIcon(LabGlyph.copy, size: 18, color: cs.onTertiaryContainer),
+                  ),
+                ]),
+              ),
             Stack(children: [
               Positioned.fill(
                 child: Image.asset('assets/arena.jpg',

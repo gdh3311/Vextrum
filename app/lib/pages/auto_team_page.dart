@@ -10,6 +10,7 @@ import '../team_state.dart';
 import '../widgets.dart';
 import 'build_loader.dart';
 import 'party_simulation.dart';
+import 'calc_common.dart' show PreviewRulesChip;
 import 'parties_page.dart';
 import '../i18n.dart';
 
@@ -169,6 +170,7 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
         'tune': tune,
         'rankers': rankers,
         'originality': originality,
+        'preview': ref.read(previewRulesProvider),
       };
       Json data;
       try {
@@ -256,6 +258,18 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
         trailing: TextButton(
             onPressed: () => context.go('/team'), child: const Text('팀 빌더')),
       ),
+      if (ref.watch(nextSeasonAtProvider) != null)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Wrap(spacing: 10, crossAxisAlignment: WrapCrossAlignment.center, children: [
+            const PreviewRulesChip(),
+            Text(
+                ref.watch(previewRulesProvider)
+                    ? '다음 시즌의 참가 포켓몬·밸런스 조정·새 포켓몬(임시 데이터)으로 팀을 짭니다. 상대 메타는 지금 통계 기준입니다.'
+                    : '켜면 시즌이 시작되기 전에 다음 시즌 규칙으로 팀을 미리 짜 볼 수 있습니다.',
+                style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          ]),
+        ),
       Section(
         '무엇을 중심으로 짤까요?',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

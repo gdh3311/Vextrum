@@ -19,7 +19,9 @@ final speedTierProvider = FutureProvider<Json>((ref) async {
   final fmt = ref.watch(formatProvider);
   final top = ref.watch(_speedTopProvider);
   final team = ref.watch(teamProvider);
+  final preview = ref.watch(previewRulesProvider);
   return (await dio.post('/api/speed', data: {
+    'preview': preview,
     'format': fmt,
     'topN': top,
     'team': [for (final s in team) s.set],
@@ -94,6 +96,7 @@ class _SpeedPageState extends ConsumerState<SpeedPage> {
                 label: const Text('트릭룸 (느린 순)'),
                 selected: trickRoom,
                 onSelected: (v) => setState(() => trickRoom = v)),
+            const PreviewRulesChip(),
             FilterChip(
                 label: const Text('상대 구애스카프 표시'),
                 selected: scarf,

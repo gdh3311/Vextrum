@@ -75,6 +75,39 @@ final dataSyncProvider = FutureProvider<Json>((ref) async {
 
 final battleDataVersionProvider = StateProvider<String?>((ref) => null);
 
+/// 발표된 다음 시즌 변경이 모두 적용되는 시각 (없으면 null)
+final nextSeasonAtProvider = Provider<DateTime?>((ref) {
+  final raw = ref.watch(dataSyncProvider.select((s) => s.valueOrNull?['nextSeasonAt'] as String?));
+  return raw == null ? null : DateTime.tryParse(raw)?.toLocal();
+});
+
+/// 팀 자동 구성·계산기를 '다음 시즌 규칙'으로 돌릴지. 다음 시즌 정보가 없으면 무시된다.
+final previewRulesSwitchProvider = StateProvider<bool>((ref) => false);
+final previewRulesProvider = Provider<bool>(
+    (ref) => ref.watch(previewRulesSwitchProvider) && ref.watch(nextSeasonAtProvider) != null);
+
+/// GitHub 배포 목록의 최신 앱 버전 ({version, url, title} 또는 빈 값)
+final latestAppProvider = FutureProvider<Json>((ref) async {
+  ref.watch(apiContextProvider);
+  try {
+    return (await dio.get('/api/app/latest')).data as Json;
+  } catch (_) {
+    return const {};
+  }
+});
+
+/// a 가 b 보다 새 버전인가 (1.22.0 형식)
+bool newerVersion(String? a, String b) {
+  if (a == null) return false;
+  List<int> parts(String v) => v.split('.').map((x) => int.tryParse(x) ?? 0).toList();
+  final x = parts(a), y = parts(b);
+  for (var i = 0; i < 3; i++) {
+    final d = (i < x.length ? x[i] : 0) - (i < y.length ? y[i] : 0);
+    if (d != 0) return d > 0;
+  }
+  return false;
+}
+
 void invalidateBattleData(WidgetRef ref) {
   ref.invalidate(infoProvider);
   ref.invalidate(seasonMetaProvider);

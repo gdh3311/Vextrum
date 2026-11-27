@@ -77,6 +77,41 @@ def _effective(row, maintenance, starts):
     return None, False
 
 
+def balance_schedule(notices):
+    """[(밸런스 공지, 적용 시각, 추정 여부)] — 시각을 정할 수 없는 공지는 빠진다."""
+    maintenance = {}
+    for row in notices:
+        if row["kind"] == "maintenance" and row.get("scheduledEnd"):
+            maintenance.setdefault(row["maintenanceDate"], row["scheduledEnd"])
+    for row in reversed(notices):
+        if row["kind"] == "maintenance" and row.get("completedAt"):
+            maintenance[row["maintenanceDate"]] = row["completedAt"]
+    starts = [datetime.fromisoformat(r["start"]) for r in notices
+              if r["kind"] in {"season", "regulation"} and r.get("start")]
+    out = []
+    for row in notices:
+        if row["kind"] != "balance" or row["publishedAt"] < BALANCE_BASELINE.isoformat():
+            continue
+        at, estimated = _effective(row, maintenance, starts)
+        if at is not None:
+            out.append((row, at, estimated))
+    return out
+
+
+def upcoming(notices, now, horizon_days=45):
+    """앞으로 적용될 공식 변경 [(시각, 종류, 공지, 추정 여부)] — 이미 발표됐고 horizon 안에 시작하는 것만."""
+    out = []
+    for row in notices:
+        if row["kind"] in {"season", "regulation"} and row.get("start"):
+            at = datetime.fromisoformat(row["start"])
+            if now < at <= now + timedelta(days=horizon_days):
+                out.append((at, row["kind"], row, False))
+    for row, at, estimated in balance_schedule(notices):
+        if now < at <= now + timedelta(days=horizon_days):
+            out.append((at, "balance", row, estimated))
+    return sorted(out, key=lambda item: item[0])
+
+
 def compile_rules(dataset, notices, now=None):
     now = now or datetime.now(timezone.utc)
     profile = {"megaPerBattle": 1, "moveChanges": {}, "learnChanges": {}, "flags": {},
@@ -85,6 +120,14 @@ def compile_rules(dataset, notices, now=None):
     profile["provisional"], profile["provisionalMegas"] = new_mons, new_megas
     alerts, notes = [], []  # alerts: 사람이 확인해야 하는 것 (설정 배지) / notes: 자동으로 처리한 것
     current = next((row for row in notices if row["kind"] == "regulation" and _active(row, now)), None)
+    # 앞으로 시작할 레귤레이션에서 처음 발표된 포켓몬·메가는 그 레귤레이션이 시작되기 전까지 쓸 수 없다
+    # (지금 규정의 참가 목록을 모를 때도 미리 참가 가능으로 보이지 않게).
+    current_new = {n for n in (current or {}).get("rules", {}).get("newPokemon", [])}
+    future_new = {n for r in notices if r["kind"] == "regulation" and r.get("start")
+                  and datetime.fromisoformat(r["start"]) > now for n in r.get("rules", {}).get("newPokemon", [])}
+    blocked = future_new - current_new
+    profile["blocked"] = sorted({_mon_id(n) for n in blocked if not n.startswith("Mega ")})
+    profile["blockedMegas"] = sorted({tid(n) for n in blocked if n.startswith("Mega ")})
     roster = {**dataset["pokemon"], **new_mons}
     forms = {tid(m["name"]): m["name"] for p in roster.values() for m in p.get("megas", [])}
     forms |= {tid(m["name"]): m["name"] for ms in new_megas.values() for m in ms}
@@ -145,22 +188,9 @@ def compile_rules(dataset, notices, now=None):
                   "도구, 시간 제한 또는 세부 배틀 규칙에 앱에서 자동으로 처리할 수 없는 변경이 있습니다."
                   + (f" {detail}" if detail else ""))
 
-    maintenance = {}
-    for row in notices:
-        if row["kind"] == "maintenance" and row.get("scheduledEnd"):
-            maintenance.setdefault(row["maintenanceDate"], row["scheduledEnd"])
-    for row in reversed(notices):
-        if row["kind"] == "maintenance" and row.get("completedAt"):
-            maintenance[row["maintenanceDate"]] = row["completedAt"]
-    balances = [r for r in notices if r["kind"] == "balance" and r["publishedAt"] >= BALANCE_BASELINE.isoformat()]
-    starts = [datetime.fromisoformat(r["start"]) for r in notices
-              if r["kind"] in {"season", "regulation"} and r.get("start")]
     effective = []
     profile["balance"] = []
-    for row in balances:
-        at, estimated = _effective(row, maintenance, starts)
-        if at is None:
-            continue
+    for row, at, estimated in balance_schedule(notices):
         local = at.astimezone(_KST).strftime("%m월 %d일 %H:%M")
         if at <= now:
             effective.append((at, row))

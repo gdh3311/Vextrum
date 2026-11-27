@@ -213,6 +213,8 @@ def candidate_sets(e: Engine, fmt: str, *, draft=False):
                 or any(row["name"] in {"Trick Room", "Expanding Force"} and row["pct"] >= 35
                        for row in usage.get("moves", []))):
             species_ids.append(p["id"])
+    # 새로 참가했지만 아직 채용 기록이 없는 포켓몬 (공개 도감 임시 데이터, provisional.py)
+    species_ids += [pid for pid, p in e.P.items() if p.get("provisional") and e.eligible(pid)]
     for pid in species_ids:
         yield from _generated_sets(e, fmt, pid, draft=draft)
 

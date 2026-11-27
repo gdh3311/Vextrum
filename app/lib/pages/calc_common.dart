@@ -193,3 +193,25 @@ String hitsLabel(int? hits, num chance, [int? sure]) {
   if (sure == null || sure == hits) return odds;
   return '${tr('확정 {}타').replaceFirst('{}', '$sure')} · $odds';
 }
+
+
+/// '다음 시즌 규칙으로 계산' 토글. 발표된 다음 시즌 변경이 없으면 보이지 않는다.
+class PreviewRulesChip extends ConsumerWidget {
+  const PreviewRulesChip({super.key});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final at = ref.watch(nextSeasonAtProvider);
+    if (at == null) return const SizedBox.shrink();
+    final on = ref.watch(previewRulesProvider);
+    return Tooltip(
+      message: '공식 공지로 발표된 다음 시즌의 레귤레이션·밸런스 조정·새 포켓몬을 적용해 계산합니다',
+      child: FilterChip(
+        avatar: LabIcon(LabGlyph.spark, size: 16, color: on ? Theme.of(context).colorScheme.primary : null),
+        label: Text(tr('다음 시즌 규칙 ({} 부터)').replaceFirst('{}', '${at.month}/${at.day}')),
+        selected: on,
+        showCheckmark: false,
+        onSelected: (v) => ref.read(previewRulesSwitchProvider.notifier).state = v,
+      ),
+    );
+  }
+}
