@@ -14,7 +14,14 @@ from . import collector
 
 @lru_cache(maxsize=1)
 def _index(version: str) -> tuple[dict, dict, dict]:
-    data = collector.load_json(collector.CACHE / "index.json")
+    path = collector.CACHE / "indexes" / f"{version}.json"
+    if not path.exists():
+        path = collector.CACHE / "index.json"
+    if not path.exists():
+        return {}, {}, {}
+    data = collector.load_json(path)
+    if data.get("dataVersion") != version:
+        return {}, {}, {}
     summaries, names, dates = {}, {}, {}
     for entry in data["pokemon"]:
         pid = entry["showdownId"]
@@ -23,7 +30,7 @@ def _index(version: str) -> tuple[dict, dict, dict]:
             names[name] = names[collector.tid(name)] = pid
     for folder in data.get("dailyDataFolders", []):
         season, day = folder.split("/", 1)
-        dates.setdefault(season, _date(day))
+        dates[season] = max(dates.get(season, ""), _date(day))
     return summaries, names, dates
 
 

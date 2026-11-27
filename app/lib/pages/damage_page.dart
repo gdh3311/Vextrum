@@ -18,6 +18,17 @@ class DamagePage extends ConsumerStatefulWidget {
   ConsumerState<DamagePage> createState() => _DamagePageState();
 }
 
+/// 화면을 옮겨 다녀도 입력을 잃지 않게 앱이 켜져 있는 동안 기억한다.
+class _Memory {
+  TeamSlot? attacker, defender;
+  String weather = 'auto';
+  bool? spread;
+  bool crit = false, helpingHand = false, screen = false, psychicTerrain = false;
+  int atkStage = 0, defStage = 0, hpPct = 100;
+}
+
+final _memory = _Memory();
+
 class _DamagePageState extends ConsumerState<DamagePage> {
   TeamSlot? attacker, defender;
   String weather = 'auto';
@@ -26,7 +37,58 @@ class _DamagePageState extends ConsumerState<DamagePage> {
   int atkStage = 0, defStage = 0, hpPct = 100;
   Future<Json>? result;
 
+  @override
+  void initState() {
+    super.initState();
+    final m = _memory;
+    attacker = m.attacker;
+    defender = m.defender;
+    weather = m.weather;
+    spread = m.spread;
+    crit = m.crit;
+    helpingHand = m.helpingHand;
+    screen = m.screen;
+    psychicTerrain = m.psychicTerrain;
+    atkStage = m.atkStage;
+    defStage = m.defStage;
+    hpPct = m.hpPct;
+    // 처음 열면 내 팀 첫 포켓몬 → 메타 1위로 바로 계산해 보여 준다.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final team = ref.read(teamProvider);
+      attacker ??= team.isEmpty ? null : team.first;
+      if (attacker == null || defender == null) {
+        final fmt = ref.read(formatProvider);
+        final all = await ref.read(pokemonListProvider.future);
+        final ranked = [for (final p in all) if (p['ranks'][fmt] != null) p]
+          ..sort((a, b) => (a['ranks'][fmt] as int).compareTo(b['ranks'][fmt] as int));
+        // 팀이 비어 있으면 메타 1위 → 2위로 시작
+        if (attacker == null && ranked.isNotEmpty && mounted) attacker = await slotFor(ref, ranked.first['id'] as String);
+        final skip = attacker?.detail['id'];
+        final top = ranked.where((p) => p['id'] != skip).firstOrNull;
+        if (defender == null && top != null && mounted) defender = await slotFor(ref, top['id'] as String);
+      }
+      if (mounted) recalc();
+    });
+  }
+
+  void remember() {
+    _memory
+      ..attacker = attacker
+      ..defender = defender
+      ..weather = weather
+      ..spread = spread
+      ..crit = crit
+      ..helpingHand = helpingHand
+      ..screen = screen
+      ..psychicTerrain = psychicTerrain
+      ..atkStage = atkStage
+      ..defStage = defStage
+      ..hpPct = hpPct;
+  }
+
   void recalc() {
+    remember();
     final a = attacker, d = defender;
     if (a == null || d == null) {
       setState(() => result = null);
@@ -68,6 +130,7 @@ class _DamagePageState extends ConsumerState<DamagePage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(battleDataVersionProvider, (_, __) => recalc());
     final fmt = ref.watch(formatProvider);
     final cs = Theme.of(context).colorScheme;
     final items = ref.watch(itemsProvider).valueOrNull ?? const <Json>[];
@@ -103,6 +166,16 @@ class _DamagePageState extends ConsumerState<DamagePage> {
             },
             trailing: s == null ? null : TextButton(onPressed: () => edit(isAttacker), child: const Text('세트 편집')),
           ),
+          QuickPicks(
+              meta: !isAttacker || ref.watch(teamProvider).isEmpty,
+              onPick: (picked) {
+                if (isAttacker) {
+                  attacker = picked;
+                } else {
+                  defender = picked;
+                }
+                recalc();
+              }),
           if (s != null) ...[
             const SizedBox(height: 6),
             Wrap(spacing: 10, runSpacing: 4, children: [
@@ -150,10 +223,11 @@ class _DamagePageState extends ConsumerState<DamagePage> {
     }
 
     return PageBody(children: [
-      PageHeader('데미지 계산',
+      PageHeader('배틀 계산기',
           glyph: LabGlyph.shield,
           subtitle:
               '${fmt == 'Doubles' ? '더블배틀' : '싱글배틀'} · 공격 측 기술 4개가 주는 데미지 범위(난수 85~100%)와 몇 번에 쓰러뜨리는지 계산합니다. 앱의 배틀 엔진과 같은 식이라 실제 게임과 조금 다를 수 있습니다'),
+      const CalcSwitcher('/damage'),
       LayoutBuilder(builder: (context, c) {
         final a = monCard(attacker, true), d = monCard(defender, false);
         final swap = IconButton(
@@ -265,7 +339,8 @@ class _DamageResults extends StatelessWidget {
               ),
               Expanded(
                 child: m['status'] == true
-                    ? Text('변화 기술', style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant))
+                    ? Text(((m['accuracy'] as num?) ?? 100) < 100 ? '변화 기술 · 명중 ${m['accuracy']}%' : '변화 기술',
+                        style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant))
                     : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         _RangeBar(
                             min: (m['minHp'] as num) / hp, max: (m['maxHp'] as num) / hp, current: current / hp),
@@ -275,7 +350,7 @@ class _DamageResults extends StatelessWidget {
                               style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800)),
                           Text('(${m['minHp']}~${m['maxHp']} HP)',
                               style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-                          Text(hitsLabel(m['hits'] as int?, (m['chance'] ?? 0) as num),
+                          Text(hitsLabel(m['hits'] as int?, (m['chance'] ?? 0) as num, m['sureHits'] as int?),
                               style: TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w700,
@@ -283,6 +358,10 @@ class _DamageResults extends StatelessWidget {
                           if ((m['eff'] as num) != 1)
                             Text(tr('상성 ×{}').replaceFirst('{}', '${m['eff']}'),
                                 style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                          if (m['accuracy'] case final num acc when acc < 100)
+                            Text('명중 $acc%', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                          if (m['flinch'] case final num chance when chance > 0)
+                            Text('풀죽음 $chance%', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                         ]),
                       ]),
               ),

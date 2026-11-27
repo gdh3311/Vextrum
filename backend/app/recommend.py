@@ -37,7 +37,7 @@ def ranker_rosters(e: Engine, fmt: str):
     """랭커 파티의 종 구성에 가장 흔한 세트를 입힌다. 메가스톤은 한 장만, 도구는 겹치지 않게."""
     out = []
     for r in rankers(fmt):
-        ids = [pid for pid in r["ids"] if pid in e.P]
+        ids = [pid for pid in r["ids"] if e.eligible(pid)]
         if len(ids) < 4:
             continue
         sets, used, mega = [], set(), False
@@ -47,6 +47,7 @@ def ranker_rosters(e: Engine, fmt: str):
             if s["item"] in used or (stone and mega):
                 rows = e.P[pid]["usage"].get(fmt, {}).get("items", [])
                 item = next((row["name"] for row in rows if row["name"] not in used
+                             and e.mega_item_allowed(e.P[pid], row["name"])
                              and not e.find_mega(e.P[pid], stone=row["name"])), None)
                 s.update(item=item, mega=None)
             mega |= bool(s.get("mega"))
@@ -62,7 +63,7 @@ def ranker_rosters(e: Engine, fmt: str):
 @lru_cache(maxsize=4)
 def ranker_cores(e: Engine, fmt: str, size: int = 2, top: int = 8):
     """상위 랭커일수록 무겁게 센 동시 채용 빈도. 개별 채용률로 기대되는 빈도 대비 비율(lift)도 함께 낸다."""
-    teams = [(r, [pid for pid in r["ids"] if pid in e.P]) for r in rankers(fmt)]
+    teams = [(r, [pid for pid in r["ids"] if e.eligible(pid)]) for r in rankers(fmt)]
     if not teams:
         return ()
     from .regulation import _season_number, season_weight

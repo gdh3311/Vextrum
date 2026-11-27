@@ -46,12 +46,14 @@ class TeamNotifier extends StateNotifier<List<TeamSlot>> {
   final List<_SavedTeam> _teams = [_SavedTeam('팀 1', [])];
   int _active = 0;
   bool _loaded = false;
+  int _detailRequest = 0;
   late final Future<void> _initialLoad;
 
   TeamNotifier(this.ref) : super(const []) {
     _initialLoad = _load();
     ref.listen(formatProvider, (_, __) => _reloadDetails());
     ref.listen(apiContextProvider, (_, __) => _reloadDetails());
+    ref.listen(battleDataVersionProvider, (_, __) => _reloadDetails());
   }
 
   static const _key = 'teams_v2';
@@ -113,10 +115,22 @@ class TeamNotifier extends StateNotifier<List<TeamSlot>> {
 
   /// 배틀 형식이 바뀌면 채용률 등 상세 데이터를 그 형식 기준으로 다시 받는다.
   Future<void> _reloadDetails() async {
+    final request = ++_detailRequest;
+    await _initialLoad;
+    if (!mounted || request != _detailRequest) return;
     final fmt = ref.read(formatProvider);
-    final cache = <String, Future<Json>>{};
+    final ids = {for (final t in _teams) for (final s in t.slots) s.set['id'] as String};
+    final details = <String, Json>{};
+    await Future.wait(ids.map((id) async {
+      try {
+        details[id] = await fetchDetail(id, fmt);
+      } catch (_) {
+        // A temporary connection error or a missing catalog entry never removes a saved set.
+      }
+    }));
+    if (!mounted || request != _detailRequest) return;
     for (final t in _teams) {
-      t.slots = await _slotsFor([for (final s in t.slots) s.set], fmt, cache);
+      t.slots = [for (final s in t.slots) TeamSlot(s.set, details[s.set['id']] ?? s.detail)];
     }
     _publish(save: false);
   }

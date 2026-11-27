@@ -133,6 +133,19 @@ class MetaLabApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(settingsNotifierProvider);
+    ref.listen(dataSyncProvider, (previous, next) {
+      final before = previous?.valueOrNull;
+      final after = next.valueOrNull;
+      if (after == null) return;
+      if (after['dataVersion'] != null &&
+          (before?['dataVersion'] != after['dataVersion'] || before?['rulesVersion'] != after['rulesVersion'])) {
+        invalidateBattleData(ref);
+        ref.read(battleDataVersionProvider.notifier).state = "${after['dataVersion']}/${after['rulesVersion'] ?? ''}";
+      } else if (before?['newsVersion'] != after['newsVersion']) {
+        ref.invalidate(infoProvider);
+        ref.invalidate(seasonMetaProvider);
+      }
+    });
     // 언어·이름 표시가 바뀌면 SettingsNotifier 가 화면 전체를 다시 그린다 (문구는 그릴 때 번역된다).
     return MaterialApp.router(
       title: 'Champions Meta Lab',
@@ -155,17 +168,44 @@ class MetaLabApp extends ConsumerWidget {
   }
 }
 
-const _tabs = [
-  ('/', LabGlyph.meta, '메타', '메타', Color(0xFF78DACE)),
-  ('/team', LabGlyph.team, '팀 빌더', '팀', Color(0xFF83B9FF)),
-  ('/workspace', LabGlyph.stack, '팀 워크스페이스', '워크', Color(0xFF8FD3FF)),
-  ('/enemy', LabGlyph.versus, '상대 분석', '상대', Color(0xFFFF9C92)),
-  ('/jokers', LabGlyph.crystal, '조커 파인더', '조커', Color(0xFFC3A6FF)),
-  ('/speed', LabGlyph.bolt, '스피드 티어', '스피드', Color(0xFF9FD8FF)),
-  ('/damage', LabGlyph.shield, '데미지 계산', '데미지', Color(0xFFFFB38A)),
-  ('/parties', LabGlyph.archive, '파티 탐색', '파티', Color(0xFFFFCB6D)),
-  ('/battle', LabGlyph.controller, '가상 배틀', '배틀', Color(0xFFA8DF98)),
-  ('/research', LabGlyph.spark, '자동 연구', '연구', Color(0xFFFF9EDB)),
+/// 메뉴: 하는 일별로 4묶음. 좁은 화면에서는 아래 막대에 묶음 4개, 묶음 안의 화면은 위쪽 탭으로 고른다.
+class _Dest {
+  final String path;
+  final LabGlyph glyph;
+  final String label;
+  final Color color;
+  final List<String> also; // 같은 메뉴로 보는 다른 경로 (예: 배틀 계산기의 스피드/데미지)
+  const _Dest(this.path, this.glyph, this.label, this.color, {this.also = const []});
+  bool matches(String location) =>
+      [path, ...also].any((p) => location == p || (p != '/' && location.startsWith('$p/')));
+}
+
+class _Group {
+  final String title;
+  final String short;
+  final LabGlyph glyph;
+  final List<_Dest> items;
+  const _Group(this.title, this.short, this.glyph, this.items);
+}
+
+const _groups = [
+  _Group('메타 분석', '메타', LabGlyph.meta, [
+    _Dest('/', LabGlyph.meta, '메타', Color(0xFF78DACE)),
+    _Dest('/parties', LabGlyph.archive, '파티 탐색', Color(0xFFFFCB6D)),
+    _Dest('/jokers', LabGlyph.crystal, '조커 파인더', Color(0xFFC3A6FF)),
+  ]),
+  _Group('팀 만들기', '팀', LabGlyph.team, [
+    _Dest('/team', LabGlyph.team, '팀 빌더', Color(0xFF83B9FF)),
+    _Dest('/workspace', LabGlyph.stack, '팀 워크스페이스', Color(0xFF8FD3FF)),
+  ]),
+  _Group('배틀 준비', '준비', LabGlyph.versus, [
+    _Dest('/enemy', LabGlyph.versus, '상대 분석', Color(0xFFFF9C92)),
+    _Dest('/speed', LabGlyph.bolt, '배틀 계산기', Color(0xFF9FD8FF), also: ['/damage']),
+  ]),
+  _Group('시뮬레이션', '배틀', LabGlyph.controller, [
+    _Dest('/battle', LabGlyph.controller, '가상 배틀', Color(0xFFA8DF98)),
+    _Dest('/research', LabGlyph.spark, '자동 연구', Color(0xFFFF9EDB)),
+  ]),
 ];
 
 class _Logo extends StatelessWidget {
@@ -222,10 +262,24 @@ class Shell extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     final wide = MediaQuery.sizeOf(context).width >= 960;
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final hasRuleAlerts = ref.watch(dataSyncProvider.select(
+      (status) => (status.valueOrNull?['ruleAlerts'] as List?)?.isNotEmpty ?? false,
+    ));
     final isDetail = location.startsWith('/pokemon');
     final isTeamDraft = location == '/team/auto';
-    final found = _tabs.indexWhere((t) => t.$1 == location || location.startsWith('${t.$1}/'));
-    final index = isDetail ? -1 : (found < 0 ? 0 : found);
+    // 지금 화면이 속한 묶음과 메뉴 (상세 화면이면 없음)
+    var group = 0;
+    _Dest? current;
+    for (var g = 0; g < _groups.length && current == null; g++) {
+      for (final d in _groups[g].items) {
+        if (d.matches(location)) {
+          group = g;
+          current = d;
+          break;
+        }
+      }
+    }
+    if (isDetail) current = null;
     void back() => context.canPop() ? context.pop() : context.go(isTeamDraft ? '/team' : '/');
     void toggleTheme() => ref.read(themeModeProvider.notifier).state = dark ? ThemeMode.light : ThemeMode.dark;
 
@@ -242,9 +296,12 @@ class Shell extends ConsumerWidget {
           const _FormatToggle(),
           const UpdatesButton(compact: true),
           IconButton(
-            tooltip: tr('설정'),
+            tooltip: tr(hasRuleAlerts ? '설정 · 배틀 규칙 확인 필요' : '설정'),
             onPressed: () => context.go('/settings'),
-            icon: Icon(Icons.settings_outlined, size: 20, color: location == '/settings' ? cs.primary : null),
+            icon: Badge(
+              isLabelVisible: hasRuleAlerts,
+              child: Icon(Icons.settings_outlined, size: 20, color: location == '/settings' ? cs.primary : null),
+            ),
           ),
           IconButton(
             tooltip: tr(dark ? '밝은 화면' : '어두운 화면'),
@@ -253,14 +310,38 @@ class Shell extends ConsumerWidget {
           ),
         ],
         ),
-        body: child,
+        body: Column(children: [
+          if (current != null && _groups[group].items.length > 1)
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: cs.outlineVariant))),
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: [
+                  for (final d in _groups[group].items)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: ChoiceChip(
+                        avatar: LabIcon(d.glyph, size: 16, color: d == current ? cs.primary : null),
+                        label: Text(d.label),
+                        selected: d == current,
+                        showCheckmark: false,
+                        onSelected: (_) => context.go(d.path),
+                      ),
+                    ),
+                ]),
+              ),
+            ),
+          Expanded(child: child),
+        ]),
         bottomNavigationBar: NavigationBar(
-          selectedIndex: index < 0 ? 0 : index,
-          onDestinationSelected: (i) => context.go(_tabs[i].$1),
+          selectedIndex: group,
+          onDestinationSelected: (i) => context.go(_groups[i].items.first.path),
           destinations: [
-            for (final t in _tabs)
-              NavigationDestination(icon: LabIcon(t.$2, size: 22),
-                  selectedIcon: LabIcon(t.$2, size: 22, color: cs.primary), label: tr(t.$4)),
+            for (final g in _groups)
+              NavigationDestination(icon: LabIcon(g.glyph, size: 22),
+                  selectedIcon: LabIcon(g.glyph, size: 22, color: cs.primary), label: tr(g.short)),
           ],
         ),
       );
@@ -279,37 +360,49 @@ class Shell extends ConsumerWidget {
             const Padding(padding: EdgeInsets.only(left: 8), child: _Logo()),
             const SizedBox(height: 21),
             Expanded(child: ListView(padding: EdgeInsets.zero, children: [
-              for (var i = 0; i < _tabs.length; i++)
-                _NavItem(
-                  icon: _tabs[i].$2,
-                  accent: dark ? _tabs[i].$5 : cs.primary,
-                  label: _tabs[i].$3,
-                  selected: i == index,
-                  onTap: () => context.go(_tabs[i].$1),
+              for (final g in _groups) ...[
+                Padding(
+                  padding: EdgeInsets.fromLTRB(10, g == _groups.first ? 0 : 10, 8, 5),
+                  child: Text(g.title,
+                      style: TextStyle(
+                          fontSize: 11.5, fontWeight: FontWeight.w700, letterSpacing: .3, color: cs.onSurfaceVariant)),
                 ),
+                for (final d in g.items)
+                  _NavItem(
+                    icon: d.glyph,
+                    accent: dark ? d.color : cs.primary,
+                    label: d.label,
+                    selected: d == current,
+                    onTap: () => context.go(d.path),
+                  ),
+              ],
             ])),
             const UpdatesButton(),
-            const SizedBox(height: 12),
-            const Divider(),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
+            const Divider(height: 12),
             Padding(
-              padding: const EdgeInsets.only(left: 8, bottom: 8),
+              padding: const EdgeInsets.only(left: 8, bottom: 6, top: 2),
               child: Text('배틀 형식', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
             ),
             const _FormatToggle(expand: true),
-            const SizedBox(height: 10),
-            _NavItem(
-                icon: LabGlyph.spark,
-                accent: cs.primary,
-                label: '설정',
-                selected: location == '/settings',
-                onTap: () => context.go('/settings')),
-            _NavItem(
-                icon: dark ? LabGlyph.sun : LabGlyph.moon,
-                accent: cs.primary,
-                label: dark ? '밝은 화면' : '어두운 화면',
-                selected: false,
-                onTap: toggleTheme),
+            const SizedBox(height: 8),
+            // 설정·화면 밝기는 한 줄에 (메뉴 목록에 자리를 더 준다)
+            Row(children: [
+              Expanded(
+                child: _NavItem(
+                    icon: LabGlyph.spark,
+                    accent: cs.primary,
+                    label: '설정',
+                    hasAlert: hasRuleAlerts,
+                    selected: location == '/settings',
+                    onTap: () => context.go('/settings')),
+              ),
+              IconButton(
+                tooltip: tr(dark ? '밝은 화면' : '어두운 화면'),
+                onPressed: toggleTheme,
+                icon: LabIcon(dark ? LabGlyph.sun : LabGlyph.moon, size: 19),
+              ),
+            ]),
           ]),
         ),
         Expanded(
@@ -336,13 +429,15 @@ class _NavItem extends StatelessWidget {
   final String label;
   final bool selected;
   final Color accent;
+  final bool hasAlert;
   final VoidCallback onTap;
-  const _NavItem({required this.icon, required this.label, required this.selected, required this.accent, required this.onTap});
+  const _NavItem({required this.icon, required this.label, required this.selected, required this.accent,
+    required this.onTap, this.hasAlert = false});
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 3),
       child: AnimatedContainer(
         duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 180),
         decoration: BoxDecoration(
@@ -357,12 +452,17 @@ class _NavItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
             child: Row(children: [
               Container(
-                width: 32, height: 32,
+                width: 30, height: 30,
                 decoration: BoxDecoration(color: accent.withOpacity(.12), borderRadius: BorderRadius.circular(9)),
-                child: Center(child: LabIcon(icon, size: 20, color: accent)),
+                child: Center(
+                  child: Badge(
+                    isLabelVisible: hasAlert,
+                    child: LabIcon(icon, size: 20, color: accent),
+                  ),
+                ),
               ),
               const SizedBox(width: 10),
               Text(label,

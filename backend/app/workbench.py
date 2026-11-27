@@ -75,6 +75,9 @@ def legality(e: Engine, fmt: str, sets: list[dict]) -> list[dict]:
             issues.append({"slot": i, "severity": "high", "kind": "species", "text": f"알 수 없는 포켓몬: {pid}"})
             continue
         p = e.P[pid]
+        if not e.eligible(pid):
+            issues.append({"slot": i, "severity": "high", "kind": "species",
+                           "text": f"현재 규정에서 참가할 수 없는 포켓몬: {_name(p)}"})
         s = _full(e, fmt, raw)
         learn = set(p.get("learnset") or [])
         for mv in s.get("moves") or []:
@@ -87,7 +90,11 @@ def legality(e: Engine, fmt: str, sets: list[dict]) -> list[dict]:
             issues.append({"slot": i, "severity": "high", "kind": "move", "text": "같은 기술이 두 번 들어 있습니다"})
         mega = e.find_mega(p, name=s["mega"]) if s.get("mega") else None
         if s.get("mega") and not mega:
-            issues.append({"slot": i, "severity": "high", "kind": "mega", "text": f"없는 메가 폼: {s['mega']}"})
+            issues.append({"slot": i, "severity": "high", "kind": "mega",
+                           "text": f"현재 규정에서 사용할 수 없는 메가 폼: {s['mega']}"})
+        if not e.mega_item_allowed(p, s.get("item")):
+            issues.append({"slot": i, "severity": "high", "kind": "mega",
+                           "text": f"현재 규정에서 사용할 수 없는 메가스톤: {s['item']}"})
         if mega and s.get("item") and not e.find_mega(p, stone=s["item"]):
             issues.append({"slot": i, "severity": "high", "kind": "mega",
                            "text": f"{mega['name']}은(는) 맞는 메가스톤이 필요합니다"})
@@ -650,7 +657,7 @@ def prediction_snapshot(e, fmt, sets, enemy, *, include_simulation=False):
     """Freeze the pre-battle recommendation separately from the player's later choices."""
     from .enemy import analyze_enemy
 
-    if (len(enemy) != 6 or len(sets) != 6 or any(p not in e.P for p in enemy)
+    if (len(enemy) != 6 or len(sets) != 6 or any(not e.eligible(p) for p in enemy)
             or len({auto_team.species(e, p) for p in enemy}) != 6 or blocking(legality(e, fmt, sets))):
         raise ValueError("서로 다른 상대 6마리와 규칙에 맞는 내 팀 6마리가 필요합니다.")
     enemy = sorted(enemy)
@@ -689,7 +696,7 @@ def validate_vs_team(entry, e, fmt, sets, enemy, picks, games=30, difficulty="ma
 
     width = 2 if fmt == "Doubles" else 1
     count = battle_lab.limit(fmt)
-    if (not count <= len(enemy) <= 6 or len(set(enemy)) != len(enemy) or any(p not in e.P for p in enemy)
+    if (not count <= len(enemy) <= 6 or len(set(enemy)) != len(enemy) or any(not e.eligible(p) for p in enemy)
             or len({auto_team.species(e, p) for p in enemy}) != len(enemy)
             or blocking(legality(e, fmt, sets))):
         raise ValueError("규칙에 맞는 내 팀과 상대 포켓몬을 확인해 주세요.")

@@ -247,7 +247,23 @@ class BattleLabTest(unittest.TestCase):
         self.assertEqual(len(notice["addedMegas"]), 6)
         self.assertIn("inteleon", {p["id"] for p in notice["roster"]})
         end = datetime(2026, 12, 2, 2, tzinfo=timezone.utc)
-        self.assertIsNone(season_notice.active_notice(self.engine, end))
+        # M-8 이 끝나면 고정 목록 대신 공식 공지에서 만든다. 새 시즌 공지 전에는 다음 번호로 추정.
+        from unittest.mock import patch
+
+        from app import official_news
+
+        rows = [
+            {"kind": "regulation", "url": "r", "regulation": "M-D", "start": "2026-12-02T02:00:00+00:00",
+             "end": "2027-03-03T02:00:00+00:00", "rules": {"newPokemon": ["Heatran", "Mega Heatran"]}},
+            {"kind": "season", "url": "s", "season": "M8", "regulation": "M-C",
+             "start": "2026-11-04T02:00:00+00:00", "end": "2026-12-02T02:00:00+00:00"},
+        ]
+        with patch.object(official_news, "notices", return_value=rows):
+            later = season_notice.active_notice(self.engine, end)
+        self.assertEqual((later["season"], later["regulation"], later["seasonInferred"]), ("M9", "M-D", True))
+        self.assertEqual([p["name"] for p in later["roster"]], ["Heatran"])
+        with patch.object(official_news, "notices", return_value=[]):
+            self.assertIsNone(season_notice.active_notice(self.engine, end))
 
     def test_champion_plans_without_unrevealed_sets_or_reserves(self):
         lead = [{"id": "garchomp", "moves": ["Earthquake"], "mega": None}, {"id": "rillaboom"}]

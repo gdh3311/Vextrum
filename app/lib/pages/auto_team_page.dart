@@ -128,7 +128,7 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
       Map<String, Json> destination) async {
     final selected = await showPokemonPicker(
       context,
-      mons.where((p) => !excluded.contains(p['id'])).toList(),
+      mons.where((p) => p['eligible'] != false && !excluded.contains(p['id'])).toList(),
       widget.format,
     );
     if (!mounted || selected == null) return;

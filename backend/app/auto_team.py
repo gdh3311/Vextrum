@@ -141,13 +141,13 @@ def _generated_sets(e, fmt, pid, *, required=False, draft=False):
     items = list(dict.fromkeys([base["item"], *(row["name"] for row in usage.get("items", [])[:4 if required else 2])]))
     if required and None not in items:
         items.append(None)
-    for form in p["megas"]:
+    for form in e.mega_forms(p):
         if form["stone"] and form["stone"] in e.d["items"] and form["stone"] not in items:
             if set(form["abilities"]) & style_abilities:
                 items.append(form["stone"])
     seen = set()
     for item in items:
-        if item in UNIMPLEMENTED_ITEMS:
+        if item in UNIMPLEMENTED_ITEMS or not e.mega_item_allowed(p, item):
             continue
         mega = e.find_mega(p, stone=item)
         chosen_ability = base["ability"] if base["ability"] in p["abilities"] else next(iter(p["abilities"]), None)
@@ -178,10 +178,11 @@ def _generated_sets(e, fmt, pid, *, required=False, draft=False):
         if not moves:
             continue
         variants = [moves]
-        # A used support move may sit just outside the four most common moves.
-        for row in usage.get("moves", [])[:10]:
-            mv = row["name"]
-            if row["pct"] < 15 or mv not in style_moves or mv in moves or not usable(mv):
+        studied = [row["name"] for row in usage.get("moves", [])[:10]
+                   if row["pct"] >= 15 and row["name"] in style_moves]
+        newly_learned = e.rules.get("learnChanges", {}).get(pid, [])
+        for mv in dict.fromkeys([*studied, *newly_learned]):
+            if mv in moves or not usable(mv):
                 continue
             drop = next((i for i in range(len(moves) - 1, -1, -1) if moves[i] not in style_moves), None)
             if drop is not None and (e.M[mv]["power"] or any(e.M[m]["power"] for i, m in enumerate(moves) if i != drop)):
@@ -206,7 +207,8 @@ def candidate_sets(e: Engine, fmt: str, *, draft=False):
         abilities |= {"Sand Stream", "Snow Warning", "Sand Rush", "Slush Rush"}
     for p in ranked[90:]:
         usage = p["usage"].get(fmt, {})
-        if (any(row["name"] in abilities
+        if (p["id"] in e.rules.get("learnChanges", {})
+                or any(row["name"] in abilities
                 and row["pct"] >= 25 for row in usage.get("abilities", []))
                 or any(row["name"] in {"Trick Room", "Expanding Force"} and row["pct"] >= 35
                        for row in usage.get("moves", []))):
@@ -807,6 +809,8 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
         raise ValueError("자동으로 채울 자리를 위해 고정 포켓몬은 최대 5마리까지 선택할 수 있습니다.")
     if any(pid not in e.P for pid in [*ids, *exclude]):
         raise ValueError("포켓몬 목록에서 찾을 수 없는 항목이 있습니다.")
+    if any(not e.eligible(pid) for pid in ids):
+        raise ValueError("현재 규정에서 참가할 수 없는 포켓몬이 고정되어 있습니다.")
     if len({species(e, pid) for pid in ids}) != len(ids):
         raise ValueError("같은 종의 포켓몬은 다른 폼을 포함해 한 마리만 고를 수 있습니다.")
     excluded = {species(e, pid) for pid in exclude}
@@ -853,6 +857,9 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
     fixed = []
     for entry in locked:
         s = {**e.default_set(entry["id"], fmt), **entry}
+        if not e.mega_item_allowed(e.P[s["id"]], s.get("item")) or (
+                s.get("mega") and not e.find_mega(e.P[s["id"]], name=s["mega"])):
+            raise ValueError("고정 세트에 현재 규정에서 사용할 수 없는 메가 폼이나 메가스톤이 있습니다.")
         if problems := simulation.unsupported(e, fmt, s):
             names = ", ".join(row["name"] for row in problems)
             raise ValueError(f"고정 세트의 모의전 미구현 요소 · {names}. 팀 빌더에서 해당 세트를 확인해 주세요.")

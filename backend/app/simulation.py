@@ -38,7 +38,7 @@ NO_WEATHER = {"Cloud Nine", "Air Lock"}
 DRAIN = {"Drain Punch", "Giga Drain", "Horn Leech", "Leech Life", "Draining Kiss", "Dream Eater", "Mega Drain",
          "Absorb", "Oblivion Wing", "Parabolic Charge", "Bitter Blade"}
 TARGETED_SUPPORT = {"Taunt", "Parting Shot", "Disable"} | set(mx.STATUS_MOVES) | set(mx.TARGET_DEBUFFS) | {
-    "Encore", "Leech Seed", "Pain Split", "Yawn", "Strength Sap"}
+    "Encore", "Leech Seed", "Pain Split", "Yawn", "Strength Sap", "Psych Up"}
 TERRAIN = {"Psychic Surge": "psychic", "Grassy Surge": "grassy", "Electric Surge": "electric", "Misty Surge": "misty"}
 TERRAIN_MOVES = {f"{kind.title()} Terrain": kind for kind in TERRAIN.values()}
 SEEDS = {"Grassy Seed": ("grassy", "def"), "Electric Seed": ("electric", "def"),
@@ -50,6 +50,7 @@ ABSORB_BOOST = {"Storm Drain": ("Water", "spa", 1), "Lightning Rod": ("Electric"
                 "Well-Baked Body": ("Fire", "def", 2)}
 SUPPORT = PROTECT | HEAL | BOOSTS.keys() | REDIRECT | TARGETED_SUPPORT | TERRAIN_MOVES.keys() | {
     "Tailwind", "Trick Room", "Wide Guard", "Quick Guard", "Helping Hand", "Chilly Reception", "Imprison",
+    "Wonder Room",  # 12월 2일 밸런스 조정으로 블래키가 배움
 }
 WEATHER = {"Drought": "sun", "Drizzle": "rain", "Sand Stream": "sand", "Snow Warning": "snow"}
 WEATHER_MOVES = {"Sunny Day": "sun", "Rain Dance": "rain", "Sandstorm": "sand", "Snowscape": "snow"}
@@ -85,7 +86,10 @@ def weather_offense(e, mon, weather, move):
 
 def move_supported(e, move):
     move = e.move_names.get(move, move)
-    data = e.M.get(move)
+    return move_data_supported(move, e.M.get(move))
+
+
+def move_data_supported(move, data):
     return bool(data and not data.get("unknown") and move not in UNIMPLEMENTED_MOVES
                 and (move in SUPPORT or data["power"] and not data.get("selfdestruct")))
 
@@ -224,12 +228,13 @@ class Battle:
         self.rng = Random(seed)
         self.width = 2 if fmt == "Doubles" else 1
         self.teams = [self._fighters(mine), self._fighters(foe)]
-        self.mega_left = [True, True]  # 레귤레이션 MC: 배틀당 메가진화 1회
+        self.mega_left = [bool(engine.rules.get("megaPerBattle", 1))] * 2
         self.active = [[i if i < len(team) else None for i in range(self.width)] for team in self.teams]
         self.turn = 1
         self.winner: str | None = None
         self.tailwind = [0, 0]
         self.trick_room = 0
+        self.wonder_room = 0  # 원더룸: 5턴 동안 모든 포켓몬의 방어·특방 실수치가 바뀐다
         self.weather = ""
         self.weather_turns = 0
         self.terrain = ""
@@ -302,6 +307,9 @@ class Battle:
             fighter = max(ready, key=self._mega_gain)
             ratio = fighter.hp / fighter.max_hp
             fighter.mon = fighter.mega_form
+            if (fighter.mon["ability"] != "Flash Fire"
+                    and not self.engine.rules.get("flags", {}).get("flashFirePersists")):
+                fighter.flash_fire = False
             fighter.hp = max(1, round(ratio * fighter.max_hp))
             fighter.mega_form = None
             fighter.mega_shown = True
@@ -491,9 +499,16 @@ class Battle:
                 return False
             if move == "Thunder Wave" and type_multiplier("Electric", target.mon["types"], ability) == 0:
                 return False
-            if target.sub and move not in mx.SOUND and source is not target:
+            if self._sub_blocks(target, source, move):
                 return False
         return True
+
+    def _sub_blocks(self, target, actor, move):
+        if not target.sub or target is actor or move in mx.SOUND:
+            return False
+        ability = actor.mon["ability"] if actor is not None else None
+        return ability != "Infiltrator" and not (
+            ability == "Stalwart" and self.engine.rules.get("flags", {}).get("stalwartBypassesSubstitute"))
 
     def _inflict(self, target, status, source=None, move=None) -> bool:
         if not self._can_status(target, status, source, move):
@@ -636,8 +651,9 @@ class Battle:
         if self._spread(actor, move):
             allies = [f for ally, f in self._present(side) if ally != slot] if category == "allAdjacent" else []
             return [f for _, f in opponents] + allies
+        ignores_redirect = move == "Snipe Shot" or actor.mon["ability"] in {"Stalwart", "Propeller Tail"}
         redirect = self.redirect[1 - side]
-        if redirect is not None and move != "Snipe Shot":
+        if redirect is not None and not ignores_redirect:
             redirect_slot, redirect_move = redirect
             ignores_powder = ("Grass" in actor.mon["types"] or actor.mon["ability"] == "Overcoat"
                               or actor.mon["item"] == "Safety Goggles")
@@ -646,7 +662,7 @@ class Battle:
                 if redirected:
                     return [redirected]
         draw = {"Electric": "Lightning Rod", "Water": "Storm Drain"}.get(self._move_type(actor, move))
-        if draw and category == "normal" and actor.mon["ability"] not in MOLD:
+        if draw and category == "normal" and not ignores_redirect and actor.mon["ability"] not in MOLD:
             original = next((f for i, f in opponents if i == target), opponents[0][1]) if opponents else None
             if original is not None and original.mon["ability"] == draw:
                 return [original]
@@ -655,6 +671,9 @@ class Battle:
             if conductors:
                 return [max(conductors, key=lambda row: row[0])[1]]
         return [next((f for i, f in opponents if i == target), opponents[0][1])] if opponents else []
+
+    def _flinch_chance(self, move):
+        return self.engine.M.get(move, {}).get("flinch", mx.FLINCH.get(move, 0))
 
     def _damage(self, actor: Fighter, target: Fighter, move: str, spread: bool) -> tuple[float, float]:
         if move == "Struggle":
@@ -678,6 +697,11 @@ class Battle:
         if actor.mon["ability"] == "Unaware":
             defender["stats"] = dict(target.mon["stats"])
         defender["stats"]["hp"] = target.max_hp
+        if self.wonder_room:  # 원래 방어·특방 값을 맞바꾸고, 랭크 변화는 각 능력치에 그대로 둔다
+            raw = target.mon["stats"]
+            use = (lambda k: 0) if actor.mon["ability"] == "Unaware" else (lambda k: target.stages.get(k, 0))
+            defender["stats"]["def"] = max(1, int(raw["spd"] * _stage(use("def"))))
+            defender["stats"]["spd"] = max(1, int(raw["def"] * _stage(use("spd"))))
         if self._wx == "sand" and "Rock" in target.mon["types"]:
             defender["stats"]["spd"] = round(defender["stats"]["spd"] * 1.5)
         if self._wx == "snow" and "Ice" in target.mon["types"]:
@@ -724,7 +748,7 @@ class Battle:
             power *= mx.weight_power(move, mx.weight(self.engine, actor.mon["id"]),
                                      mx.weight(self.engine, target.mon["id"])) / 60
         if actor.mon["ability"] == "Sheer Force" and (move in mx.SECONDARY_STATUS or move in mx.TARGET_STAGES
-                                                      or move in mx.FLINCH or move in SPEED_DROP):
+                                                      or self._flinch_chance(move) or move in SPEED_DROP):
             power *= 1.3
         power *= self._screen(actor, target, move)
         kind, ability = hit["type"], actor.mon["ability"]
@@ -1028,6 +1052,9 @@ class Battle:
             if self.trick_room:
                 self.activated[side].add("trickroom")
             self._event("행동 순서가 뒤집혔다!" if self.trick_room else "트릭룸이 풀렸다!")
+        elif move == "Wonder Room":
+            self.wonder_room = 0 if self.wonder_room else 5
+            self._event("방어와 특수방어가 뒤바뀌는 공간을 만들어 냈다!" if self.wonder_room else "원더룸이 풀렸다!", "field")
         elif move == "Imprison":
             if actor.imprisoned:
                 return False
@@ -1197,7 +1224,7 @@ class Battle:
         if move in mx.STATUS_MOVES:
             return self._inflict(target, mx.STATUS_MOVES[move], actor, move)
         if move in mx.TARGET_DEBUFFS:
-            if target.sub and move not in mx.SOUND:
+            if self._sub_blocks(target, actor, move):
                 return False
             if move == "Toxic Thread":
                 self._inflict(target, "psn", actor, move)
@@ -1216,6 +1243,12 @@ class Battle:
             self._event(f"{target.name}은(는) 앙코르를 받았다!", "status", ref=self._ref(target))
             self._mental_herb(target)
             return True
+        if move == "Psych Up":
+            if target.stages == actor.stages:
+                return False
+            actor.stages = dict(target.stages)
+            self._event(f"{actor.name}은(는) {target.name}의 능력 변화를 복사했다!", "status", ref=self._ref(actor))
+            return True
         if move == "Disable":
             last = target.last_move
             if target.disable or not last or last not in target.mon["moves"]:
@@ -1227,13 +1260,13 @@ class Battle:
             self._mental_herb(target)
             return True
         if move == "Leech Seed":
-            if target.seeded or "Grass" in target.mon["types"] or target.sub:
+            if target.seeded or "Grass" in target.mon["types"] or self._sub_blocks(target, actor, move):
                 return False
             target.seeded = True
             self._event(f"{target.name}에게 씨앗을 심었다!", "status", ref=self._ref(target))
             return True
         if move == "Pain Split":
-            if target.sub:
+            if self._sub_blocks(target, actor, move):
                 return False
             share = (actor.hp + target.hp) // 2
             actor.hp, target.hp = min(actor.max_hp, share), min(target.max_hp, share)
@@ -1295,6 +1328,33 @@ class Battle:
         if move == "Disable":
             target = dict(self._present(1 - side)).get(action.get("target"))
             return .55 if target and target.last_move and not target.disable and not target.protected else 0.
+        if move == "Psych Up":
+            # 상대가 쌓은 공격·스피드 상승을 그대로 가져올 때만 쓴다 (랭크 1당 공격 점수 약 .22)
+            target = dict(self._present(1 - side)).get(action.get("target"))
+            if not target:
+                return 0.
+            keys = ("atk", "spa", "spe", "def", "spd")
+            gain = sum(max(0, target.stages.get(k, 0)) - max(0, actor.stages.get(k, 0)) for k in keys)
+            loss = sum(min(0, actor.stages.get(k, 0)) for k in keys)  # 내 하락도 지워진다
+            return max(0., .22 * gain - .15 * loss)
+        if move == "Wonder Room":
+            # 상대 공격 방식이 맞바뀐 방어 능력치에 막히는 만큼 (켜져 있으면 끄는 가치는 반대)
+            foes = [self._seen(side, f).mon for _, f in self._present(1 - side)]
+            mine = [f.mon for _, f in self._present(side)]
+            if not foes or not mine:
+                return 0.
+
+            def physical(mon):
+                cats = [self.engine.M.get(m, {}).get("category") for m in mon["moves"]]
+                return cats.count("Physical") >= cats.count("Special")
+
+            gain = 0.
+            for foe in foes:
+                key, other = ("def", "spd") if physical(foe) else ("spd", "def")
+                for mon in mine:
+                    gain += (mon["stats"][other] - mon["stats"][key]) / max(mon["stats"][key], 1)
+            gain /= len(foes) * len(mine)
+            return max(0., (-gain if self.wonder_room else gain) * 1.2)
         if move in WEATHER_MOVES:
             weather = WEATHER_MOVES[move]
             if weather == self.weather or any(f.mon["ability"] in NO_WEATHER for s in range(2) for _, f in self._present(s)):
@@ -1331,7 +1391,7 @@ class Battle:
             cost = mx.HP_COST.get(move, 0)
             return 0. if hp <= cost + .25 else .12 * fresh * hp * (1.3 if self.turn <= 3 else .8)
         if move in mx.TARGET_DEBUFFS:
-            if not target or target.sub:
+            if not target or self._sub_blocks(target, actor, move):
                 return 0.
             physical = sum(self.engine.M.get(m, {}).get("category") == "Physical" for m in self._seen(side, target).mon["moves"]) >= 2
             stats = mx.TARGET_DEBUFFS[move]
@@ -1579,7 +1639,7 @@ class Battle:
                     raw = raw * 1.5 / self._screen(actor, target, move) * (
                         1.5 if actor.mon["ability"] == "Sniper" else 1)
                 raw = raw * self.rng.uniform(.85, 1) / .925
-            if target.sub and move not in mx.SOUND and actor.mon["ability"] != "Infiltrator" and target is not actor:
+            if self._sub_blocks(target, actor, move):
                 hit = min(target.sub, max(1, round(raw)))
                 target.sub -= hit
                 did_hit = True
@@ -1643,7 +1703,7 @@ class Battle:
                         self.trace[victim]["ko_before_move"] += 1
             ability = None if actor.mon["ability"] in MOLD else target.mon["ability"]
             secondary = ability != "Shield Dust" and target.mon["item"] != "Covert Cloak"
-            chance = mx.FLINCH.get(move, 0) * (2 if actor.mon["ability"] == "Serene Grace" else 1)
+            chance = self._flinch_chance(move) * (2 if actor.mon["ability"] == "Serene Grace" else 1)
             if not chance and actor.mon["item"] in {"King's Rock", "Razor Fang"}:
                 chance = 10
             target.flinched |= (secondary and ability != "Inner Focus" and actor.mon["ability"] != "Sheer Force"
@@ -1705,7 +1765,7 @@ class Battle:
             self._hurt(actor, actor.hp, "은(는) 목숨을 걸었다")
         if did_hit and (move == "Struggle" or actor.mon["item"] == "Life Orb" and actor.mon["ability"] not in {
             "Magic Guard", "Sheer Force"} or actor.mon["item"] == "Life Orb" and actor.mon["ability"] == "Sheer Force"
-            and move not in mx.SECONDARY_STATUS and move not in mx.TARGET_STAGES and move not in mx.FLINCH
+            and move not in mx.SECONDARY_STATUS and move not in mx.TARGET_STAGES and not self._flinch_chance(move)
         ) and actor.mon["ability"] != "Magic Guard":
             divisor = 4 if move == "Struggle" else 10
             self._hurt(actor, max(1, actor.max_hp // divisor), "은(는) 생명이 조금 깎였다")
@@ -1945,6 +2005,10 @@ class Battle:
                 if not self.screens[side][kind]:
                     del self.screens[side][kind]
         self.trick_room = max(0, self.trick_room - 1)
+        if self.wonder_room:
+            self.wonder_room -= 1
+            if not self.wonder_room:
+                self._event("원더룸이 풀렸다!", "field")
         self.terrain_turns = max(0, self.terrain_turns - 1)
         if not self.terrain_turns and self.terrain:
             self._event(f"{TERRAIN_LABELS[self.terrain]}이(가) 사라졌다.", "field", terrain="")
@@ -2077,7 +2141,7 @@ class Battle:
 
         field = [
             (WEATHER_LABELS.get(self.weather), self.weather_turns), (TERRAIN_LABELS.get(self.terrain), self.terrain_turns),
-            ("트릭룸", self.trick_room), ("내 순풍", self.tailwind[0]), ("상대 순풍", self.tailwind[1]),
+            ("트릭룸", self.trick_room), ("원더룸", self.wonder_room), ("내 순풍", self.tailwind[0]), ("상대 순풍", self.tailwind[1]),
         ]
         names = {"reflect": "리플렉터", "light": "빛의장막", "veil": "오로라베일"}
         for side, label in ((0, "내 "), (1, "상대 ")):

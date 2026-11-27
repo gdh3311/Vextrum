@@ -18,11 +18,14 @@ import shutil
 import os
 import sqlite3
 import sys
+import tempfile
 import time
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Lock
+from urllib.error import HTTPError
 
 BASE = "https://championsbattledata.com"
 SHOWDOWN_MOVES = "https://play.pokemonshowdown.com/data/moves.json"
@@ -40,6 +43,7 @@ else:
 CACHE = DATA_DIR / "cache"
 DATASET = DATA_DIR / "dataset.json"
 HISTORY_DB = DATA_DIR / "history.sqlite"
+_collect_lock = Lock()
 
 UA = {"User-Agent": "ChampionsMetaLab/0.1 (local meta analysis tool)"}
 STONE_RE = re.compile(r"ite( [XYZ])?$")
@@ -80,12 +84,15 @@ def fetch(url: str, dest: Path, retries: int = 3) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     for attempt in range(retries):
         try:
-            req = urllib.request.Request(url, headers=UA)
+            headers = {**UA, "Accept": "application/json"} if dest.suffix == ".json" else UA
+            req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=60) as r:
                 data = r.read()
             dest.write_bytes(data)
             return
-        except Exception:
+        except Exception as error:
+            if isinstance(error, HTTPError) and error.code in (403, 404, 429):
+                raise
             if attempt == retries - 1:
                 raise
             time.sleep(1.5 * (attempt + 1))
@@ -93,6 +100,17 @@ def fetch(url: str, dest: Path, retries: int = 3) -> None:
 
 def load_json(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def write_json(path: Path, value) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=path.parent, mode="w", encoding="utf-8", delete=False) as tmp:
+        temporary = Path(tmp.name)
+    try:
+        temporary.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def ko_maps() -> dict[str, dict[str, str]]:
@@ -170,17 +188,36 @@ def ko_pokemon_name(base_ko: str | None, form: dict, is_base_form: bool) -> str 
 
 
 def collect(force: bool = False) -> dict:
-    CACHE.mkdir(parents=True, exist_ok=True)
-    index_path = CACHE / "index.json"
-    print("인덱스 내려받는 중…")
-    fetch(f"{BASE}/api", index_path)
-    index = load_json(index_path)
-    version = index["dataVersion"]
+    with _collect_lock:
+        return _collect(force)
 
-    if DATASET.exists() and not force:
-        if load_json(DATASET).get("dataVersion") == version:
+
+def _collect(force: bool) -> dict:
+    CACHE.mkdir(parents=True, exist_ok=True)
+    current = load_json(DATASET) if DATASET.exists() else None
+    if current and not force:
+        latest = _read_source_json("/api/rankings?limit=1")
+        cached_index = CACHE / "indexes" / f"{current['dataVersion']}.json"
+        if latest["dataVersion"] == current["dataVersion"] and cached_index.exists():
+            return current
+        if current["generatedAt"] > latest["generatedAt"]:
+            return current
+
+    print("인덱스 내려받는 중…")
+    index = _read_source_json("/api")
+    version = index["dataVersion"]
+    if not re.fullmatch(r"[0-9]+", version) or not index["pokemon"]:
+        raise ValueError("Invalid battle-data index")
+    index_path = CACHE / "indexes" / f"{version}.json"
+
+    if current and not force:
+        if current["dataVersion"] == version:
+            if not index_path.exists():
+                write_json(index_path, index)
             print(f"이미 최신입니다 (dataVersion {version}).")
-            return load_json(DATASET)
+            return current
+        if current["generatedAt"] > index["generatedAt"]:
+            return current
 
     moves_path = CACHE / "moves.json"
     if not moves_path.exists() or force:
@@ -190,29 +227,29 @@ def collect(force: bool = False) -> dict:
 
     # 포켓몬·포맷별 상세 행 (요청 526건, 버전별 캐시)
     battle_dir = CACHE / "battle" / version
+    battle_dir.mkdir(parents=True, exist_ok=True)
     jobs = []
     for p in index["pokemon"]:
         for fmt in FORMATS:
             dest = battle_dir / fmt / f"{p['showdownId']}.json"
-            if not dest.exists():
+            if p["summary"].get("battleSummary", {}).get("Current", {}).get(fmt, {}).get("position") and not dest.exists():
                 jobs.append((f"{BASE}/api/battle/{fmt}/{urllib.parse.quote(p['showdownId'])}", dest))
+    failed: set[Path] = set()
     if jobs:
         print(f"배틀 데이터 {len(jobs)}건 내려받는 중…")
-        failed = []
 
         def run(job):
             try:
                 fetch(*job)
-            except Exception as e:  # 데이터가 없는 포켓몬은 404
-                failed.append((job[0], str(e)))
+            except Exception:  # noqa: BLE001 - 몇 건 없는 것은 그 포켓몬의 채용 정보만 비운다 (아래에서 비율 확인)
+                failed.add(job[1])
 
-        with ThreadPoolExecutor(max_workers=6) as ex:
+        with ThreadPoolExecutor(max_workers=4) as ex:
             list(ex.map(run, jobs))
-        if failed:
-            print(f"  {len(failed)}건 실패 (해당 포맷 데이터 없음으로 처리)")
-    for old in (CACHE / "battle").iterdir():
-        if old.name != version:
-            shutil.rmtree(old, ignore_errors=True)
+    # 너무 많이 실패하면 원본에 문제가 있는 것 → 이번 갱신은 버리고 지난 데이터를 계속 쓴다
+    if jobs and len(failed) > max(3, len(jobs) // 30):
+        raise ValueError(f"배틀 데이터 {len(failed)}/{len(jobs)}건을 받지 못했습니다")
+    skipped = []
 
     name_to_id = {}
     for p in index["pokemon"]:
@@ -251,13 +288,31 @@ def collect(force: bool = False) -> dict:
         usage = {}
         for fmt in FORMATS:
             path = battle_dir / fmt / f"{p['showdownId']}.json"
-            if path.exists():
-                u = parse_usage(load_json(path).get("rows", []), name_to_id)
-                if u and u["rank"]:
-                    usage[fmt] = u
-                    used_moves.update(m["name"] for m in u["moves"])
-                    used_items.update(i["name"] for i in u["items"])
-                    used_abilities.update(a["name"] for a in u["abilities"])
+            expected = s.get("battleSummary", {}).get("Current", {}).get(fmt, {}).get("position")
+            if not expected or path in failed:
+                continue
+            u = None
+            for attempt in range(2):  # 받는 사이 원본이 바뀌었으면 한 번 더 받는다
+                try:
+                    u = parse_usage(load_json(path)["rows"], name_to_id)
+                except (OSError, ValueError, KeyError, TypeError):
+                    u = None
+                if u and u["rank"] == int(expected):
+                    break
+                path.unlink(missing_ok=True)
+                u = None
+                if attempt == 0:
+                    try:
+                        fetch(f"{BASE}/api/battle/{fmt}/{urllib.parse.quote(p['showdownId'])}", path)
+                    except Exception:  # noqa: BLE001
+                        break
+            if u is None:
+                skipped.append(f"{fmt}/{p['showdownId']}")
+                continue
+            usage[fmt] = u
+            used_moves.update(m["name"] for m in u["moves"])
+            used_items.update(i["name"] for i in u["items"])
+            used_abilities.update(a["name"] for a in u["abilities"])
 
         ranks = {}
         for season, by_fmt in s.get("battleSummary", {}).items():
@@ -302,11 +357,27 @@ def collect(force: bool = False) -> dict:
         "abilities": {n: {"ko": ko["ability_names"].get(tid(n))} for n in sorted(used_abilities)},
         "natures": {tid(k).capitalize(): v for k, v in ko["nature_names"].items()},
     }
-    DATASET.write_text(json.dumps(dataset, ensure_ascii=False), encoding="utf-8")
+    if len(skipped) > max(3, len(index["pokemon"]) // 30):
+        raise ValueError(f"순위가 맞지 않는 배틀 데이터가 많습니다 ({len(skipped)}건)")
+    write_json(index_path, index)
     save_snapshot(dataset)
+    write_json(DATASET, dataset)
+    keep = {version, current["dataVersion"] if current else version}
+    for old in battle_dir.parent.iterdir():
+        if old.is_dir() and old.name not in keep:
+            shutil.rmtree(old, ignore_errors=True)
+    for old in index_path.parent.glob("*.json"):
+        if old.stem not in keep:
+            old.unlink(missing_ok=True)
     n_usage = {fmt: sum(1 for p in pokemon.values() if fmt in p["usage"]) for fmt in FORMATS}
     print(f"완료: 포켓몬 {len(pokemon)}종, 기술 {len(moves)}개, 도구 {len(dataset['items'])}개, 사용 데이터 {n_usage}")
     return dataset
+
+
+def _read_source_json(path: str):
+    request = urllib.request.Request(f"{BASE}{path}", headers={**UA, "Accept": "application/json"})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return json.load(response)
 
 
 def save_snapshot(dataset: dict) -> None:

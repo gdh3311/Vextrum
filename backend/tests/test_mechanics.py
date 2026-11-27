@@ -47,15 +47,13 @@ class ChampionsMechanicsTest(unittest.TestCase):
         self.assertEqual(f.toxic, 1)
 
     def test_burn_halves_physical_damage_and_screens_reduce_it(self):
-        b = self.battle()
+        b = simulation.Battle(self.engine, "Singles",
+                              [{"id": "garchomp", "moves": ["Dragon Claw"], "item": None}],
+                              [{"id": "incineroar", "item": None}], 1, log=False)
         actor, target = b.teams[0][0], b.teams[1][0]
-        physical = next((m for m in actor.mon["moves"] if b.engine.M[m]["category"] == "Physical"
-                         and b.engine.M[m]["power"] and not b.engine.M[m].get("fixed")), None)
-        if not physical or actor.mon["ability"] in {"Guts", "Quick Feet"}:
-            self.skipTest("lead has no plain physical move")
+        physical = "Dragon Claw"
         normal, _ = b._damage(actor, target, physical, False)
-        if not normal:
-            self.skipTest("target is immune")
+        self.assertGreater(normal, 0)
         actor.status = "brn"
         burned, _ = b._damage(actor, target, physical, False)
         self.assertAlmostEqual(burned, normal / 2, delta=normal * .01)

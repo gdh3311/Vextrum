@@ -1,19 +1,19 @@
 """시즌·레귤레이션과 데이터 출처(provenance).
 
-공식 일정과 원본 데이터의 시즌 표기를 섞지 않는다. 원본 API(Champions Battle Data)는 지금도 일별 데이터를
-'M7' 폴더에 쌓고 있으므로, 순위·채용률은 '원본이 M7로 표기한 표본'으로만 부른다.
+공식 일정과 원본 API의 시즌 표기를 별개로 추적한다.
 """
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 # 결과가 의존하는 버전 (명세 3.1): 규칙·시뮬레이터·CPU 정책이 바뀌면 이전 성적을 그대로 잇지 않는다.
 SIMULATOR_VERSION = "sim-2026.11.14-r2"  # 봉인·사슬묶기 및 M-C 수치 보정
 POLICY_VERSION = "cpu-tiers-v6"  # 공개 정보로 양쪽이 같은 탐색기를 사용
 RULES_VERSION = "champions-mc-2026.11-r2"
+BALANCE_BASELINE = date(2026, 11, 15)
 OPPONENT_VERSION = "synthetic-core-split-v1"
 
 
 def versions(dataset):
-    return {"simulator": SIMULATOR_VERSION, "policy": POLICY_VERSION, "rules": RULES_VERSION,
+    return {"simulator": SIMULATOR_VERSION, "policy": POLICY_VERSION, "rules": dataset.get("rulesVersion", RULES_VERSION),
             "opponents": OPPONENT_VERSION, "data": dataset.get("generatedAt")}
 
 
@@ -38,22 +38,30 @@ def _at(text):
 
 
 def official_season(now=None):
+    from . import official_news
+
     now = now or datetime.now(timezone.utc)
-    return next((s for s in SEASONS if _at(s["start"]) <= now <= _at(s["end"])), None)
+    return official_news.active_season(now) or next(
+        (s for s in SEASONS if _at(s["start"]) <= now <= _at(s["end"])), None)
 
 
 def provenance(dataset, now=None):
     """dataset.json 을 어떻게 믿어야 하는지: 원본 표기 시즌, 공식 시즌, 수집 시각, 순위의 의미."""
     seasons = [s for s in dataset.get("seasons", []) if s != "Current"]
+    from . import official_news
+
+    now = now or datetime.now(timezone.utc)
     official = official_season(now)
+    current = official_news.active_regulation(now)
     source_season = seasons[0] if seasons else None
     return {
         "source": dataset.get("source"),
         "sourceSeason": source_season,
         "sourceGeneratedAt": dataset.get("generatedAt"),
         "officialSeason": official["id"] if official else None,
-        "regulation": official["regulation"] if official else None,
-        "rules": REGULATIONS.get(official["regulation"]) if official else None,
+        "regulation": current["regulation"].replace("-", "") if current else official["regulation"] if official else None,
+        "rules": ({k: current["rules"][k] for k in ("megaPerBattle", "itemClause", "timers") if k in current["rules"]}
+                  if current and current.get("rules") else REGULATIONS.get(official["regulation"]) if official else None),
         "seasonMismatch": bool(official and source_season and official["id"] != source_season),
         "versions": versions(dataset),
         "rankMeaning": "순위(position)만 제공됨 — 사용률(%)로 바꾸지 않고 가중치 1/√순위로만 쓴다",

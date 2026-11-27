@@ -545,8 +545,10 @@ Widget _maybeTip(String? message, Widget child) => message == null || message.is
     ? child
     : Tooltip(message: message, waitDuration: const Duration(milliseconds: 350), preferBelow: false, child: child);
 
-/// 포켓몬 선택 다이얼로그: 스프라이트 그리드 + 검색
-Future<Json?> showPokemonPicker(BuildContext context, List<Json> all, String fmt) {
+/// 포켓몬 선택 다이얼로그: 스프라이트 그리드 + 검색.
+/// pinned: 검색어가 없을 때 맨 위에 따로 보여 줄 항목 (예: 내 팀). 각 항목은 sprite·ko·name 을 갖고, 누르면 그 Json 을 돌려준다.
+Future<Json?> showPokemonPicker(BuildContext context, List<Json> all, String fmt,
+    {List<Json> pinned = const [], String pinnedTitle = '내 팀'}) {
   final sorted = [...all]..sort((a, b) =>
       ((a['ranks'][fmt] ?? 999) as int).compareTo((b['ranks'][fmt] ?? 999) as int));
   return showDialog<Json>(
@@ -574,6 +576,36 @@ Future<Json?> showPokemonPicker(BuildContext context, List<Json> all, String fmt
                 onChanged: (v) => setState(() => q = v.trim().toLowerCase()),
               ),
               const SizedBox(height: 8),
+              if (q.isEmpty && pinned.isNotEmpty) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(pinnedTitle,
+                      style: TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.primary)),
+                ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  height: 84,
+                  child: ListView(scrollDirection: Axis.horizontal, children: [
+                    for (final p in pinned)
+                      InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => Navigator.pop(context, p),
+                        child: SizedBox(
+                          width: 78,
+                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            Sprite(p['sprite'] as String, size: 50),
+                            Text((p['ko'] ?? p['name']) as String,
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                          ]),
+                        ),
+                      ),
+                  ]),
+                ),
+                const Divider(height: 14),
+              ],
               Expanded(
                 child: GridView.builder(
                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(

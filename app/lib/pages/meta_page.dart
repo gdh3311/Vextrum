@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart' hide Text, Tooltip;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -143,6 +144,9 @@ class _MetaPageState extends ConsumerState<MetaPage> {
         if (!historical)
           if (m['officialSeason'] case final Json official)
             _OfficialSeason(official, rankingSeason: m['season'] as String?),
+        if (!historical)
+          if (m['officialNews'] case final List news when news.isNotEmpty)
+            _SeasonNews(news.cast<Json>()),
         LayoutBuilder(builder: (context, c) {
           if (c.maxWidth >= 850) {
             return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -163,6 +167,62 @@ class _MetaPageState extends ConsumerState<MetaPage> {
   }
 }
 
+class _SeasonNews extends StatelessWidget {
+  const _SeasonNews(this.news);
+  final List<Json> news;
+
+  String _date(String value) {
+    final date = DateTime.parse(value).toLocal();
+    String pad(int n) => '$n'.padLeft(2, '0');
+    return '${date.month}월 ${date.day}일 ${pad(date.hour)}:${pad(date.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final current = <String>{};
+    final visible = news.where((n) {
+      final start = DateTime.tryParse(n['start'] as String? ?? '');
+      final end = DateTime.tryParse(n['end'] as String? ?? '');
+      final timing = start != null && start.isAfter(now) ? 'upcoming' : 'current';
+      return (end == null || end.isAfter(now)) && current.add('${n['kind']}:$timing');
+    });
+    return Section('시즌·규칙 소식',
+        child: Column(children: [
+          for (final article in visible)
+            LabExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: Text(article['title'] as String),
+              subtitle: article['start'] is String && article['end'] is String
+                  ? Text('${DateTime.parse(article['start'] as String).isAfter(now) ? '예정 · ' : ''}'
+                      '${_date(article['start'] as String)} ~ ${_date(article['end'] as String)}')
+                  : null,
+              expandedAlignment: Alignment.centerLeft,
+              expandedCrossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final detail in article['details'] as List? ?? const [])
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('• $detail'),
+                  ),
+                SelectableText(article['url'] as String, style: Theme.of(context).textTheme.bodySmall),
+                TextButton.icon(
+                  onPressed: () async {
+                    await Clipboard.setData(ClipboardData(text: article['url'] as String));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(const SnackBar(content: Text('공식 공지 링크를 복사했습니다.')));
+                    }
+                  },
+                  icon: const LabIcon(LabGlyph.copy, size: 16),
+                  label: const Text('공식 공지 링크 복사'),
+                ),
+              ],
+            ),
+        ]));
+  }
+}
+
 class _OfficialSeason extends StatelessWidget {
   final Json data;
   final String? rankingSeason;
@@ -170,28 +230,35 @@ class _OfficialSeason extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final season = data['season'] as String;
+    final season = data['season'] as String? ?? '-';
     final rule = data['regulation'] as String;
+    final inferred = data['seasonInferred'] == true;
+    final provisional = [...(data['roster'] as List), ...(data['addedMegas'] as List)]
+        .any((m) => (m as Map)['provisional'] == true);
     final theme = Theme.of(context);
     return Section(
-      '공식 랭크배틀 $season · $rule',
-      subtitle: rankingSeason == season
-          ? '랭킹과 채용 통계도 $season 기준입니다.'
-          : '$season 랭킹이 공개 데이터에 올라오기 전까지 ${rankingSeason ?? '기존'} 통계를 표시합니다.',
+      '공식 랭크배틀 $season${inferred ? tr(' (추정)') : ''} · $rule',
+      subtitle: [
+        if (inferred) tr('새 시즌 공지가 올라오기 전이라 시즌 번호는 이어지는 번호로 추정했습니다.'),
+        rankingSeason == season
+            ? tr('랭킹과 채용 통계도 {} 기준입니다.').replaceFirst('{}', season)
+            : tr('{} 랭킹이 공개 데이터에 올라오기 전까지 기존 통계를 표시합니다.').replaceFirst('{}', season),
+        if (provisional) tr('랭킹 원본에 아직 없는 새 포켓몬은 공개 도감 기준 임시 데이터로 쓸 수 있습니다.'),
+      ].join(' '),
       child: LabExpansionTile(
-        title: Text('$rule에서 추가된 포켓몬과 메가진화'),
+        title: Text(tr('{}에서 추가된 포켓몬과 메가진화').replaceFirst('{}', rule)),
         tilePadding: EdgeInsets.zero,
         expandedAlignment: Alignment.centerLeft,
         expandedCrossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('M-C부터 사용 가능한 메가진화', style: theme.textTheme.titleSmall),
+          Text(tr('{}부터 사용 가능한 메가진화').replaceFirst('{}', rule), style: theme.textTheme.titleSmall),
           const SizedBox(height: 5),
           Wrap(spacing: 6, runSpacing: 5, children: [
             for (final mon in (data['addedMegas'] as List).cast<Json>())
               MonPill(mon, onTap: () => context.push(pokemonPath(mon['id'] as String))),
           ]),
           const SizedBox(height: 10),
-          Text('M-C 영입 라인업에 추가된 포켓몬', style: theme.textTheme.titleSmall),
+          Text(tr('{}에 새로 참가하는 포켓몬').replaceFirst('{}', rule), style: theme.textTheme.titleSmall),
           const SizedBox(height: 5),
           Wrap(spacing: 6, runSpacing: 5, children: [
             for (final mon in (data['roster'] as List).cast<Json>())

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../lab_icons.dart';
 
 import '../api.dart';
 import '../i18n.dart';
@@ -8,55 +11,96 @@ import '../widgets.dart';
 
 /// 계산 화면(스피드 비교·데미지 계산)에서 쓰는 공통 도구.
 
-/// 내 팀 포켓몬을 먼저 보여 주고, 아니면 전체 목록에서 고른다. 고른 포켓몬은 인기 세트로 시작한다.
-Future<TeamSlot?> pickCalcMon(BuildContext context, WidgetRef ref, {String title = '포켓몬 선택'}) async {
+/// 포켓몬 하나 고르기 (한 번에): 맨 위에 내 팀, 아래에 전체 목록과 검색. 고른 포켓몬은 인기 세트로 시작한다.
+Future<TeamSlot?> pickCalcMon(BuildContext context, WidgetRef ref) async {
   final team = ref.read(teamProvider);
-  final choice = await showDialog<Object>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
-      content: SizedBox(
-        width: 420,
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (team.isNotEmpty) ...[
-            Text('내 팀', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.primary)),
-            const SizedBox(height: 6),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final s in team)
-                InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: () => Navigator.pop(context, s),
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Column(children: [
-                      Sprite(s.sprite, size: 48),
-                      SizedBox(
-                          width: 64,
-                          child: Text('${s.detail['ko'] ?? s.detail['name']}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 11.5))),
-                    ]),
+  final all = await ref.read(pokemonListProvider.future);
+  if (!context.mounted) return null;
+  final picked = await showPokemonPicker(context, all, ref.read(formatProvider), pinned: [
+    for (var i = 0; i < team.length; i++)
+      {'sprite': team[i].sprite, 'ko': team[i].detail['ko'], 'name': team[i].detail['name'], '__slot': i},
+  ]);
+  if (picked == null) return null;
+  if (picked['__slot'] is int) return team[picked['__slot'] as int];
+  return slotFor(ref, picked['id'] as String);
+}
+
+/// 포켓몬 id → 인기 세트로 시작하는 계산용 자리
+Future<TeamSlot> slotFor(WidgetRef ref, String id) async {
+  final detail = await ref.read(pokemonDetailProvider(id).future);
+  return TeamSlot(Json.from(detail['defaultSet'] as Json), detail);
+}
+
+/// 배틀 계산기의 두 화면(스피드·데미지)을 오가는 탭
+class CalcSwitcher extends StatelessWidget {
+  const CalcSwitcher(this.current, {super.key});
+  final String current; // '/speed' 또는 '/damage'
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: SegmentedButton<String>(
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(value: '/speed', icon: LabIcon(LabGlyph.bolt, size: 16), label: Text('스피드')),
+            ButtonSegment(value: '/damage', icon: LabIcon(LabGlyph.shield, size: 16), label: Text('데미지')),
+          ],
+          selected: {current},
+          onSelectionChanged: (v) => context.go(v.first),
+        ),
+      );
+}
+
+/// 한 번에 넣기: 내 팀 또는 메타 상위권 스프라이트를 누르면 바로 그 포켓몬으로 바꾼다.
+class QuickPicks extends ConsumerWidget {
+  const QuickPicks({super.key, required this.onPick, this.meta = false, this.count = 10});
+  final ValueChanged<TeamSlot> onPick;
+  final bool meta; // false: 내 팀, true: 메타 상위권
+  final int count;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final fmt = ref.watch(formatProvider);
+    final List<(String, String, Future<TeamSlot> Function())> items;
+    if (meta) {
+      final all = ref.watch(pokemonListProvider).valueOrNull ?? const <Json>[];
+      final ranked = [for (final p in all) if (p['ranks'][fmt] != null) p]
+        ..sort((a, b) => (a['ranks'][fmt] as int).compareTo(b['ranks'][fmt] as int));
+      items = [
+        for (final p in ranked.take(count))
+          (p['sprite'] as String, (p['ko'] ?? p['name']) as String, () => slotFor(ref, p['id'] as String)),
+      ];
+    } else {
+      final team = ref.watch(teamProvider);
+      items = [
+        for (final s in team) (s.sprite, '${s.detail['ko'] ?? s.detail['name']}', () async => s),
+      ];
+    }
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(children: [
+        Text(meta ? tr('메타 상위') : tr('내 팀'), style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: SizedBox(
+            height: 38,
+            child: ListView(scrollDirection: Axis.horizontal, children: [
+              for (final (sprite, name, load) in items)
+                Tooltip(
+                  message: name,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () async => onPick(await load()),
+                    child: Padding(padding: const EdgeInsets.symmetric(horizontal: 1), child: Sprite(sprite, size: 36)),
                   ),
                 ),
             ]),
-            const SizedBox(height: 14),
-          ],
-          FilledButton.tonal(onPressed: () => Navigator.pop(context, 'any'), child: const Text('전체 포켓몬에서 고르기')),
-        ]),
-      ),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('닫기'))],
-    ),
-  );
-  if (choice is TeamSlot) return choice;
-  if (choice != 'any' || !context.mounted) return null;
-  final all = await ref.read(pokemonListProvider.future);
-  if (!context.mounted) return null;
-  final picked = await showPokemonPicker(context, all, ref.read(formatProvider));
-  if (picked == null) return null;
-  final detail = await ref.read(pokemonDetailProvider(picked['id'] as String).future);
-  return TeamSlot(Json.from(detail['defaultSet'] as Json), detail);
+          ),
+        ),
+      ]),
+    );
+  }
 }
 
 /// 세트의 실제 폼(메가면 메가 폼)의 종족값
@@ -140,8 +184,12 @@ class CalcMonHeader extends StatelessWidget {
   }
 }
 
-String hitsLabel(int? hits, num chance) {
-  if (hits == null) return tr('6번 안에 못 쓰러뜨림');
+/// 몇 번에 쓰러뜨리나: 확정이면 '확정 n타', 아니면 확률과 함께 확정 횟수도 보여 준다
+/// (예: 4번에 0.2%뿐이면 '확정 5타 · 난수 4타 0.2%').
+String hitsLabel(int? hits, num chance, [int? sure]) {
+  if (hits == null) return tr('8번 안에 못 쓰러뜨림');
   if (chance >= .9995) return tr('확정 {}타').replaceFirst('{}', '$hits');
-  return tr('난수 {}타 ({})').replaceFirst('{}', '$hits').replaceFirst('{}', fmtPct(chance * 100));
+  final odds = tr('난수 {}타 ({})').replaceFirst('{}', '$hits').replaceFirst('{}', fmtPct(chance * 100));
+  if (sure == null || sure == hits) return odds;
+  return '${tr('확정 {}타').replaceFirst('{}', '$sure')} · $odds';
 }

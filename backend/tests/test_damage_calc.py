@@ -40,6 +40,10 @@ class DamageCalcTest(unittest.TestCase):
         self.assertEqual(n, 2)
         self.assertAlmostEqual(p, .75)  # 두 번 중 하나라도 60 이면 100 이상
         self.assertEqual(damage_calc._ko([0] * 16, 100), (None, 0.))
+        # 4번에 아주 드물게, 5번이면 확정
+        first, p, sure = damage_calc._ko_detail([22] * 15 + [25], 100)
+        self.assertEqual((first, sure), (4, 5))
+        self.assertLess(p, .01)
 
 
 if __name__ == "__main__":

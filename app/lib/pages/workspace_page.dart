@@ -81,7 +81,7 @@ class _TeamColumn extends ConsumerWidget {
     };
 
     Future<void> add() async {
-      final list = await ref.read(pokemonListProvider.future);
+      final list = await ref.read(eligiblePokemonProvider.future);
       if (!context.mounted) return;
       final picked = await showPokemonPicker(context, list, ref.read(formatProvider));
       if (picked == null || !context.mounted) return;
@@ -677,7 +677,7 @@ class _MatchupPanelState extends ConsumerState<_MatchupPanel> {
   int? customRevision;
 
   Future<void> pickFoe() async {
-    final list = await ref.read(pokemonListProvider.future);
+    final list = await ref.read(eligiblePokemonProvider.future);
     if (!mounted) return;
     final p = await showPokemonPicker(context, list, ref.read(formatProvider));
     if (p == null) return;
@@ -697,7 +697,7 @@ class _MatchupPanelState extends ConsumerState<_MatchupPanel> {
   }
 
   Future<void> addEnemy() async {
-    final list = await ref.read(pokemonListProvider.future);
+    final list = await ref.read(eligiblePokemonProvider.future);
     if (!mounted) return;
     final p = await showPokemonPicker(context, list, ref.read(formatProvider));
     if (!mounted || p == null) return;

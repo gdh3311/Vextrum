@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
@@ -45,6 +46,48 @@ final infoProvider = FutureProvider<Json>((ref) async {
   return (await dio.get('/api/info')).data as Json;
 });
 
+final dataSyncProvider = FutureProvider<Json>((ref) async {
+  ref.watch(apiContextProvider);
+  var delay = const Duration(seconds: 30);
+  Timer? timer;
+  var disposed = false;
+  ref.onDispose(() {
+    disposed = true;
+    timer?.cancel();
+  });
+  try {
+    final res = await dio.get('/api/data/status',
+        options: Options(receiveTimeout: const Duration(seconds: 6)));
+    final status = res.data as Json;
+    if (status['phase'] == 'checking' || status['dataVersion'] == null) {
+      delay = const Duration(seconds: 4);
+    }
+    return status;
+  } on DioException catch (error) {
+    if (error.response?.statusCode == 404) {
+      delay = const Duration(minutes: 5);
+    }
+    rethrow;
+  } finally {
+    if (!disposed) timer = Timer(delay, ref.invalidateSelf);
+  }
+});
+
+final battleDataVersionProvider = StateProvider<String?>((ref) => null);
+
+void invalidateBattleData(WidgetRef ref) {
+  ref.invalidate(infoProvider);
+  ref.invalidate(seasonMetaProvider);
+  ref.invalidate(seasonDetailProvider);
+  ref.invalidate(pokemonListProvider);
+  ref.invalidate(itemsProvider);
+  ref.invalidate(pokemonDetailProvider);
+  ref.invalidate(labProvider);
+  ref.invalidate(jokersProvider);
+  ref.invalidate(partiesProvider);
+  ref.invalidate(simulatedPartiesProvider);
+}
+
 final metaSeasonProvider = StateProvider<String?>((ref) => null);
 
 final seasonMetaProvider = FutureProvider.family<Json, String?>((ref, season) async {
@@ -60,6 +103,11 @@ final metaProvider = seasonMetaProvider(null);
 final pokemonListProvider = FutureProvider<List<Json>>((ref) async {
   ref.watch(apiContextProvider);
   return ((await dio.get('/api/pokemon')).data as List).cast<Json>();
+});
+
+final eligiblePokemonProvider = FutureProvider<List<Json>>((ref) async {
+  final pokemon = await ref.watch(pokemonListProvider.future);
+  return pokemon.where((p) => p['eligible'] != false).toList();
 });
 
 final itemsProvider = FutureProvider<List<Json>>((ref) async {

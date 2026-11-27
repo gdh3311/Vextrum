@@ -44,7 +44,7 @@ class TeamPage extends ConsumerWidget {
     final team = ref.watch(teamProvider);
     final fmt = ref.watch(formatProvider);
     final analysis = ref.watch(analysisProvider);
-    final all = ref.watch(pokemonListProvider);
+    final all = ref.watch(eligiblePokemonProvider);
     Future<void> addMon() async {
       final list = all.valueOrNull;
       if (list == null) return;
@@ -249,12 +249,13 @@ class _SetEditorState extends ConsumerState<SetEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final d = slot.detail;
+    final d = ref.watch(pokemonDetailProvider(slot.set['id'] as String)).valueOrNull ?? slot.detail;
+    final currentSlot = TeamSlot(slot.set, d);
     final s = slot.set;
     final cs = Theme.of(context).colorScheme;
     final usage = d['usage'] as Json?;
     final megas = (d['megas'] as List).cast<Json>();
-    final mega = _megaOf(slot);
+    final mega = _megaOf(currentSlot);
     final learn = _learnMap(d);
     final allItems = ref.watch(itemsProvider).valueOrNull ?? const <Json>[];
     final itemKo = {for (final i in allItems) i['name']: i['ko']};
@@ -264,7 +265,7 @@ class _SetEditorState extends ConsumerState<SetEditor> {
     final moves = [...(s['moves'] as List? ?? const []).cast<String>()];
     final pts = {for (final k in statKeys) k: (((s['points'] ?? const {}) as Map)[k] ?? 0) as int};
     final used = pts.values.fold<int>(0, (a, b) => a + b);
-    final stats = _finalStats(slot);
+    final stats = _finalStats(currentSlot);
     final fx = natureEffects[s['nature']] ?? const [null, null];
 
     void put(Json patch) {

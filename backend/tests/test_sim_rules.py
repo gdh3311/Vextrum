@@ -254,3 +254,52 @@ class SimRulesTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(collector.DATASET.is_file(), "requires the collected Champions dataset")
+class DecemberBalanceMovesTest(unittest.TestCase):
+    """12월 2일 밸런스 조정으로 새로 배우는 기술 중 모의전에 없던 것: 자기암시, 원더룸."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.e = Engine(json.loads(collector.DATASET.read_text(encoding="utf-8")))
+
+    s = SimRulesTest.s
+    battle = SimRulesTest.battle
+    foes = SimRulesTest.foes
+
+    def test_psych_up_copies_target_stages(self):
+        b = self.battle([self.s("alakazam", moves=["Psych Up", "Psychic"])],
+                        [self.s("kingambit", moves=["Swords Dance", "Iron Head"])])
+        me, foe = b.teams[0][0], b.teams[1][0]
+        foe.stages = {"atk": 2, "spe": -1}
+        me.stages = {"spa": -1}
+        self.assertTrue(b._targeted(0, me, foe, "Psych Up"))
+        self.assertEqual(me.stages, {"atk": 2, "spe": -1})
+        self.assertFalse(b._targeted(0, me, foe, "Psych Up"))  # 이미 같으면 실패
+
+    def test_wonder_room_swaps_defenses_for_five_turns(self):
+        b = self.battle([self.s("umbreon", moves=["Wonder Room", "Foul Play"])],
+                        [self.s("kingambit", moves=["Iron Head"])])
+        umbreon, foe = b.teams[0][0], b.teams[1][0]
+        before, _ = b._damage(foe, umbreon, "Iron Head", False)
+        b._support(0, 0, umbreon, "Wonder Room", None)
+        self.assertEqual(b.wonder_room, 5)
+        after, _ = b._damage(foe, umbreon, "Iron Head", False)
+        stats = umbreon.mon["stats"]
+        self.assertEqual(after > before, stats["spd"] < stats["def"])  # 물리 기술이 특방으로 계산된다
+        for _ in range(5):
+            b._end_turn()
+        self.assertEqual(b.wonder_room, 0)
+
+    def test_new_moves_are_supported_and_battles_finish(self):
+        self.assertTrue(simulation.move_supported(self.e, "Psych Up"))
+        self.assertTrue(simulation.move_supported(self.e, "Wonder Room"))
+        mine = [self.s("umbreon", moves=["Wonder Room", "Foul Play", "Protect", "Moonlight"]),
+                self.s("alakazam", moves=["Psych Up", "Psychic", "Protect", "Dazzling Gleam"])]
+        b = self.battle(mine, self.foes(), seed=3)
+        for _ in range(80):
+            if b.winner:
+                break
+            b.advance()
+        self.assertTrue(b.winner)

@@ -15,12 +15,15 @@ _engine = None
 WORKERS = max(1, min(8, (os.cpu_count() or 2) - 1))
 
 
-def _init():
+def _init(rules, expected_version):
     global _engine
     from . import collector
     from .engine import Engine
 
-    _engine = Engine(json.loads(collector.DATASET.read_text(encoding="utf-8")))
+    dataset = json.loads(collector.DATASET.read_text(encoding="utf-8"))
+    if dataset.get("dataVersion") != expected_version:
+        raise ValueError("Dataset changed while starting battle workers")
+    _engine = Engine(dataset, rules=rules)
 
 
 def _compare(fmt, teams, runs, seed, difficulty, styles=None, policies=None, cpu_styles=None, split="search"):
@@ -37,12 +40,13 @@ def _rankers(fmt, team, games, seed, difficulty):
 
 def _executor(e):
     global _pool, _version
-    version = e.d.get("generatedAt")
+    version = (e.d.get("dataVersion"), e.d.get("rulesVersion"))
     with _lock:
         if _pool is None or version != _version:
             if _pool is not None:
                 _pool.shutdown(wait=False, cancel_futures=True)
-            _pool = ProcessPoolExecutor(max_workers=WORKERS, initializer=_init)
+            _pool = ProcessPoolExecutor(max_workers=WORKERS, initializer=_init,
+                                        initargs=(e.rules if e.rules else None, version[0]))
             _version = version
         return _pool
 

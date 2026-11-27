@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 
 from .engine import Engine
+from .mechanics import FLINCH
 
 ROLLS = [(85 + i) / 100 for i in range(16)]
 
@@ -20,19 +21,29 @@ def _stage(v: float, s: int) -> float:
 
 def _ko(rolls_hp: list[int], hp: int, max_hits: int = 6):
     """(n, 확률): n번 맞혀 쓰러뜨릴 확률이 처음으로 0보다 커지는 n 과 그 확률 (난수 16단계 균등)."""
+    n, chance, _ = _ko_detail(rolls_hp, hp, max_hits)
+    return n, chance
+
+
+def _ko_detail(rolls_hp: list[int], hp: int, max_hits: int = 8):
+    """(처음 쓰러뜨릴 수 있는 횟수, 그 확률, 확정으로 쓰러뜨리는 횟수)"""
     if not rolls_hp or max(rolls_hp) <= 0:
-        return None, 0.
+        return None, 0., None
+    first, chance_first = None, 0.
     dist = {0: 1.}
     for n in range(1, max_hits + 1):
         nxt = {}
         for total, p in dist.items():
             for r in rolls_hp:
-                nxt[total + r] = nxt.get(total + r, 0.) + p / len(rolls_hp)
+                key = min(total + r, hp)  # HP 이상은 한데 모아 상태 수를 줄인다
+                nxt[key] = nxt.get(key, 0.) + p / len(rolls_hp)
         dist = nxt
-        chance = sum(p for total, p in dist.items() if total >= hp)
-        if chance > 0:
-            return n, chance
-    return None, 0.
+        chance = dist.get(hp, 0.)
+        if chance > 0 and first is None:
+            first, chance_first = n, chance
+        if chance >= .9995:
+            return first, chance_first, n
+    return first, chance_first, None
 
 
 def calc(e: Engine, fmt: str, attacker: dict, defender: dict, *, weather: str = "auto", spread: bool | None = None,
@@ -44,9 +55,11 @@ def calc(e: Engine, fmt: str, attacker: dict, defender: dict, *, weather: str = 
     rows = []
     for move in a["moves"]:
         m = e.M.get(move)
+        accuracy = m.get("accuracy") if m else None
         if not m or m["category"] == "Status" or not m["power"]:
             rows.append({"move": move, "ko": m.get("ko") if m else None, "status": True,
-                         "type": m["type"] if m else None, "category": m["category"] if m else None})
+                         "type": m["type"] if m else None, "category": m["category"] if m else None,
+                         "accuracy": accuracy})
             continue
         phys = m["category"] == "Physical"
         atk_key = "def" if move == "Body Press" else ("atk" if phys else "spa")
@@ -66,12 +79,13 @@ def calc(e: Engine, fmt: str, attacker: dict, defender: dict, *, weather: str = 
         mult = (1.5 if crit else 1) * (1 if crit or not screen else (2732 / 4096 if fmt == "Doubles" else .5))
         top = h["pct"] / 100 / .925 * hp * mult  # 난수 1.00 일 때 HP 데미지
         rolls_hp = [math.floor(top * r) for r in ROLLS]
-        n, chance = _ko(rolls_hp, current)
+        n, chance, sure = _ko_detail(rolls_hp, current)
         rows.append({
             "move": move, "ko": m.get("ko"), "type": h["type"], "category": m["category"], "power": m["power"],
+            "accuracy": accuracy, "flinch": m.get("flinch", FLINCH.get(move, 0)),
             "eff": h["eff"], "minHp": rolls_hp[0], "maxHp": rolls_hp[-1],
             "minPct": round(100 * rolls_hp[0] / hp, 1), "maxPct": round(100 * rolls_hp[-1] / hp, 1),
-            "hits": n, "chance": round(chance, 3), "spread": spread if spread is not None else None,
+            "hits": n, "chance": round(chance, 3), "sureHits": sure, "spread": spread if spread is not None else None,
         })
     summary = lambda r: {k: r[k] for k in ("id", "name", "ko", "sprite", "types", "ability", "item", "nature",
                                            "stats", "mega")}

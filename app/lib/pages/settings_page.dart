@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart' hide Text, Tooltip;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -79,24 +80,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _testServer();
   }
 
-  void _invalidateData() {
-    ref.invalidate(infoProvider);
-    ref.invalidate(seasonMetaProvider);
-    ref.invalidate(pokemonListProvider);
-    ref.invalidate(itemsProvider);
-    ref.invalidate(pokemonDetailProvider);
-    ref.invalidate(labProvider);
-    ref.invalidate(jokersProvider);
-    ref.invalidate(partiesProvider);
-    ref.invalidate(simulatedPartiesProvider);
-  }
-
   Future<void> _refreshData() async {
     setState(() => _refreshing = true);
     try {
       final res = await dio.post('/api/refresh',
           options: Options(receiveTimeout: const Duration(minutes: 6), sendTimeout: const Duration(minutes: 1)));
-      _invalidateData();
+      if (!mounted) return;
+      invalidateBattleData(ref);
+      ref.invalidate(dataSyncProvider);
       if (mounted) _snack(tr('데이터를 갱신했습니다 · 버전 {}').replaceFirst('{}', '${(res.data as Map)['dataVersion']}'));
     } catch (_) {
       if (mounted) _snack('데이터를 갱신하지 못했습니다');
@@ -138,6 +129,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final s = ref.watch(settingsNotifierProvider);
     final cs = Theme.of(context).colorScheme;
     final info = ref.watch(infoProvider);
+    final sync = ref.watch(dataSyncProvider).valueOrNull;
+    final ruleAlerts = (sync?['ruleAlerts'] as List?)?.whereType<Map>().toList() ?? const <Map>[];
+    final ruleNotes = (sync?['ruleNotes'] as List?)?.whereType<Map>().toList() ?? const <Map>[];
+    final checking = _refreshing || sync?['phase'] == 'checking';
+    final checkedAt = DateTime.tryParse(sync?['checkedAt'] as String? ?? '')?.toLocal();
     final teams = ref.watch(teamListProvider);
     final storage = ref.watch(_storageProvider).valueOrNull;
     final muted = TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant, height: 1.45);
@@ -181,6 +177,44 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     return PageBody(children: [
       const PageHeader('설정', subtitle: '언어, 화면, 데이터 연결을 설정합니다.', glyph: LabGlyph.spark),
+      if (ruleAlerts.isNotEmpty)
+        Section('배틀 규칙 알림',
+            child: Column(children: [
+              for (final (index, alert) in ruleAlerts.indexed) ...[
+                if (index > 0) const Divider(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.info_outline, color: cs.error),
+                  title: Text(alert['title'] as String),
+                  subtitle: Text(alert['text'] as String, style: muted),
+                  trailing: alert['url'] is String ? IconButton(
+                    tooltip: tr('공식 공지 링크 복사'),
+                    icon: const Icon(Icons.link),
+                    onPressed: () => Clipboard.setData(ClipboardData(text: alert['url'] as String)),
+                  ) : null,
+                ),
+              ],
+            ])),
+      if (ruleNotes.isNotEmpty)
+        Section('시즌·규정 자동 반영',
+            subtitle: '공식 공지를 읽어 앱이 알아서 처리한 내용입니다. 따로 할 일은 없습니다.',
+            child: Column(children: [
+              for (final note in ruleNotes)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.check_circle_outline, color: cs.primary, size: 20),
+                  title: Text(note['title'] as String),
+                  subtitle: Text(note['text'] as String, style: muted),
+                  trailing: note['url'] is String
+                      ? IconButton(
+                          tooltip: tr('공식 공지 링크 복사'),
+                          icon: const Icon(Icons.link, size: 18),
+                          onPressed: () => Clipboard.setData(ClipboardData(text: note['url'] as String)),
+                        )
+                      : null,
+                ),
+            ])),
       Section('언어와 표시',
           child: Column(children: [
             row(
@@ -267,26 +301,28 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             row(
               '배틀 데이터',
               FilledButton.tonalIcon(
-                onPressed: _refreshing ? null : _refreshData,
-                icon: _refreshing
+                onPressed: checking ? null : _refreshData,
+                icon: checking
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.sync, size: 18),
-                label: Text(_refreshing ? '갱신 중…' : '지금 갱신'),
+                label: Text(checking ? '확인 중…' : '지금 갱신'),
               ),
               help: [
+                if (sync?['phase'] == 'checking') '원본의 새 데이터 버전을 확인하는 중입니다.',
+                if (sync?['error'] == true) '원본에 연결하지 못해 마지막으로 받은 데이터를 표시합니다.',
+                if (checkedAt != null) '마지막 확인 · ${checkedAt.toString().substring(0, 16)}',
                 if (info.valueOrNull != null)
                   tr('{} 기준 · 버전 {}')
                       .replaceFirst('{}', (info.value!['generatedAt'] as String).substring(0, 16).replaceFirst('T', ' '))
                       .replaceFirst('{}', '${info.value!['dataVersion']}'),
                 if (info.valueOrNull?['provenance'] case final Map prov when prov['officialSeason'] != null)
-                  tr('공식 시즌 {} · 레귤레이션 {} (메가진화 배틀당 1회, 도구 중복 금지) · 데이터 표기 시즌 {}')
-                      .replaceFirst('{}', '${prov['officialSeason']}')
-                      .replaceFirst('{}', '${prov['regulation']}')
-                      .replaceFirst('{}', '${prov['sourceSeason']}'),
+                  '공식 시즌 ${prov['officialSeason']} · 데이터 표기 시즌 ${prov['sourceSeason']}',
+                if (sync?['regulation'] case final String regulation)
+                  '적용 중인 규정 · $regulation',
                 if (info.valueOrNull?['provenance'] case final Map prov when prov['seasonMismatch'] == true)
                   tr('원본 데이터가 아직 새 시즌 폴더를 열지 않아, 순위·채용률은 원본이 표기한 시즌의 표본입니다.'),
                 tr('순위는 사용률(%)이 아니라 순서입니다. 메타 가중치로만 씁니다.'),
-                tr('원본 사이트에서 새 데이터를 받습니다. 1~2분 걸릴 수 있습니다.'),
+                '새 랭킹 데이터와 공식 규정·밸런스 변경을 자동으로 확인하고 적용합니다.',
               ].join('\n'),
             ),
           ])),

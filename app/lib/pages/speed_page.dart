@@ -15,6 +15,7 @@ final _speedTopProvider = StateProvider<int>((ref) => 60);
 
 final speedTierProvider = FutureProvider<Json>((ref) async {
   ref.watch(apiContextProvider);
+  ref.watch(battleDataVersionProvider);
   final fmt = ref.watch(formatProvider);
   final top = ref.watch(_speedTopProvider);
   final team = ref.watch(teamProvider);
@@ -37,12 +38,24 @@ class _SpeedPageState extends ConsumerState<SpeedPage> {
   bool tailwind = false; // 내 팀 ×2
   bool trickRoom = false; // 느린 순서
   bool scarf = true; // 상대 구애스카프 줄 표시
-  _Side? left, right; // 스피드 비교
+  _Side? left = _savedLeft, right = _savedRight; // 스피드 비교 (화면을 옮겨 다녀도 기억)
+
+  @override
+  void initState() {
+    super.initState();
+    if (left == null) {
+      final team = ref.read(teamProvider);
+      if (team.isNotEmpty) left = _Side.of(team.first);
+    }
+  }
+
+  void setLeft(_Side? v) => setState(() => left = _savedLeft = v);
+  void setRight(_Side? v) => setState(() => right = _savedRight = v);
 
   Future<void> compareWith(String id) async {
     final detail = await ref.read(pokemonDetailProvider(id).future);
     if (!mounted) return;
-    setState(() => right = _Side.of(TeamSlot(Json.from(detail['defaultSet'] as Json), detail)));
+    setRight(_Side.of(TeamSlot(Json.from(detail['defaultSet'] as Json), detail)));
   }
 
   @override
@@ -52,10 +65,11 @@ class _SpeedPageState extends ConsumerState<SpeedPage> {
     final fmt = ref.watch(formatProvider);
     final cs = Theme.of(context).colorScheme;
     return PageBody(children: [
-      PageHeader('스피드 티어',
+      PageHeader('배틀 계산기',
           glyph: LabGlyph.bolt,
           subtitle:
               '${fmt == 'Doubles' ? '더블배틀' : '싱글배틀'} · 메타 상위권의 실전 스피드와 내 팀을 비교합니다. 정렬은 가장 많이 쓰는 성격·분배 기준입니다.'),
+      const CalcSwitcher('/speed'),
       Card(
         margin: const EdgeInsets.only(bottom: 16),
         child: Padding(
@@ -91,8 +105,8 @@ class _SpeedPageState extends ConsumerState<SpeedPage> {
         left: left,
         right: right,
         trickRoom: trickRoom,
-        onLeft: (v) => setState(() => left = v),
-        onRight: (v) => setState(() => right = v),
+        onLeft: setLeft,
+        onRight: setRight,
       ),
       AsyncView<Json>(data, (d) {
         final meta = (d['meta'] as List).cast<Json>();
@@ -222,6 +236,8 @@ class _Tag extends StatelessWidget {
 }
 
 
+_Side? _savedLeft, _savedRight;
+
 /// 스피드 비교 한쪽의 설정
 class _Side {
   final TeamSlot slot;
@@ -295,6 +311,8 @@ class _SpeedCompare extends ConsumerWidget {
                             fontWeight: FontWeight.w800,
                             color: cs.primary,
                             fontFeatures: const [FontFeature.tabularFigures()]))),
+            QuickPicks(
+                meta: label != tr('내 쪽') || ref.watch(teamProvider).isEmpty, onPick: (s) => set(_Side.of(s))),
             if (v != null) ...[
               Text(tr('스피드 종족값 {}').replaceFirst('{}', '${speciesBase('spe', v.base)}'),
                   style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),

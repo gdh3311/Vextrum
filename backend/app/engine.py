@@ -89,14 +89,41 @@ def weight(rank: int) -> float:
 
 
 class Engine:
-    def __init__(self, dataset: dict):
+    def __init__(self, dataset: dict, *, rules: dict | None = None):
+        if rules is not None:
+            from copy import deepcopy
+
+            dataset = deepcopy(dataset)
         self.d = dataset
         self.P: dict = dataset["pokemon"]
         self.M: dict = dataset["moves"]
+        self.rules = rules or {}
         from .collector import tid
         from .mechanics import patch_moves
 
         patch_moves(self.M)  # 챔피언스에서 바뀐 위력·명중·타입
+        if rules is not None:
+            self.d["rulesVersion"] = rules["version"]
+            # 공지로 발표됐지만 랭킹 원본에 아직 없는 포켓몬·메가 (provisional.py) — 원본에 있으면 원본이 이긴다
+            for pid, entry in rules.get("provisional", {}).items():
+                if pid not in self.P:
+                    self.P[pid] = deepcopy(entry)
+            for pid, forms in rules.get("provisionalMegas", {}).items():
+                if pid in self.P:
+                    have = {m["name"] for m in self.P[pid]["megas"]}
+                    self.P[pid]["megas"] = [*self.P[pid]["megas"], *(deepcopy(m) for m in forms if m["name"] not in have)]
+            for p in self.P.values():
+                for m in p["megas"]:
+                    if m.get("stone") and m["stone"] not in self.d["items"]:
+                        self.d["items"][m["stone"]] = {"ko": None}
+            for name, changes in rules["moveChanges"].items():
+                self.M[name].update(changes)
+            for pid, moves in rules["learnChanges"].items():
+                self.P[pid]["learnset"] = sorted(set(self.P[pid].get("learnset", [])) | set(moves))
+        self._allowed = None if self.rules.get("allowed") is None else frozenset(self.rules["allowed"])
+        self._allowed_megas = (
+            None if self.rules.get("allowedMegas") is None else frozenset(self.rules["allowedMegas"])
+        )
         self.move_names = {tid(name): name for name in self.M}
         self.move_ids = {name: move_id for move_id, name in self.move_names.items()}
         self._repair_stones()
@@ -118,8 +145,11 @@ class Engine:
                 m["stone"] = match_stone(p["name"], suffix, held) or m.get("stone")
 
     # ---------- 기본 조회 ----------
+    def eligible(self, pid: str) -> bool:
+        return pid in self.P and (self._allowed is None or pid in self._allowed)
+
     def ranked(self, fmt: str) -> list[dict]:
-        ps = [p for p in self.P.values() if fmt in p["usage"]]
+        ps = [p for p in self.P.values() if fmt in p["usage"] and self.eligible(p["id"])]
         return sorted(ps, key=lambda p: p["usage"][fmt]["rank"])
 
     def rank(self, pid: str, fmt: str) -> int | None:
@@ -127,21 +157,63 @@ class Engine:
         return u["rank"] if u else None
 
     def find_mega(self, p: dict, name: str | None = None, stone: str | None = None) -> dict | None:
-        for m in p["megas"]:
+        for m in self.mega_forms(p):
             if (name and m["name"] == name) or (stone and m["stone"] == stone):
                 return m
         return None
 
+    def mega_forms(self, p: dict) -> list[dict]:
+        from .collector import tid
+
+        if not self.rules.get("megaPerBattle", 1):
+            return []
+        if self._allowed_megas is None:
+            return p["megas"]
+        return [m for m in p["megas"] if tid(m["name"]) in self._allowed_megas]
+
+    def mega_item_allowed(self, p: dict, item: str | None) -> bool:
+        return not item or not any(m["stone"] == item for m in p["megas"]) or bool(self.find_mega(p, stone=item))
+
     # ---------- 세트 ----------
+    def _learnset_set(self, p: dict, fmt: str) -> dict:
+        """채용 기록이 없는 포켓몬(새로 참가한 포켓몬 등)의 기본 세트: 배울 수 있는 기술 중 자속·위력·명중이 좋은
+        공격기 3~4개 (더블이면 방어 포함), 높은 쪽 공격 능력에 맞춘 성격·포인트."""
+        from .set_tuner import UNMODELED  # 모의전이 단점(고정·충전·반동)을 계산하지 않는 기술은 고르지 않는다
+
+        stats = p["stats"]
+        physical = stats["atk"] >= stats["spa"]
+        attacks = [m for m in p.get("learnset", [])
+                   if (mv := self.M.get(m)) and mv["power"] and not mv.get("selfdestruct") and not mv.get("recharge")
+                   and m not in UNMODELED and not mv.get("fixed")
+                   and (mv["accuracy"] or 100) >= 80 and mv["category"] == ("Physical" if physical else "Special")]
+        attacks.sort(key=lambda m: (self.M[m]["type"] in p["types"],
+                                    self.M[m]["power"] * (self.M[m]["accuracy"] or 100)), reverse=True)
+        moves, types = [], set()
+        for m in attacks:  # 타입이 겹치지 않게
+            if self.M[m]["type"] not in types:
+                moves.append(m)
+                types.add(self.M[m]["type"])
+            if len(moves) == (3 if fmt == "Doubles" else 4):
+                break
+        if fmt == "Doubles" and "Protect" in p.get("learnset", []):
+            moves.append("Protect")
+        main = "atk" if physical else "spa"
+        return {"id": p["id"], "moves": moves, "item": None,
+                "ability": p["abilities"][0] if p["abilities"] else None,
+                "nature": "Adamant" if physical else "Modest",
+                "points": {**dict.fromkeys(STAT_KEYS, 0), "hp": 2, main: 32, "spe": 32}, "mega": None}
+
     def default_set(self, pid: str, fmt: str) -> dict:
         """가장 많이 쓰이는 기술 4개 / 도구 / 특성 / 성격 / 노력치 분배."""
         p = self.P[pid]
         u = p["usage"].get(fmt) or next(iter(p["usage"].values()), None)
         if not u:
-            return {"id": pid, "moves": [], "item": None, "ability": p["abilities"][0] if p["abilities"] else None,
-                    "nature": "Hardy", "points": dict.fromkeys(STAT_KEYS, 0), "mega": None}
+            return self._learnset_set(p, fmt)
         item = u["items"][0]["name"] if u["items"] else None
         mega = self.find_mega(p, stone=item) if item else None
+        restricted = {m["stone"] for m in p["megas"] if m["stone"]} if not mega else set()
+        if item in restricted:
+            item = next((row["name"] for row in u["items"] if row["name"] not in restricted), None)
         sp = u["spreads"][0] if u["spreads"] else {}
         return {
             "id": pid, "moves": [m["name"] for m in u["moves"][:4]], "item": item,

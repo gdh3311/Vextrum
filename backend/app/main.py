@@ -14,7 +14,7 @@ import secrets
 import sqlite3
 import urllib.parse
 import urllib.request
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -23,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from . import archive, battle_lab, collector, parties, season_notice, simulation
+from . import archive, battle_lab, collector, live_rules, official_news, parties, regulation, season_notice, simulation
 from .engine import ROLE_LABELS, Engine, weight
 
 Format = Literal["Doubles", "Singles"]
@@ -57,14 +57,39 @@ async def localize_names(request, call_next):
     return Response(content=body, status_code=response.status_code, headers=headers, media_type="application/json")
 
 _engine: Engine | None = None
+_dataset: dict | None = None
+_rule_state = None
+_engine_lock = threading.Lock()
+_refresh_lock = threading.Lock()
+_sync_stop = threading.Event()
+_data_recheck = threading.Event()
+_official_data_key = None
+_sync_state = {"phase": "idle", "checkedAt": None, "error": False}
 
 
 def engine() -> Engine:
-    global _engine
-    if _engine is None:
-        if not collector.DATASET.exists():
-            collector.collect()
-        _engine = Engine(json.loads(collector.DATASET.read_text(encoding="utf-8")))
+    global _dataset
+    with _engine_lock:
+        if _dataset is None:
+            _dataset = (collector.load_json(collector.DATASET) if collector.DATASET.exists()
+                        else collector.collect())
+        return _apply_rules(_dataset)
+
+
+def _apply_rules(dataset):
+    """Called under the engine lock. Existing battles keep the engine they started with."""
+    global _engine, _rule_state, _name_tables
+    now = datetime.now(timezone.utc)
+    minute = now.replace(second=0, microsecond=0)
+    notices = official_news.notices()
+    if (_rule_state is None or _rule_state[0] is not dataset or _rule_state[1] is not notices
+            or _rule_state[2] != minute):
+        rules, alerts = live_rules.compile_rules(dataset, notices, now)
+        if (_engine is None or _engine.d.get("dataVersion") != dataset.get("dataVersion")
+                or _engine.d.get("rulesVersion") != rules["version"]):
+            _engine = Engine(dataset, rules=rules)
+            _name_tables = None
+        _rule_state = dataset, notices, minute, alerts, rules.get("notes", [])
     return _engine
 
 
@@ -153,6 +178,7 @@ def meta(format: Format = "Doubles", top: int = Query(50, ge=5, le=300), season:
     falling = sorted([r for r in movers if r["delta"] <= -5], key=lambda r: r["delta"] / (r["rank"] ** 0.5))[:8]
     result = {"format": format, "season": season, "seasons": seasons, "historical": historical,
               "officialSeason": season_notice.active_notice(e),
+              "officialNews": official_news.public_notices(),
               "prevSeason": prev_season, "generatedAt": archive.date(e, season) if historical else d["generatedAt"],
               "attribution": d["attribution"], "source": d["source"], "total": len(rows), "hasWeekTrend": bool(week),
               "ranking": rows[:top], "rising": rising, "falling": falling}
@@ -194,9 +220,10 @@ def pokemon_list():
     out = []
     for p in e.P.values():
         out.append({"id": p["id"], "name": p["name"], "ko": p["ko"], "sprite": p["sprite"], "types": p["types"],
+                    "eligible": e.eligible(p["id"]),
                     "ranks": {f: u["rank"] for f, u in p["usage"].items()},
                     "megas": [{"name": m["name"], "ko": m["ko"], "sprite": m["sprite"], "stone": m["stone"]}
-                              for m in p["megas"]]})
+                              for m in e.mega_forms(p)]})
     return out
 
 
@@ -246,8 +273,9 @@ def pokemon_detail(pid: str, format: Format = "Doubles", season: str | None = No
         "abilities": [{"name": a, "ko": (d["abilities"].get(a) or {}).get("ko")}
                                              for a in p["abilities"]],
         "stats": p["stats"],
+        "eligible": None if historical else e.eligible(pid),
         "megas": [{**m, "abilities": [{"name": a, "ko": (d["abilities"].get(a) or {}).get("ko")}
-                                      for a in m["abilities"]]} for m in p["megas"]],
+                                      for a in m["abilities"]]} for m in (p["megas"] if historical else e.mega_forms(p))],
         "usage": usage,
         "history": [{"season": s, "rank": p["ranks"].get(s, {}).get(format)} for s in seasons],
         "learnset": [{"name": m, "id": e.move_ids[m], **{k: d["moves"][m][k] for k in ("ko", "type", "category", "power", "accuracy",
@@ -534,6 +562,11 @@ def battle_team(e: Engine, req: BattleRequest) -> list[dict]:
     ids = {s.id for s in req.team}
     if not ids <= e.P.keys() or len(ids) != len(req.team):
         raise HTTPException(422, "팀에 서로 다른 포켓몬을 넣어 주세요.")
+    if any(not e.eligible(pid) for pid in ids):
+        raise HTTPException(422, "현재 규정의 참가 가능 목록에 없는 포켓몬이 팀에 있습니다.")
+    if any(not e.mega_item_allowed(e.P[s.id], s.item) or
+           (s.mega and not e.find_mega(e.P[s.id], name=s.mega)) for s in req.team):
+        raise HTTPException(422, "현재 규정에서 사용할 수 없는 메가 폼이나 메가스톤이 팀에 있습니다.")
     return [s.model_dump(exclude_unset=True) for s in req.team]
 
 
@@ -618,7 +651,13 @@ def analyze(req: TeamRequest):
     top_n = max(5, min(50, req.topN))
     res = e.analyze_team(sets, req.format, top_n)
     res["guide"] = guide.team_guide(e, sets, req.format, top_n)
-    res["warnings"] = rule_warnings(res.get("members", [])) + res.get("warnings", [])
+    ineligible = [e.P[s["id"]]["ko"] or e.P[s["id"]]["name"] for s in sets
+                  if s["id"] in e.P and not e.eligible(s["id"])]
+    warnings = rule_warnings(res.get("members", []))
+    if ineligible:
+        warnings.append({"kind": "rule", "severity": "high", "text": "현재 규정으로 참가할 수 없는 포켓몬",
+                         "detail": ", ".join(ineligible)})
+    res["warnings"] = warnings + res.get("warnings", [])
     return res
 
 
@@ -788,12 +827,97 @@ def jokers(format: Format = "Doubles", minRank: int = Query(50, ge=10, le=260), 
 
 @app.post("/api/refresh")
 def refresh():
-    """원본 사이트에서 새 데이터를 받아 다시 계산한다."""
-    global _engine, _name_tables
-    collector.collect()
-    _name_tables = None
-    _engine = None
-    return {"dataVersion": engine().d["dataVersion"]}
+    try:
+        return _refresh_data()
+    except (OSError, ValueError, KeyError, sqlite3.Error) as error:
+        raise HTTPException(502, "원본 배틀 데이터를 갱신하지 못했습니다.") from error
+
+
+def _refresh_data():
+    global _dataset
+    with _refresh_lock:
+        _sync_state.update(phase="checking", error=False)
+        try:
+            dataset = collector.collect()
+            with _engine_lock:
+                if _dataset is None or _dataset["dataVersion"] != dataset["dataVersion"]:
+                    _apply_rules(dataset)
+                    _dataset = dataset
+                archive._index.cache_clear()
+        except Exception:
+            _sync_state.update(phase="idle", error=True)
+            raise
+        _sync_state.update(phase="idle", checkedAt=datetime.now(timezone.utc).isoformat(), error=False)
+        return {"dataVersion": dataset["dataVersion"]}
+
+
+def _refresh_official_news():
+    global _official_data_key
+    from . import provisional
+
+    now = datetime.now(timezone.utc)
+    official_news.refresh(now)
+    # 새로 발표된 포켓몬이 있으면 임시 데이터용 공개 도감을 미리 받아 둔다 (엔진 잠금 밖에서)
+    if any(r.get("rules", {}).get("newPokemon") for r in official_news.notices() if r["kind"] == "regulation"):
+        try:
+            if provisional.prefetch():
+                live_rules._provisional_cache.clear()
+        except OSError as error:
+            print(f"pokedex download failed: {error}", flush=True)
+    current = official_news.active_regulation(now)
+    season = regulation.official_season(now)
+    key = (season["id"] if season else None, current["regulation"] if current else None,
+           current.get("rules", {}).get("eligible") if current else None)
+    if _official_data_key is not None and _official_data_key != key:
+        _data_recheck.set()
+    _official_data_key = key
+
+
+def _sync_loop(update, stop, name, interval, wake=None):
+    while not stop.is_set():
+        try:
+            update()
+            delay = interval
+        except Exception as error:
+            print(f"{name} refresh failed: {error}", flush=True)
+            delay = min(30 * 60, interval)
+        if wake is None:
+            stop.wait(delay)
+        else:
+            wake.wait(delay)
+            wake.clear()
+
+
+@app.on_event("startup")
+def start_data_sync():
+    global _sync_stop, _data_recheck, _official_data_key
+    _sync_stop = threading.Event()
+    _data_recheck = threading.Event()
+    _official_data_key = None
+    for name, update, interval, wake in (("battle data", _refresh_data, 6 * 60 * 60, _data_recheck),
+                                         ("official news", _refresh_official_news, 10 * 60, None)):
+        threading.Thread(target=_sync_loop, args=(update, _sync_stop, name, interval, wake), daemon=True).start()
+
+
+@app.on_event("shutdown")
+def stop_data_sync():
+    _sync_stop.set()
+    _data_recheck.set()
+
+
+@app.get("/api/data/status")
+def data_status():
+    active = regulation.official_season()
+    news_key = hash(json.dumps(official_news.public_notices(), ensure_ascii=False, sort_keys=True))
+    with _engine_lock:
+        e = _apply_rules(_dataset) if _dataset is not None else None
+        return {**_sync_state, "dataVersion": e.d["dataVersion"] if e else None,
+                "newsVersion": f"{news_key}:{active['id'] if active else ''}",
+                "rulesVersion": e.d.get("rulesVersion") if e else None,
+                "regulation": e.rules.get("regulation") if e else None,
+                # ruleAlerts: 사람이 확인해야 하는 것만 (설정 배지). ruleNotes: 자동으로 반영한 것 (배지 없이 표시)
+                "ruleAlerts": _rule_state[3] if e else [],
+                "ruleNotes": _rule_state[4] if e else []}
 
 
 # ---------- 이미지 프록시 (디스크 캐시) ----------
@@ -809,6 +933,8 @@ def image(kind: str, name: str):
     path = collector.CACHE / "img" / kind / f"{name}.png"
     if not path.exists():
         url = f"{collector.BASE}/pokemon_champions_assets/{IMG_DIRS[kind]}/{urllib.parse.quote(name)}.png"
+        if kind == "pokemon" and name.startswith("sd-"):  # 랭킹 원본에 아직 없는 새 포켓몬 (provisional.py)
+            url = f"https://play.pokemonshowdown.com/sprites/home-centered/{urllib.parse.quote(name[3:])}.png"
         try:
             collector.fetch(url, path, retries=1)
         except Exception:

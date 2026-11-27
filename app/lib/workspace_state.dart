@@ -8,16 +8,19 @@ import 'api.dart';
 import 'settings.dart';
 import 'team_state.dart';
 
-/// 팀의 버전 번호. 같은 구성이면 같은 번호 (되돌리기 후에도 일치) → 결과가 '지금 팀'의 것인지 판별한다.
-int teamRevisionOf(List<Json> sets) {
+/// 팀과 사용한 규칙이 같은 결과를 판별한다.
+int teamRevisionOf(List<Json> sets, {String? battleVersion}) {
   var h = 0x811c9dc5;
-  for (final c in jsonEncode(sets).codeUnits) {
+  for (final c in jsonEncode(battleVersion == null ? sets : [battleVersion, sets]).codeUnits) {
     h = ((h ^ c) * 0x01000193) & 0x7fffffff;
   }
   return h;
 }
 
-final teamRevisionProvider = Provider<int>((ref) => teamRevisionOf([for (final s in ref.watch(teamProvider)) s.set]));
+final teamRevisionProvider = Provider<int>((ref) => teamRevisionOf(
+  [for (final s in ref.watch(teamProvider)) s.set],
+  battleVersion: ref.watch(battleDataVersionProvider),
+));
 
 /// 슬롯별 잠금: pokemon / moves / item / ability / nature / points / mega
 const lockFields = ['pokemon', 'moves', 'item', 'ability', 'nature', 'points'];
