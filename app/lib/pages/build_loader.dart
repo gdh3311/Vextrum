@@ -121,10 +121,10 @@ class _TeamBuildLoaderState extends State<TeamBuildLoader> with SingleTickerProv
     final template = usable[_tick % usable.length];
     final name = spotlight.isEmpty ? '' : (spotlight[_tick % spotlight.length]['name'] as String);
     final note = notes.isEmpty ? '' : notes[_tick % notes.length];
-    return tr(template)
+    return fixJosa(tr(template)
         .replaceAll('{N}', name)
         .replaceAll('{T}', note)
-        .replaceAll('{B}', _thousands(battles));
+        .replaceAll('{B}', _thousands(battles)));
   }
 
   @override
@@ -546,3 +546,13 @@ class _Backdrop extends CustomPainter {
   @override
   bool shouldRepaint(covariant _Backdrop old) => old.t != t || old.stage != stage;
 }
+
+/// '이(가)', '을(를)', '은(는)', '와(과)' 를 앞 글자의 받침에 맞게 고른다 (한글이 아니면 그대로 둔다).
+String fixJosa(String text) => text.replaceAllMapped(RegExp(r'(.)(이\(가\)|을\(를\)|은\(는\)|와\(과\))'), (m) {
+      final c = m[1]!.codeUnitAt(0);
+      if (c < 0xAC00 || c > 0xD7A3) return m[0]!;
+      final batchim = (c - 0xAC00) % 28 != 0;
+      final pair = m[2]!;
+      final options = {'이(가)': ('이', '가'), '을(를)': ('을', '를'), '은(는)': ('은', '는'), '와(과)': ('과', '와')}[pair]!;
+      return '${m[1]}${batchim ? options.$1 : options.$2}';
+    });

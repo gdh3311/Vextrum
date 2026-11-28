@@ -23,7 +23,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from . import archive, battle_lab, collector, live_rules, official_news, parties, regulation, season_notice, simulation
+from . import (archive, battle_lab, collector, live_rules, official_news, parties, regulation, season_notice, simulation,
+               updater)
 from .engine import ROLE_LABELS, Engine, weight
 
 Format = Literal["Doubles", "Singles"]
@@ -997,19 +998,39 @@ def app_latest():
     if time.time() - _latest_app["checked"] > 6 * 3600:
         _latest_app["checked"] = time.time()
         try:
-            req = urllib.request.Request("https://api.github.com/repos/gdh3311/Vextrum/releases?per_page=5",
-                                         headers={"Accept": "application/vnd.github+json", "User-Agent": "Vextrum-update-check"})
-            with urllib.request.urlopen(req, timeout=10) as r:
-                rows = json.load(r)
-            row = next((x for x in rows if not x.get("draft")), None)
-            if row:
-                m = re.search(r"(\d+\.\d+\.\d+)", row["tag_name"])
-                _latest_app["value"] = {"tag": row["tag_name"], "version": m[1] if m else None,
-                                        "url": row["html_url"], "publishedAt": row.get("published_at"),
-                                        "title": row.get("name")}
+            _latest_app["value"] = updater.latest_release()
         except Exception:  # noqa: BLE001 - 오프라인이면 그냥 알림 없음
             pass
-    return _latest_app["value"] or {}
+    value = dict(_latest_app["value"] or {})
+    if value:
+        value["inApp"] = updater.install_root() is not None and "manifest" in value.get("assets", {})
+    return value
+
+
+@app.get("/api/app/update")
+def app_update_status():
+    """앱 안 업데이트 진행 상황: idle → checking → downloading → verifying → ready (→ applying) / error."""
+    return updater.status()
+
+
+@app.post("/api/app/update/download")
+def app_update_download():
+    _latest_app["checked"] = 0.
+    latest = app_latest()
+    if not latest.get("version"):
+        raise HTTPException(503, "최신 버전을 확인하지 못했습니다")
+    try:
+        return updater.start(latest)
+    except RuntimeError as e:
+        raise HTTPException(409, str(e))
+
+
+@app.post("/api/app/update/apply")
+def app_update_apply():
+    try:
+        return {"command": updater.apply_command()}
+    except RuntimeError as e:
+        raise HTTPException(409, str(e))
 
 
 # ---------- 이미지 프록시 (디스크 캐시) ----------

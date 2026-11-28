@@ -77,7 +77,10 @@ def axes(e: Engine, team: list[dict], fmt: str, *, leads=(), effects=None, foes=
         if not starters:
             continue
         attacks = WEATHER_ATTACKS.get(ability, set()) | {"Weather Ball"}
-        users = [x for x in team if (
+        # 다른 날씨를 켜는 포켓몬은 이 날씨의 수혜자가 아니다 (예: 웨더볼을 든 가뭄 코터스는 눈 축이 아니다).
+        rivals = {other for other in WEATHER if other != ability}
+        users = [x for x in team if x["ability"] not in rivals and not any(
+            has_support(x, WEATHER_MOVES[other]) for other in rivals) and (
             x["ability"] in abusers or attacks.intersection(x["moves"])
             or (wtype in {"Ice", "Rock"} and wtype in x["types"])
             or (wtype in {"Water", "Fire"} and any(e.M[m]["type"] == wtype and e.M[m]["power"] for m in x["moves"])))]

@@ -76,10 +76,83 @@ class Candidate:
     resist: tuple[bool, ...]
     popularity: float
     teammates: frozenset[str]
+    weather: frozenset[str] = frozenset()        # 등장만으로 켜는 날씨 (가뭄·잔비·모래날림·눈퍼뜨리기)
+    weather_moves: frozenset[str] = frozenset()  # 기술로 켜는 날씨 (쾌청·비바라기·모래바람·설경)
+    weak_under: frozenset[str] = frozenset()     # 이 날씨에서 주력 자속 기술이 약해진다 (쾌청의 물, 비의 불)
+    needs: frozenset[str] = frozenset()          # 특성이 이 날씨를 필요로 한다 (쓱쓱·엽록소 등)
+    fast: bool = False                           # 트릭룸 시동이 아닌 스피드 96 이상 공격수
+    scarf: bool = False
+    crawl: bool = False                          # 스피드 60 이하 공격수 (순풍 팀에서 손해)
+    wind: bool = False                           # 순풍 시동
 
     @property
     def id(self):
         return self.set["id"]
+
+
+AUTO_WEATHER = {"Drought": "sun", "Drizzle": "rain", "Sand Stream": "sand", "Snow Warning": "snow"}
+MOVE_WEATHER = {"Sunny Day": "sun", "Rain Dance": "rain", "Sandstorm": "sand", "Snowscape": "snow",
+                "Chilly Reception": "snow"}
+HALVED_IN = {"Water": "sun", "Fire": "rain"}
+WEATHER_KO = {"sun": "쾌청", "rain": "비", "sand": "모래바람", "snow": "눈"}
+TYPE_KO = {"Water": "물", "Fire": "불꽃"}
+
+
+SPEED_WEATHER = {"Chlorophyll": "sun", "Swift Swim": "rain", "Sand Rush": "sand", "Slush Rush": "snow"}
+
+
+def _clash(auto, kinds, weak_hits, need_miss, fast, scarf, setters, slow, crawl, wind, goals):
+    """서로 방해하는 조합의 감점. 모든 팀에 적용한다 (전략을 고르지 않았을 때도)."""
+    penalty = 14 * max(0, len(kinds) - 1) + 6 * weak_hits + 4 * need_miss
+    if "trickroom" in goals:
+        penalty += 6 * fast + 8 * scarf + 6 * wind
+    elif setters and slow < 2:
+        penalty += 10
+    if "tailwind" in goals:
+        penalty += 5 * crawl
+    return penalty
+
+
+def _mix(chosen):
+    auto = {k for c in chosen for k in c.weather}
+    kinds = auto | {k for c in chosen for k in c.weather_moves}
+    needs = Counter(k for c in chosen for k in c.needs)
+    return (auto, kinds, sum(k in c.weak_under for c in chosen for k in auto),
+            sum(v for k, v in needs.items() if k not in kinds),
+            sum(c.fast for c in chosen), sum(c.scarf for c in chosen),
+            sum("trickroom" in c.features for c in chosen), sum("slow_attacker" in c.features for c in chosen),
+            sum(c.crawl for c in chosen), sum(c.wind for c in chosen))
+
+
+def coherence(chosen, goals=()):
+    """(감점, 문제 설명 목록). 설명은 결과 화면의 주의 사항에 쓴다."""
+    auto, kinds, weak_hits, need_miss, fast, scarf, setters, slow, crawl, wind = mix = _mix(chosen)
+    notes = []
+    if len(kinds) > 1:
+        notes.append("날씨 시동이 겹칩니다 (" + "·".join(WEATHER_KO[k] for k in sorted(kinds))
+                     + "). 나중에 나온 쪽이 날씨를 덮어씁니다.")
+    for k in sorted(auto):
+        hurt = [c.resolved["ko"] or c.resolved["name"] for c in chosen if k in c.weak_under]
+        if hurt:
+            notes.append(f"{WEATHER_KO[k]}에서 {', '.join(hurt)}의 주력 기술이 약해집니다.")
+    for c in chosen:
+        for k in c.needs:
+            if k not in kinds:
+                notes.append(f"{c.resolved['ko'] or c.resolved['name']}의 특성은 {WEATHER_KO[k]} 날씨에서만 발동합니다.")
+    if "trickroom" in goals and (fast or scarf):
+        notes.append("트릭룸 팀에 빠른 공격수가 섞여 있습니다.")
+    if "trickroom" not in goals and setters and slow < 2:
+        notes.append("트릭룸 시동이 있지만 트릭룸 아래에서 싸울 느린 공격수가 부족합니다.")
+    return _clash(*mix, goals), notes
+
+
+def incoherent(chosen, goals=()):
+    """자동 구성에서 아예 빼는 조합: 자동 날씨 두 종류, 자동 날씨에서 주력 기술이 반감되는 공격수 2마리 이상,
+    트릭룸을 골랐는데 구애스카프나 빠른 공격수 3마리 이상."""
+    auto = {k for c in chosen for k in c.weather}
+    if len(auto) > 1 or any(sum(k in c.weak_under for c in chosen) >= 2 for k in auto):
+        return True
+    return "trickroom" in goals and (any(c.scarf for c in chosen) or sum(c.fast for c in chosen) >= 3)
 
 
 def species(e, pid):
@@ -120,14 +193,24 @@ def _candidate(e, fmt, meta, s):
         "sand": ability in {"Sand Rush", "Sand Force"} or "Rock" in r["types"] and "bulky" in features,
         "snow": ability == "Slush Rush" or ("Ice" in r["types"] and ("Blizzard" in moves or "bulky" in features)),
     }.items():
-        if attacker and payoff and f"{key}_set" not in features:
+        # 다른 날씨를 켜는 포켓몬은 이 날씨의 수혜자로 치지 않는다 (웨더볼 코터스는 비 수혜가 아니다).
+        if attacker and payoff and f"{key}_set" not in features and not any(
+                f"{other}_set" in features for other in ("rain", "sun", "sand", "snow") if other != key):
             features.add(f"{key}_core")
     modifiers = [type_multiplier(t, r["types"], ability) for t in TYPES]
     u = e.P[s["id"]]["usage"].get(fmt, {})
+    weak_under = frozenset(
+        HALVED_IN[t] for t in r["types"] if t in HALVED_IN and attacker and any(
+            e.M[m]["type"] == t and e.M[m]["power"] >= 60 and m != "Hydro Steam" for m in moves))
     return Candidate(s, r, species(e, s["id"]), frozenset(features),
                      tuple(e.matchup(r, f, fmt)["score"] for f in meta),
                      tuple(m >= 2 for m in modifiers), tuple(m <= .5 for m in modifiers),
-                     weight(u.get("rank", 250)), frozenset(u.get("teammates", [])[:8]))
+                     weight(u.get("rank", 250)), frozenset(u.get("teammates", [])[:8]),
+                     frozenset({AUTO_WEATHER[ability]} if ability in AUTO_WEATHER else ()),
+                     frozenset(MOVE_WEATHER[m] for m in moves if m in MOVE_WEATHER), weak_under,
+                     frozenset({SPEED_WEATHER[ability]} if ability in SPEED_WEATHER else ()),
+                     attacker and r["speed"] > 95 and "trickroom" not in features,
+                     r["item"] == "Choice Scarf", attacker and r["speed"] <= 60, "Tailwind" in moves)
 
 
 def _generated_sets(e, fmt, pid, *, required=False, draft=False):
@@ -356,7 +439,7 @@ def _score(chosen, goals, weights, extra=DEFAULT_EXTRA):
     return (quality + goal_points + core
             + extra.popularity * sum(c.popularity for c in chosen) + extra.pair_bonus(ids)
             - extra.copy_penalty(chosen)
-            - 10 * max(0, megas - 1) - 20 * max(0, megas - 2) - conflict)
+            - 10 * max(0, megas - 1) - 20 * max(0, megas - 2) - conflict - _clash(*_mix(chosen), goals))
 
 
 def _keep_best(options, goals, weights, limit=16, extra=DEFAULT_EXTRA):
@@ -402,6 +485,16 @@ def _extensions(group, pool, goals, weights, extra):
     needs = [tuple(STYLES[goal].requirements) for goal in goals]
     resist_scale = 1.8 if extra.core == "resist" else 1.
     pairs_w = list(zip(weights, gmax))
+    g_auto = {k for c in group for k in c.weather}
+    g_kinds = g_auto | {k for c in group for k in c.weather_moves}
+    g_weak = Counter(k for c in group for k in c.weak_under)
+    g_needs = Counter(k for c in group for k in c.needs)
+    g_fast = sum(c.fast for c in group)
+    g_scarf = sum(c.scarf for c in group)
+    g_setters = sum("trickroom" in c.features for c in group)
+    g_slow = counts["slow_attacker"]
+    g_crawl = sum(c.crawl for c in group)
+    g_wind = sum(c.wind for c in group)
     model = extra.model
     if model is not None:
         group_species = [c.species for c in group]
@@ -443,9 +536,15 @@ def _extensions(group, pool, goals, weights, extra):
             quality = extra.model_scale * (group_logit + model.added(group_species, c.species, c.set))
         else:
             quality = coverage * .55 + variety * 1.25 + mates * .4 - pressure
+        auto = g_auto | c.weather
+        kinds = g_kinds | c.weather | c.weather_moves
+        clash = _clash(auto, kinds, sum(g_weak[k] + (k in c.weak_under) for k in auto),
+                       sum(v for k, v in g_needs.items() if k not in kinds) + sum(k not in kinds for k in c.needs),
+                       g_fast + c.fast, g_scarf + c.scarf, g_setters + ("trickroom" in feats),
+                       g_slow + ("slow_attacker" in feats), g_crawl + c.crawl, g_wind + c.wind, goals)
         score = (quality + goal_points + core
                  + extra.popularity * (popularity + c.popularity) + pair_base + partner.get(c.id, 0) - copy
-                 - 10 * max(0, mega - 1) - 20 * max(0, mega - 2) - conflict)
+                 - 10 * max(0, mega - 1) - 20 * max(0, mega - 2) - conflict - clash)
         out.append((score, group + (c,)))
     return out
 
@@ -890,11 +989,14 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
                 tuple(sorted((s.get("points") or {}).items())))
 
     locked_keys = {set_key(c) for c in fixed}
+    # 서로 방해하는 조합은 빼되, 사용자가 직접 날씨 둘을 고르거나 그런 세트를 고정했으면 허용한다.
+    allow_clash = len([k for k in styles if k in WEATHER_STYLES]) > 1 or incoherent(fixed, styles)
 
     def valid(roster):
         megas = sum(bool(c.resolved["mega"]) for c in roster)
         # 고정한 세트는 도구·기술까지 그대로여야 한다 (같은 포켓몬의 다른 세트로 바뀌면 안 된다).
         return (len(roster) == 6 and fixed_ids <= {c.id for c in roster} and copies(roster) <= overlap_cap
+                and (allow_clash or not incoherent(roster, goals))
                 and locked_keys <= {set_key(c) for c in roster}
                 and not any(c.species in excluded or not _eligible(c, roster[:i]) for i, c in enumerate(roster))
                 and not any(simulation.unsupported(e, fmt, c.set) for c in roster)
@@ -1374,9 +1476,17 @@ def build(e: Engine, fmt: str, styles: list[str], include: list[str], locked: li
             m["usageRank"] = None if _rank_of(e, fmt, c.id) >= 999 else _rank_of(e, fmt, c.id)
             m["joker"] = _rank_of(e, fmt, c.id) > JOKER_RANK
             m["features"] = [FEATURE_NAMES[f] for f in sorted(c.features) if f in FEATURE_NAMES][:4]
+        from .explain import explain
+
+        for m, why in zip(members, explain(e, fmt, roster, meta, weights, report, extra.pairs,
+                                            tuning.get(team_key(group, roster)), ids, group)):
+            m["why"] = why
+        clash_notes = coherence(roster, group)[1]
         candidates.append({"id": f"auto-{index}", "name": name, "format": fmt, "complete": True,
                            "members": members, "metaScore": analysis["metaScore"],
-                           "warnings": analysis["warnings"][:4], "fixedIds": ids,
+                           "warnings": [*({"kind": "clash", "severity": "high", "text": t} for t in clash_notes),
+                                        *(w for w in analysis["warnings"] if w.get("kind") != "type")][:5],
+                           "fixedIds": ids,
                            "simulation": report, "profile": profile, "guide": guide,
                            "rulesCoverage": simulation.rules_report(e, fmt, sets),
                            "holdout": independent,

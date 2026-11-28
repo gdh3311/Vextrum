@@ -53,3 +53,16 @@ void stopLocalBackend() {
     Process.runSync('taskkill', ['/PID', '$pid', '/T', '/F']);
   } catch (_) {}
 }
+
+/// 받아 둔 업데이트를 적용한다: 적용 스크립트를 따로 띄우고, 백엔드와 앱을 끈다.
+/// 스크립트가 파일을 바꾼 뒤 앱을 다시 켠다.
+Future<bool> restartForUpdate(List<String> command) async {
+  if (command.isEmpty) return false;
+  try {
+    await Process.start(command.first, command.sublist(1), mode: ProcessStartMode.detached);
+  } catch (_) {
+    return false;
+  }
+  stopLocalBackend();
+  exit(0);
+}

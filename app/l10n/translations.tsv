@@ -1444,3 +1444,54 @@ v{} 받기	Get v{}	v{}を入手
 다음 레귤레이션·밸런스 조정이 발표되면 시즌 시작 전에 바뀌는 것, 영향받는 메타 포켓몬, 새 포켓몬의 상성, 내 팀 영향을 보여 줍니다. 팀 자동 구성과 배틀 계산기도 다음 시즌 규칙으로 미리 돌려 볼 수 있습니다.	When the next regulation or balance changes are announced, see what changes, which meta Pokémon are affected, how new Pokémon match up and how your team is affected, before the season starts. Auto team building and the Battle calculator can also run with next season's rules.	次のレギュレーションやバランス調整が発表されると、シーズン開始前に変わること、影響を受けるメタのポケモン、新ポケモンの相性、自分のチームへの影響を表示します。自動チーム構築とバトル計算機も次シーズンのルールで試せます。
 새 버전 알림	New version notice	新バージョンのお知らせ
 새 앱 버전이 배포되면 업데이트 버튼에 표시되고, 업데이트 내역 창에서 다운로드 페이지 링크를 볼 수 있습니다.	When a new app version is released, the Updates button shows it and the updates window links to the download page.	新しいアプリのバージョンが公開されると更新ボタンに表示され、更新履歴の画面でダウンロードページのリンクを確認できます。
+앱 안에서 업데이트	In-app updates	アプリ内アップデート
+새 버전이 나오면 업데이트 내역 창에서 [업데이트]를 누르면 바뀐 파일만 받아 적용하고 앱을 다시 켭니다. 압축을 새로 받아 풀 필요가 없고, 연구 기록·받은 데이터는 그대로 남습니다.	When a new version is out, press [Update] in the update notes window: only the changed files are downloaded and applied, and the app restarts. No need to download and unzip again; research records and downloaded data are kept.	新しいバージョンが出たら、更新履歴ウィンドウで[アップデート]を押すと変更されたファイルだけを受け取って適用し、アプリを再起動します。圧縮ファイルを改めて展開する必要はなく、研究記録と受け取ったデータはそのまま残ります。
+바뀐 파일 받는 중	Downloading changed files	変更ファイルを受信中
+전체 파일 받는 중	Downloading full package	全ファイルを受信中
+받은 파일 확인 중	Verifying files	ファイルを確認中
+바뀐 파일 찾는 중	Finding changed files	変更ファイルを確認中
+준비됐습니다. 다시 시작하면 적용됩니다 (몇 초 걸립니다)	Ready. Restart to apply (takes a few seconds)	準備完了。再起動すると適用されます(数秒かかります)
+다시 시작해 적용	Restart and apply	再起動して適用
+업데이트 실패	Update failed	アップデート失敗
+바뀐 파일만 받아 적용합니다. 연구 기록과 받은 데이터는 그대로 남습니다	Downloads and applies only the changed files. Research records and data are kept	変更されたファイルだけを受け取って適用します。研究記録とデータはそのまま残ります
+업데이트 서버에 연결하지 못했습니다	Could not reach the update server	アップデートサーバーに接続できませんでした
+업데이트를 적용하지 못했습니다	Could not apply the update	アップデートを適用できませんでした
+1. 어떤 팀을 원하나요?	1. What kind of team?	1. どんなチームにしますか?
+사용 안 함	None	使わない
+전술 (여러 개 선택 가능)	Tactics (pick any)	戦術(複数選択可)
+2. 넣거나 뺄 포켓몬	2. Pokémon to include or exclude	2. 入れる・外すポケモン
+선택 사항입니다. 남은 자리는 자동으로 채웁니다.	Optional. Remaining slots are filled automatically.	任意です。残りの枠は自動で埋めます。
+꼭 넣기 · {}/5	Must include · {}/5	必ず入れる · {}/5
+지금 팀의 세트 그대로 쓰기	Keep sets from the current team	今のチームの型をそのまま使う
+고급 설정	Advanced settings	詳細設定
+메가	Mega	メガ
+평가	Evaluation	評価
+후보 36팀 경주 10→20판 · 교체 1라운드 · 최종 40판 (1~2분)	36 candidates raced 10→20 games · 1 swap round · 40 final games (1–2 min)	候補36チーム 10→20戦 · 入れ替え1ラウンド · 最終40戦(1〜2分)
+후보 90팀 경주 14→28→48판 · 교체 3라운드 · 최종 160판 (오래 걸림)	90 candidates raced 14→28→48 games · 3 swap rounds · 160 final games (slow)	候補90チーム 14→28→48戦 · 入れ替え3ラウンド · 最終160戦(時間がかかります)
+추천 팀 {}개	{} recommended teams	おすすめチーム {}件
+후보 {}팀을 모의전으로 겨뤄 고르고, 처음 보는 상대로 다시 검증했습니다 · {}초	Picked from {} candidates by simulation, then re-checked against unseen opponents · {}s	候補{}チームを模擬戦で選び、初見の相手で再検証しました · {}秒
+{}안	Option {}	{}案
+검증 승점률	Verified score	検証勝ち点率
+처음 보는 상대 {}판	{} games vs unseen foes	初見の相手 {}戦
+선정 모의전 승률	Selection win rate	選考模擬戦の勝率
+챔피언 CPU 상대	vs Champion CPU	チャンピオンCPU戦
+100점 만점	out of 100	100点満点
+이 팀을 고른 이유	Why this team	このチームを選んだ理由
+주로 쓰는 선봉	Usual leads	主な先発
+조심할 타입	Types to watch	注意するタイプ
+약점 {}	{} weak	弱点 {}
+포켓몬별 선택 이유와 세트	Why each Pokémon and its set	ポケモン別の採用理由と型
+모의전 상세	Simulation details	模擬戦の詳細
+선정·검증 전적, 포켓몬별 성적, 교체·최적화 기록	Selection and verification records, per-Pokémon stats, swaps and tuning	選考・検証の戦績、ポケモン別成績、入れ替え・最適化の記録
+{} 상대 패배 매치 연습	Practice the loss vs {}	{}相手の負け試合を練習
+지정	Chosen	指定
+숨은 카드	Hidden pick	隠し札
+뽑은 이유	Why it was picked	採用理由
+세트와 이유	Set and reasons	型と理由
+처음 보는 상대로 검증 · {} ({}판)	Verified vs unseen foes · {} ({} games)	初見の相手で検証 · {}({}戦)
+탐색에 쓰지 않은 합성 코어 {}종 · 마스터볼 CPU	{} synthetic cores unused in search · Master Ball CPU	探索に使っていない合成コア{}種 · マスターボールCPU
+95% 추정 범위 {}–{}	95% range {}–{}	95%推定範囲 {}–{}
+{} · {}승 {}무 {}패	{} · {}W {}D {}L	{} · {}勝{}分{}敗
+성격·포인트	Nature · points	性格・ポイント
+팀 자동 구성 개선	Better auto team building	チーム自動構成の改善
+서로 날씨를 덮어쓰거나, 팀 날씨에서 약해지는 공격수를 넣거나, 트릭룸 팀에 빠른 포켓몬을 넣는 조합을 더 이상 만들지 않습니다. 포켓몬마다 뽑은 이유와 도구·특성·성격·기술을 고른 이유를 보여 주고, 결과 화면을 정리했습니다.	No more teams whose weathers overwrite each other, attackers weakened by the team weather, or fast Pokémon on Trick Room teams. Each Pokémon now shows why it was picked and why its item, ability, nature and moves were chosen; the results screen is cleaner.	天気が打ち消し合う構成、チームの天気で弱くなるアタッカー、トリックルームに速いポケモンを入れる構成を作らなくなりました。ポケモンごとの採用理由と、持ち物・特性・性格・技の理由を表示し、結果画面を整理しました。

@@ -9,9 +9,8 @@ import '../main.dart';
 import '../team_state.dart';
 import '../widgets.dart';
 import 'build_loader.dart';
-import 'party_simulation.dart';
+import 'auto_team_result.dart';
 import 'calc_common.dart' show PreviewRulesChip;
-import 'parties_page.dart';
 import '../i18n.dart';
 
 const _focuses = <(String, String, String, LabGlyph)>[
@@ -249,231 +248,117 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
       ...exclude.keys,
       ...lockSets.map((s) => s['id'] as String)
     };
+    final textTheme = Theme.of(context).textTheme;
+    final muted = TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant, height: 1.4);
+    String pick(List<(String, String, String)> options, String value) =>
+        tr(options.firstWhere((o) => o.$1 == value).$2);
+    final depthLabel = switch (depth) { 'quick' => tr('빠르게'), 'deep' => tr('정밀'), _ => tr('표준') };
+    final advancedSummary = [
+      '${tr('팀 개성')} ${pick(_originalities, originality)}',
+      '${tr('조커')} ${pick(_jokerModes, joker)}',
+      '${tr('메가')} ${pick(_megaModes, mega)}',
+      if (core.isNotEmpty) pick(_cores, core),
+      '${tr('세트')} ${pick(_tunes, tune)}',
+      '${tr('평가')} $depthLabel',
+    ].join(' · ');
+    Widget chips(List<Widget> children) => Wrap(spacing: 8, runSpacing: 8, children: children);
+    Widget label(String text) => Padding(
+          padding: const EdgeInsets.only(top: 14, bottom: 7),
+          child: Text(text, style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+        );
+    Widget monChip(Json p, VoidCallback onDeleted) => InputChip(
+          deleteIcon: const LabIcon(LabGlyph.cross, size: 15),
+          label: Text('${p['ko'] ?? p['name']}'),
+          avatar: Sprite(p['sprite'] as String, size: 24),
+          onDeleted: building ? null : onDeleted,
+        );
+    final selectedTactics = [for (final t in _tactics) if (tactics.contains(t.$1)) t];
     return PageBody(children: [
       PageHeader(
         '팀 자동 구성',
         glyph: LabGlyph.spark,
-        subtitle:
-            '${doubles ? '더블배틀' : '싱글배틀'} · 선호 조건으로 6마리 팀을 만들고 같은 상대군에서 성적을 비교합니다.',
-        trailing: TextButton(
-            onPressed: () => context.go('/team'), child: const Text('팀 빌더')),
+        subtitle: '${doubles ? '더블배틀' : '싱글배틀'} · 조건에 맞는 6마리 팀을 만들고 같은 상대군에서 성적을 비교합니다.',
+        trailing: TextButton(onPressed: () => context.go('/team'), child: const Text('팀 빌더')),
       ),
       if (ref.watch(nextSeasonAtProvider) != null)
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: Wrap(spacing: 10, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          child: Wrap(spacing: 10, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
             const PreviewRulesChip(),
             Text(
                 ref.watch(previewRulesProvider)
                     ? '다음 시즌의 참가 포켓몬·밸런스 조정·새 포켓몬(임시 데이터)으로 팀을 짭니다. 상대 메타는 지금 통계 기준입니다.'
                     : '켜면 시즌이 시작되기 전에 다음 시즌 규칙으로 팀을 미리 짜 볼 수 있습니다.',
-                style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                style: muted),
           ]),
         ),
       Section(
-        '무엇을 중심으로 짤까요?',
+        '1. 어떤 팀을 원하나요?',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Wrap(spacing: 8, runSpacing: 6, children: [
-            for (final (key, label, _, glyph) in _focuses)
+          chips([
+            for (final (key, text, _, glyph) in _focuses)
               ChoiceChip(
                 avatar: LabIcon(glyph, size: 17),
-                label: Text(label),
+                label: Text(text),
                 selected: focus == key,
                 onSelected: building ? null : (_) => _change(() => focus = key),
               ),
           ]),
           const SizedBox(height: 7),
-          Text(_focuses.firstWhere((option) => option.$1 == focus).$3),
-          const SizedBox(height: 14),
-          Text('날씨를 활용할까요?', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 5),
-          Wrap(spacing: 8, runSpacing: 6, children: [
-            for (final (key, label, _) in _weathers)
+          Text(_focuses.firstWhere((option) => option.$1 == focus).$3, style: muted),
+          label('날씨'),
+          chips([
+            for (final (key, text, _) in _weathers)
               ChoiceChip(
-                label: Text(label),
+                label: Text(key.isEmpty ? tr('사용 안 함') : text),
                 selected: weather == key,
-                onSelected:
-                    building ? null : (_) => _change(() => weather = key),
+                onSelected: building ? null : (_) => _change(() => weather = key),
               ),
           ]),
           if (weather.isNotEmpty) ...[
             const SizedBox(height: 7),
-            Text(_weathers.firstWhere((option) => option.$1 == weather).$3),
+            Text(_weathers.firstWhere((option) => option.$1 == weather).$3, style: muted),
           ],
-          LabExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: Text(
-                tactics.isEmpty ? '세부 전술 추가' : '세부 전술 · ${tactics.length}개'),
-            expandedCrossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final (key, label, help, doublesOnly) in _tactics)
-                if (doubles || !doublesOnly)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(children: [
-                      FilterChip(
-                        label: Text(label),
-                        selected: tactics.contains(key),
-                        onSelected: building
-                            ? null
-                            : (value) => _change(() {
-                                  if (value) {
-                                    tactics.add(key);
-                                  } else {
-                                    tactics.remove(key);
-                                  }
-                                }),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                          child: Text(help,
-                              style: Theme.of(context).textTheme.bodySmall)),
-                    ]),
-                  ),
-            ],
-          ),
-        ]),
-      ),
-      Section(
-        '구성 조건',
-        subtitle: '팀 개성, 조커, 메가진화, 타입 조합과 세트 최적화를 고릅니다.',
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _OptionRow(
-            label: '팀 개성',
-            options: _originalities,
-            value: originality,
-            onChanged: building ? null : (v) => _change(() => originality = v),
-          ),
-          _OptionRow(
-            label: '조커 포켓몬',
-            options: _jokerModes,
-            value: joker,
-            onChanged: building ? null : (v) => _change(() => joker = v),
-          ),
-          _OptionRow(
-            label: '메가진화',
-            options: _megaModes,
-            value: mega,
-            onChanged: building ? null : (v) => _change(() => mega = v),
-          ),
-          _OptionRow(
-            label: '타입 조합',
-            options: _cores,
-            value: core,
-            onChanged: building ? null : (v) => _change(() => core = v),
-          ),
-          _OptionRow(
-            label: '세트 최적화',
-            options: _tunes,
-            value: tune,
-            onChanged: building ? null : (v) => _change(() => tune = v),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('랭커 파티 상대 전적도 확인'),
-            subtitle: const Text('시즌 상위 랭커 파티와도 싸워 유리·호각·불리를 보여 줍니다.'),
-            value: rankers,
-            onChanged: building
-                ? null
-                : (v) => _change(() {
-                      rankers = v;
-                      if (!v && objective == 'ranker') objective = 'win';
-                    }),
-          ),
-        ]),
-      ),
-      Section(
-        '팀을 고르는 기준',
-        subtitle: switch (objective) {
-          'stability' => '전략별 승률 중 가장 낮은 값이 높은 팀을 먼저 봅니다.',
-          'ranker' => '메타 상대군 승률과 랭커 파티 상대 승률을 반씩 합쳐 봅니다.',
-          _ => '여러 상대를 합친 전체 승률이 높은 팀을 먼저 봅니다.',
-        },
-        child: Wrap(spacing: 8, runSpacing: 6, children: [
-          for (final (value, label) in [
-            ('win', '종합 승률'),
-            ('stability', '약점 보완'),
-            if (rankers) ('ranker', '랭커 파티 상대'),
-          ])
-            ChoiceChip(
-              label: Text(label),
-              selected: objective == value,
-              onSelected:
-                  building ? null : (_) => _change(() => objective = value),
-            ),
-        ]),
-      ),
-      Section(
-        '평가 방법',
-        subtitle: '평가 깊이를 높이면 멤버를 더 여러 번 바꿔 보고, 검증 경기 수도 늘어납니다.',
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Wrap(spacing: 10, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-            SizedBox(width: 92, child: Text('평가 깊이', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant))),
-            SegmentedButton<String>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: 'quick', label: Text('빠르게')),
-                ButtonSegment(value: 'standard', label: Text('표준')),
-                ButtonSegment(value: 'deep', label: Text('정밀')),
-              ],
-              selected: {depth},
-              onSelectionChanged: building ? null : (v) => _change(() => depth = v.first),
-            ),
-            Text(switch (depth) {
-              'quick' => '후보 36팀 경주 10→20판 · 교체 1라운드 · 최종 40판',
-              'deep' => '후보 90팀 경주 14→28→48판 · 교체 3라운드 · 최종 160판',
-              _ => '후보 56팀 경주 12→24→32판 · 교체 2라운드 · 최종 80판',
-            }, style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant)),
-          ]),
-          const SizedBox(height: 10),
-          Wrap(spacing: 10, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-            SizedBox(width: 92, child: Text('검증 CPU', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant))),
-            SegmentedButton<String>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: 'ultra', label: Text('하이퍼볼')),
-                ButtonSegment(value: 'master', label: Text('마스터볼')),
-                ButtonSegment(value: 'champion', label: Text('챔피언')),
-              ],
-              selected: {cpu},
-              onSelectionChanged: building ? null : (v) => _change(() => cpu = v.first),
-            ),
-            Text(cpu == 'champion' ? '실전 플레이어 수준 · 시간이 더 걸립니다' : cpu == 'master' ? '상대 행동을 예측하는 CPU' : '표준 CPU',
-                style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant)),
-          ]),
-        ]),
-      ),
-      Section(
-        '포켓몬 지정 · $fixedCount/5',
-        subtitle: '넣을 포켓몬을 지정하거나 현재 팀의 세트를 고정할 수 있습니다. 남은 자리는 자동으로 채웁니다.',
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                for (final p in include.values)
-                  InputChip(
-                    deleteIcon: const LabIcon(LabGlyph.cross, size: 15),
-                    label: Text('${p['ko'] ?? p['name']}'),
-                    avatar: Sprite(p['sprite'] as String, size: 24),
-                    onDeleted: building
+          label('전술 (여러 개 선택 가능)'),
+          chips([
+            for (final (key, text, help, doublesOnly) in _tactics)
+              if (doubles || !doublesOnly)
+                Tooltip(
+                  message: help,
+                  child: FilterChip(
+                    label: Text(text),
+                    selected: tactics.contains(key),
+                    onSelected: building
                         ? null
-                        : () => _change(() => include.remove(p['id'])),
+                        : (value) => _change(() => value ? tactics.add(key) : tactics.remove(key)),
                   ),
-                OutlinedButton.icon(
-                  onPressed: mons == null || building || fixedCount >= 5
-                      ? null
-                      : () => _add(mons, unavailable, include),
-                  icon: const LabIcon(LabGlyph.plus, size: 18),
-                  label: const Text('꼭 넣을 포켓몬'),
                 ),
-              ]),
+          ]),
+          for (final (_, text, help, _) in selectedTactics)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text('${tr(text)} · ${tr(help)}', style: muted),
+            ),
+        ]),
+      ),
+      Section(
+        '2. 넣거나 뺄 포켓몬',
+        subtitle: '선택 사항입니다. 남은 자리는 자동으로 채웁니다.',
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(tr('꼭 넣기 · {}/5').replaceFirst('{}', '$fixedCount'),
+              style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 7),
+          chips([
+            for (final p in include.values) monChip(p, () => _change(() => include.remove(p['id']))),
+            OutlinedButton.icon(
+              onPressed: mons == null || building || fixedCount >= 5 ? null : () => _add(mons, unavailable, include),
+              icon: const LabIcon(LabGlyph.plus, size: 18),
+              label: const Text('포켓몬 추가'),
+            ),
+          ]),
           if (team.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            const Text('현재 팀에서 세트 그대로 가져오기'),
-            const SizedBox(height: 4),
-            Wrap(spacing: 8, runSpacing: 6, children: [
+            label('지금 팀의 세트 그대로 쓰기'),
+            chips([
               for (final slot in team)
                 FilterChip(
                   label: Text('${slot.detail['ko'] ?? slot.detail['name']}'),
@@ -486,92 +371,176 @@ class _AutoTeamFormState extends ConsumerState<_AutoTeamForm> {
                       ? null
                       : (value) => _change(() {
                             final id = slot.set['id'] as String;
-                            if (value) {
-                              locked.add(id);
-                            } else {
-                              locked.remove(id);
-                            }
+                            value ? locked.add(id) : locked.remove(id);
                           }),
                 ),
             ]),
           ],
+          label('빼기'),
+          chips([
+            for (final p in exclude.values) monChip(p, () => _change(() => exclude.remove(p['id']))),
+            OutlinedButton.icon(
+              onPressed: mons == null || building || exclude.length >= 12 ? null : () => _add(mons, unavailable, exclude),
+              icon: const LabIcon(LabGlyph.plus, size: 18),
+              label: const Text('제외할 포켓몬 추가'),
+            ),
+          ]),
         ]),
       ),
-      Section(
-        '제외할 포켓몬',
-        subtitle: '선호하지 않는 포켓몬을 빼고 팀을 만들 수 있습니다.',
-        child: Wrap(spacing: 8, runSpacing: 6, children: [
-          for (final p in exclude.values)
-            InputChip(
-              deleteIcon: const LabIcon(LabGlyph.cross, size: 15),
-              label: Text('${p['ko'] ?? p['name']}'),
-              avatar: Sprite(p['sprite'] as String, size: 24),
-              onDeleted: building
-                  ? null
-                  : () => _change(() => exclude.remove(p['id'])),
+      Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cs.outlineVariant.withOpacity(.6)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: LabExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+          title: const Text('고급 설정'),
+          subtitle: Text(advancedSummary, style: muted, maxLines: 2, overflow: TextOverflow.ellipsis),
+          children: [
+            _OptionRow(
+                label: '팀 개성',
+                options: _originalities,
+                value: originality,
+                onChanged: building ? null : (v) => _change(() => originality = v)),
+            _OptionRow(
+                label: '조커 포켓몬',
+                options: _jokerModes,
+                value: joker,
+                onChanged: building ? null : (v) => _change(() => joker = v)),
+            _OptionRow(
+                label: '메가진화',
+                options: _megaModes,
+                value: mega,
+                onChanged: building ? null : (v) => _change(() => mega = v)),
+            _OptionRow(
+                label: '타입 조합',
+                options: _cores,
+                value: core,
+                onChanged: building ? null : (v) => _change(() => core = v)),
+            _OptionRow(
+                label: '세트 최적화',
+                options: _tunes,
+                value: tune,
+                onChanged: building ? null : (v) => _change(() => tune = v)),
+            _OptionRow(
+              label: '팀을 고르는 기준',
+              options: [
+                ('win', '종합 승률', '여러 상대를 합친 전체 승률이 높은 팀을 먼저 봅니다.'),
+                ('stability', '약점 보완', '전략별 승률 중 가장 낮은 값이 높은 팀을 먼저 봅니다.'),
+                if (rankers) ('ranker', '랭커 파티 상대', '메타 상대군 승률과 랭커 파티 상대 승률을 반씩 합쳐 봅니다.'),
+              ],
+              value: objective,
+              onChanged: building ? null : (v) => _change(() => objective = v),
             ),
-          OutlinedButton.icon(
-            onPressed: mons == null || building || exclude.length >= 12
-                ? null
-                : () => _add(mons, unavailable, exclude),
-            icon: const LabIcon(LabGlyph.plus, size: 18),
-            label: const Text('제외할 포켓몬 추가'),
-          ),
-        ]),
+            _OptionRow(
+              label: '평가 깊이',
+              options: const [
+                ('quick', '빠르게', '후보 36팀 경주 10→20판 · 교체 1라운드 · 최종 40판 (1~2분)'),
+                ('standard', '표준', '후보 56팀 경주 12→24→32판 · 교체 2라운드 · 최종 80판'),
+                ('deep', '정밀', '후보 90팀 경주 14→28→48판 · 교체 3라운드 · 최종 160판 (오래 걸림)'),
+              ],
+              value: depth,
+              onChanged: building ? null : (v) => _change(() => depth = v),
+            ),
+            _OptionRow(
+              label: '검증 CPU',
+              options: const [
+                ('ultra', '하이퍼볼', '표준 CPU'),
+                ('master', '마스터볼', '상대 행동을 예측하는 CPU'),
+                ('champion', '챔피언', '실전 플레이어 수준 · 시간이 더 걸립니다'),
+              ],
+              value: cpu,
+              onChanged: building ? null : (v) => _change(() => cpu = v),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('랭커 파티 상대 전적도 확인'),
+              subtitle: const Text('시즌 상위 랭커 파티와도 싸워 유리·호각·불리를 보여 줍니다.'),
+              value: rankers,
+              onChanged: building
+                  ? null
+                  : (v) => _change(() {
+                        rankers = v;
+                        if (!v && objective == 'ranker') objective = 'win';
+                      }),
+            ),
+          ],
+        ),
       ),
       Padding(
-        padding: const EdgeInsets.only(bottom: 14),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: building
-              ? TeamBuildLoader(
-                  key: loaderKey,
-                  progress: progress,
-                  onCancel: () => setState(() {
-                    _run++;
-                    building = false;
-                    progress = null;
-                  }),
-                )
-              : FilledButton.icon(
+        padding: const EdgeInsets.only(bottom: 18),
+        child: building
+            ? TeamBuildLoader(
+                key: loaderKey,
+                progress: progress,
+                onCancel: () => setState(() {
+                  _run++;
+                  building = false;
+                  progress = null;
+                }),
+              )
+            : SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
                   onPressed: () => _generate(lockSets),
                   icon: const LabIcon(LabGlyph.spark, size: 18),
                   label: const Text('팀 만들고 성적 비교'),
                 ),
-        ),
+              ),
       ),
       if (error != null)
         Padding(
           padding: const EdgeInsets.only(bottom: 14),
           child: Text(error!, style: TextStyle(color: cs.error)),
         ),
-      if ((result?['evaluation'] as Json?)?['ignored'] case final List ignored when ignored.isNotEmpty)
+      if (result?['evaluation'] case final Json evaluation) ...[
         Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Text(tr('싱글배틀에서는 쓸 수 없는 전술을 빼고 만들었습니다: {}')
-              .replaceFirst('{}', ignored.map((e) => tr(e as String)).join(', '))),
+          key: resultsKey,
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr('추천 팀 {}개').replaceFirst('{}', '${candidates.length}'),
+                style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 3),
+            Text(
+                tr('후보 {}팀을 모의전으로 겨뤄 고르고, 처음 보는 상대로 다시 검증했습니다 · {}초')
+                    .replaceFirst('{}', '${evaluation['screened']}')
+                    .replaceFirst('{}', '${(evaluation['seconds'] as num? ?? 0).round()}'),
+                style: muted),
+            Text('승률은 앱의 배틀 엔진과 CPU 기준이며 실제 랭크전 승률이 아닙니다.', style: muted),
+          ]),
         ),
-      for (final w in ((result?['evaluation'] as Json?)?['dataWarnings'] as List? ?? const []).cast<Json>())
-        Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-              color: (w['level'] == 'warn' ? cs.tertiaryContainer : cs.surfaceContainerHigh),
-              borderRadius: BorderRadius.circular(10)),
-          child: Text(tr(w['text'] as String),
-              style: TextStyle(color: w['level'] == 'warn' ? cs.onTertiaryContainer : null, fontSize: 13)),
-        ),
-      if (result?['splitWeather'] == true)
-        const Padding(
-          padding: EdgeInsets.only(bottom: 12),
-          child: Text('서로 덮어쓰는 날씨는 각각 후보를 만들었습니다.'),
-        ),
-      if (result?['evaluation'] case final Json evaluation)
-        PartyEvaluationSummary(evaluation,
-            key: resultsKey, candidates: candidates),
-      for (final candidate in candidates)
-        PartyCard(key: ValueKey(candidate['id']), party: candidate),
+        if ((evaluation['ignored'] as List? ?? const []).isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text(
+                tr('싱글배틀에서는 쓸 수 없는 전술을 빼고 만들었습니다: {}')
+                    .replaceFirst('{}', (evaluation['ignored'] as List).map((e) => tr(e as String)).join(', ')),
+                style: muted),
+          ),
+        for (final w in (evaluation['dataWarnings'] as List? ?? const []).cast<Json>())
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+                color: (w['level'] == 'warn' ? cs.tertiaryContainer : cs.surfaceContainerHigh),
+                borderRadius: BorderRadius.circular(10)),
+            child: Text(tr(w['text'] as String),
+                style: TextStyle(color: w['level'] == 'warn' ? cs.onTertiaryContainer : null, fontSize: 12.5)),
+          ),
+        if (result?['splitWeather'] == true)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text('서로 덮어쓰는 날씨는 각각 후보를 만들었습니다.', style: muted),
+          ),
+        for (final (i, candidate) in candidates.indexed)
+          AutoTeamCard(key: ValueKey(candidate['id']), party: candidate, index: i),
+      ],
     ]);
   }
 }

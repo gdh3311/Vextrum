@@ -6,6 +6,9 @@
 2. 백엔드를 PyInstaller로 얼려 vextrum-backend.exe (파이썬 설치 없이 실행)
 3. dist/Vextrum/ 에 앱 + backend/ + backend/data/dataset.json 을 모으고
 4. dist/Vextrum-<버전>-beta-windows-x64.zip 으로 묶는다.
+5. 앱 안 업데이트용: 파일 목록(manifest.json)과, 최근 버전들과 달라진 파일만 담은 patch.zip 을 만든다.
+   지난 버전 목록은 dist/manifests/<버전>.json 에 쌓인다 (없으면 dist 의 지난 전체 압축에서 만든다).
+   GitHub 릴리스에 세 파일을 모두 올린다.
 
 자동 연구 DB(research.sqlite)는 넣지 않는다. 받은 사람의 PC에서 처음부터 다시 쌓인다.
 """
@@ -13,6 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
+import json
 import zipfile
 from pathlib import Path
 
@@ -22,6 +26,8 @@ BACKEND = ROOT / "backend"
 DIST = ROOT / "dist"
 WORK = DIST / "_build"
 PYTHON = BACKEND / ".venv" / "Scripts" / "python.exe"
+sys.path.insert(0, str(BACKEND))
+from app import updater  # noqa: E402 - 설치 폴더와 같은 규칙으로 파일 목록을 만든다
 
 README = """Vextrum (Champions Meta Lab) {version} 베타 — Windows
 
@@ -41,6 +47,38 @@ README = """Vextrum (Champions Meta Lab) {version} 베타 — Windows
   - 동봉한 순위·채용률 데이터 수집 시각: {data_time}. 앱의 설정에서 새로 받을 수 있습니다.
   - 자동 연구 기록은 backend/data/research.sqlite 에 쌓입니다. 폴더를 지우면 함께 지워집니다.
 """
+
+
+PATCH_BASES = 5  # 최근 몇 버전에서 패치로 바로 올라올 수 있게 할지
+
+
+def _zip_manifest(path: Path, ver: str) -> dict:
+    import hashlib
+
+    files = {}
+    with zipfile.ZipFile(path) as z:
+        for i in z.infolist():
+            rel = i.filename.split("/", 1)[1] if i.filename.startswith("Vextrum/") else i.filename
+            if not i.is_dir() and updater.tracked(rel):
+                files[rel] = {"sha256": hashlib.sha256(z.read(i)).hexdigest(), "size": i.file_size}
+    return {"version": ver, "files": files}
+
+
+def _key(ver: str):
+    return tuple(int(x) for x in ver.split("."))
+
+
+def previous_manifests(ver: str) -> list[dict]:
+    """이번 버전보다 낮은 최근 버전들의 파일 목록."""
+    store = DIST / "manifests"
+    store.mkdir(parents=True, exist_ok=True)
+    for archive in DIST.glob("Vextrum-*-beta-windows-x64.zip"):
+        old = re.search(r"Vextrum-([\d.]+)-beta", archive.name)[1]
+        if not (store / f"{old}.json").exists():
+            (store / f"{old}.json").write_text(json.dumps(_zip_manifest(archive, old)), encoding="utf-8")
+    vers = sorted((f.stem for f in store.glob("*.json") if re.fullmatch(r"[\d.]+", f.stem) and _key(f.stem) < _key(ver)),
+                  key=_key)[-PATCH_BASES:]
+    return [json.loads((store / f"{v}.json").read_text(encoding="utf-8")) for v in vers]
 
 
 def run(cmd, cwd):
@@ -75,10 +113,22 @@ def main():
     data = out / "backend" / "data"
     data.mkdir()
     shutil.copy2(BACKEND / "data" / "dataset.json", data / "dataset.json")
-    import json
-
     stamp = json.loads((BACKEND / "data" / "dataset.json").read_text(encoding="utf-8")).get("generatedAt", "?")
     (out / "읽어 주세요.txt").write_text(README.format(version=ver, data_time=stamp), encoding="utf-8-sig")
+    manifest = updater.build_manifest(out, ver)
+    bases = previous_manifests(ver)
+    manifest["patch"] = sorted(rel for rel, meta in manifest["files"].items()
+                               if not bases or any(b["files"].get(rel, {}).get("sha256") != meta["sha256"] for b in bases))
+    manifest["patchBases"] = [b["version"] for b in bases]
+    (out / updater.MANIFEST).write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
+    (DIST / "manifests" / f"{ver}.json").write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
+    (DIST / f"Vextrum-{ver}-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
+    patch_zip = DIST / f"Vextrum-{ver}-patch.zip"
+    with zipfile.ZipFile(patch_zip, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
+        for rel in manifest["patch"]:
+            z.write(out / rel, f"Vextrum/{rel}")
+    print(f"{patch_zip}  {patch_zip.stat().st_size / 1e6:.1f} MB  ({len(manifest['patch'])} files, "
+          f"from {', '.join(manifest['patchBases']) or '-'})", flush=True)
     archive = DIST / f"Vextrum-{ver}-beta-windows-x64.zip"
     if archive.exists():
         archive.unlink()

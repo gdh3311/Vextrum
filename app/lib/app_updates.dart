@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart' hide Text, Tooltip;
 import 'package:flutter/services.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api.dart';
+import 'backend_launcher.dart';
 
 import 'lab_icons.dart';
 import 'settings.dart';
@@ -15,6 +19,22 @@ const _seenKey = 'last_read_app_update';
 const _releases = [
   (
     version: appVersion,
+    date: '2026.11.27',
+    entries: [
+      (
+        glyph: LabGlyph.team,
+        title: '팀 자동 구성 개선',
+        detail: '서로 날씨를 덮어쓰거나, 팀 날씨에서 약해지는 공격수를 넣거나, 트릭룸 팀에 빠른 포켓몬을 넣는 조합을 더 이상 만들지 않습니다. 포켓몬마다 뽑은 이유와 도구·특성·성격·기술을 고른 이유를 보여 주고, 결과 화면을 정리했습니다.',
+      ),
+      (
+        glyph: LabGlyph.archive,
+        title: '앱 안에서 업데이트',
+        detail: '새 버전이 나오면 업데이트 내역 창에서 [업데이트]를 누르면 바뀐 파일만 받아 적용하고 앱을 다시 켭니다. 압축을 새로 받아 풀 필요가 없고, 연구 기록·받은 데이터는 그대로 남습니다.',
+      ),
+    ],
+  ),
+  (
+    version: '1.23.0',
     date: '2026.11.27',
     entries: [
       (
@@ -550,26 +570,7 @@ class _UpdatesDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (available case final Json next)
-              Container(
-                color: cs.tertiaryContainer,
-                padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-                child: Row(children: [
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(tr('새 버전 v{}가 나왔습니다').replaceFirst('{}', '${next['version']}'),
-                          style: TextStyle(fontWeight: FontWeight.w800, color: cs.onTertiaryContainer)),
-                      SelectableText('${next['url']}',
-                          style: TextStyle(fontSize: 12, color: cs.onTertiaryContainer)),
-                    ]),
-                  ),
-                  IconButton(
-                    tooltip: tr('다운로드 페이지 링크 복사'),
-                    onPressed: () => Clipboard.setData(ClipboardData(text: '${next['url']}')),
-                    icon: LabIcon(LabGlyph.copy, size: 18, color: cs.onTertiaryContainer),
-                  ),
-                ]),
-              ),
+            if (available case final Json next) NewVersionBanner(next: next),
             Stack(children: [
               Positioned.fill(
                 child: Image.asset('assets/arena.jpg',
@@ -696,6 +697,142 @@ class _UpdateEntry extends StatelessWidget {
             Text(detail, style: theme.textTheme.bodySmall),
           ]),
         ),
+      ]),
+    );
+  }
+}
+
+
+/// 새 버전 안내 + 앱 안 업데이트 (받기 → 다시 시작해 적용). 배포판이 아니면 다운로드 페이지 링크만.
+class NewVersionBanner extends StatefulWidget {
+  const NewVersionBanner({super.key, required this.next});
+  final Json next;
+
+  @override
+  State<NewVersionBanner> createState() => _NewVersionBannerState();
+}
+
+class _NewVersionBannerState extends State<NewVersionBanner> {
+  Json _state = const {};
+  Timer? _poll;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.next['inApp'] == true) _refresh();
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    try {
+      final s = (await dio.get('/api/app/update')).data as Json;
+      if (!mounted) return;
+      setState(() => _state = s);
+      final phase = s['phase'];
+      _poll?.cancel();
+      if (phase == 'checking' || phase == 'downloading' || phase == 'verifying') {
+        _poll = Timer(const Duration(milliseconds: 500), _refresh);
+      }
+    } catch (_) {}
+  }
+
+  String _error(Object e) => e is DioException && e.response?.data is Map
+      ? '${(e.response!.data as Map)['detail']}'
+      : tr('업데이트 서버에 연결하지 못했습니다');
+
+  Future<void> _download() async {
+    setState(() => _busy = true);
+    try {
+      final s = (await dio.post('/api/app/update/download')).data as Json;
+      if (mounted) setState(() => _state = s);
+      await _refresh();
+    } catch (e) {
+      if (mounted) setState(() => _state = {'phase': 'error', 'error': _error(e)});
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _apply() async {
+    setState(() => _busy = true);
+    try {
+      final res = (await dio.post('/api/app/update/apply')).data as Json;
+      final command = [for (final x in res['command'] as List) '$x'];
+      if (!await restartForUpdate(command) && mounted) {
+        setState(() => _state = {'phase': 'error', 'error': tr('업데이트를 적용하지 못했습니다')});
+      }
+    } catch (e) {
+      if (mounted) setState(() => _state = {'phase': 'error', 'error': _error(e)});
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  String _mb(Object? bytes) => ((bytes as num? ?? 0) / 1e6).toStringAsFixed(1);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final next = widget.next;
+    final inApp = next['inApp'] == true;
+    final phase = _state['phase'] as String? ?? 'idle';
+    final fg = cs.onTertiaryContainer;
+    final small = TextStyle(fontSize: 12, color: fg);
+    final working = phase == 'checking' || phase == 'downloading' || phase == 'verifying';
+    final total = (_state['total'] as num?)?.toDouble() ?? 0;
+    final received = (_state['received'] as num?)?.toDouble() ?? 0;
+    Widget? action;
+    final lines = <Widget>[];
+    if (!inApp) {
+      lines.add(SelectableText('${next['url']}', style: small));
+      action = IconButton(
+        tooltip: tr('다운로드 페이지 링크 복사'),
+        onPressed: () => Clipboard.setData(ClipboardData(text: '${next['url']}')),
+        icon: LabIcon(LabGlyph.copy, size: 18, color: fg),
+      );
+    } else if (working) {
+      final patch = _state['mode'] == 'patch';
+      lines.add(Text(
+          phase == 'downloading'
+              ? '${tr(patch ? '바뀐 파일 받는 중' : '전체 파일 받는 중')}  ${_mb(received)} / ${_mb(total)} MB'
+              : tr(phase == 'verifying' ? '받은 파일 확인 중' : '바뀐 파일 찾는 중'),
+          style: small));
+      lines.add(Padding(
+        padding: const EdgeInsets.only(top: 6, right: 8),
+        child: LinearProgressIndicator(value: phase == 'downloading' && total > 0 ? received / total : null),
+      ));
+    } else if (phase == 'ready' || phase == 'applying') {
+      lines.add(Text(tr('준비됐습니다. 다시 시작하면 적용됩니다 (몇 초 걸립니다)'), style: small));
+      action = FilledButton(
+          onPressed: _busy || phase == 'applying' ? null : _apply, child: Text(tr('다시 시작해 적용')));
+    } else {
+      lines.add(Text(
+          phase == 'error'
+              ? '${tr('업데이트 실패')}: ${_state['error'] ?? ''}'
+              : tr('바뀐 파일만 받아 적용합니다. 연구 기록과 받은 데이터는 그대로 남습니다'),
+          style: small));
+      action = FilledButton(
+          onPressed: _busy ? null : _download, child: Text(tr(phase == 'error' ? '다시 시도' : '업데이트')));
+    }
+    return Container(
+      color: cs.tertiaryContainer,
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr('새 버전 v{}가 나왔습니다').replaceFirst('{}', '${next['version']}'),
+                style: TextStyle(fontWeight: FontWeight.w800, color: fg)),
+            const SizedBox(height: 2),
+            ...lines,
+          ]),
+        ),
+        if (action != null) ...[const SizedBox(width: 8), action],
       ]),
     );
   }
