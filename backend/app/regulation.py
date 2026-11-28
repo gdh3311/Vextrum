@@ -5,7 +5,7 @@
 from datetime import date, datetime, timezone
 
 # 결과가 의존하는 버전 (명세 3.1): 규칙·시뮬레이터·CPU 정책이 바뀌면 이전 성적을 그대로 잇지 않는다.
-SIMULATOR_VERSION = "sim-2026.11.14-r2"  # 봉인·사슬묶기 및 M-C 수치 보정
+SIMULATOR_VERSION = "sim-2026.11.28-r1"  # 변환자재·리베로는 나올 때마다 한 번만
 POLICY_VERSION = "cpu-tiers-v6"  # 공개 정보로 양쪽이 같은 탐색기를 사용
 RULES_VERSION = "champions-mc-2026.11-r2"
 BALANCE_BASELINE = date(2026, 11, 15)

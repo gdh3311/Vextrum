@@ -186,6 +186,7 @@ class Fighter:
     disguise: bool = True
     mega_shown: bool = False
     mega_form: dict | None = None  # 메가진화하면 바뀔 모습 (메가스톤을 든 메가 후보만)
+    protean_type: str | None = None  # 변환자재·리베로: 이번에 나와서 처음 쓴 기술의 타입 (9세대: 나올 때마다 한 번만)
 
     @property
     def max_hp(self) -> int:
@@ -203,6 +204,7 @@ class Fighter:
     def withdraw(self):
         self.stages.clear()
         self.choice = None
+        self.protean_type = None
         self.charging = None
         self.taunt = 0
         self.helped = False
@@ -755,8 +757,9 @@ class Battle:
         target_ability = None if mold else target.mon["ability"]
         if move == "Knock Off" and self._removable(target):
             power *= 1.5
-        if ability in {"Protean", "Libero"} and kind not in actor.mon["types"]:
-            power *= 1.5
+        if (ability in {"Protean", "Libero"} and kind not in actor.mon["types"]
+                and actor.protean_type in (None, kind)):
+            power *= 1.5  # 9세대: 나온 뒤 처음 쓴 기술의 타입으로만 바뀐다
         if ability == "Skill Link" and meta.get("hits") and 2.9 < meta["hits"] < 3.5:
             power *= 5 / meta["hits"]
         if ability == "Mega Launcher" and "pulse" in meta.get("flags", ()):
@@ -1892,6 +1895,9 @@ class Battle:
                             type=self.engine.M.get(move, {}).get("type"))
                 if actor.mon["item"] in CHOICE and move != "Struggle":
                     actor.choice = move
+                if (actor.mon["ability"] in {"Protean", "Libero"} and actor.protean_type is None
+                        and move in self.engine.M):
+                    actor.protean_type = self.engine.M[move]["type"]
                 if move in SUPPORT:
                     success = self._support(side, slot, actor, move, target)
                     if success is False:

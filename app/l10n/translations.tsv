@@ -1495,3 +1495,5 @@ v{} 받기	Get v{}	v{}を入手
 성격·포인트	Nature · points	性格・ポイント
 팀 자동 구성 개선	Better auto team building	チーム自動構成の改善
 서로 날씨를 덮어쓰거나, 팀 날씨에서 약해지는 공격수를 넣거나, 트릭룸 팀에 빠른 포켓몬을 넣는 조합을 더 이상 만들지 않습니다. 포켓몬마다 뽑은 이유와 도구·특성·성격·기술을 고른 이유를 보여 주고, 결과 화면을 정리했습니다.	No more teams whose weathers overwrite each other, attackers weakened by the team weather, or fast Pokémon on Trick Room teams. Each Pokémon now shows why it was picked and why its item, ability, nature and moves were chosen; the results screen is cleaner.	天気が打ち消し合う構成、チームの天気で弱くなるアタッカー、トリックルームに速いポケモンを入れる構成を作らなくなりました。ポケモンごとの採用理由と、持ち物・特性・性格・技の理由を表示し、結果画面を整理しました。
+팀 자동 구성 추가 점검	More auto team checks	チーム自動構成の追加点検
+트릭룸 시동만 여러 마리인 팀을 만들지 않고, 구애 도구에 드래곤테일 같은 느린 기술을 넣지 않습니다. 모의전에서 변환자재·리베로가 나올 때마다 한 번만 타입을 바꾸도록 고쳐 특정 포켓몬이 과대평가되던 문제를 줄였습니다. 포켓몬별 요약에 잘 잡는 상대를 이름과 함께 보여 줍니다.	No more teams stacked with Trick Room setters, and no slow moves like Dragon Tail on Choice items. In simulations Protean/Libero now change type once per switch-in, reducing overrated picks. Member summaries name the opponents they handle well.	トリックルーム役ばかりのチームを作らず、こだわり系の道具にドラゴンテールのような遅い技を入れません。模擬戦でへんげんじざい・リベロが登場ごとに一度だけタイプを変えるよう修正し、特定のポケモンの過大評価を減らしました。ポケモン別の要約に得意な相手を表示します。

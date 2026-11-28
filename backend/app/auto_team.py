@@ -104,6 +104,8 @@ SPEED_WEATHER = {"Chlorophyll": "sun", "Swift Swim": "rain", "Sand Rush": "sand"
 def _clash(auto, kinds, weak_hits, need_miss, fast, scarf, setters, slow, crawl, wind, goals):
     """서로 방해하는 조합의 감점. 모든 팀에 적용한다 (전략을 고르지 않았을 때도)."""
     penalty = 14 * max(0, len(kinds) - 1) + 6 * weak_hits + 4 * need_miss
+    # 같은 시동이 셋 이상이면 공격할 자리가 줄어든다 (트릭룸 4마리 같은 팀)
+    penalty += 8 * max(0, setters - 2) + 8 * max(0, wind - 2)
     if "trickroom" in goals:
         penalty += 6 * fast + 8 * scarf + 6 * wind
     elif setters and slow < 2:
@@ -141,6 +143,8 @@ def coherence(chosen, goals=()):
                 notes.append(f"{c.resolved['ko'] or c.resolved['name']}의 특성은 {WEATHER_KO[k]} 날씨에서만 발동합니다.")
     if "trickroom" in goals and (fast or scarf):
         notes.append("트릭룸 팀에 빠른 공격수가 섞여 있습니다.")
+    if setters > 2:
+        notes.append(f"트릭룸 시동이 {setters}마리로 많습니다. 공격을 맡을 자리가 줄어듭니다.")
     if "trickroom" not in goals and setters and slow < 2:
         notes.append("트릭룸 시동이 있지만 트릭룸 아래에서 싸울 느린 공격수가 부족합니다.")
     return _clash(*mix, goals), notes
@@ -148,9 +152,11 @@ def coherence(chosen, goals=()):
 
 def incoherent(chosen, goals=()):
     """자동 구성에서 아예 빼는 조합: 자동 날씨 두 종류, 자동 날씨에서 주력 기술이 반감되는 공격수 2마리 이상,
-    트릭룸을 골랐는데 구애스카프나 빠른 공격수 3마리 이상."""
+    트릭룸 시동 4마리 이상, 트릭룸을 골랐는데 구애스카프나 빠른 공격수 3마리 이상."""
     auto = {k for c in chosen for k in c.weather}
     if len(auto) > 1 or any(sum(k in c.weak_under for c in chosen) >= 2 for k in auto):
+        return True
+    if sum("trickroom" in c.features for c in chosen) >= 4:
         return True
     return "trickroom" in goals and (any(c.scarf for c in chosen) or sum(c.fast for c in chosen) >= 3)
 
@@ -248,6 +254,9 @@ def _generated_sets(e, fmt, pid, *, required=False, draft=False):
                     return False
                 if item in {"Choice Band", "Choice Specs", "Choice Scarf"}:
                     return move in {"Trick", "Switcheroo"}
+            # 구애 도구에 우선도 -6 기술은 고정되면 늘 마지막에 움직여 도구가 무의미하다 (예: 스카프 드래곤테일)
+            if item in {"Choice Band", "Choice Specs", "Choice Scarf"} and m.get("priority", 0) < 0:
+                return False
             return True
 
         preferred = [r["name"] for r in usage.get("moves", [])]

@@ -55,6 +55,18 @@ class SimRulesTest(unittest.TestCase):
         b.turn = 3
         self.assertEqual(b._damage(actor, target, "Stomping Tantrum", False)[0], base)
 
+    def test_protean_changes_type_once_per_switch_in(self):
+        b = self.battle([self.s("meowscarada", moves=["Flower Trick", "Triple Axel", "Knock Off", "U-turn"],
+                                ability="Protean", item=None)],
+                        [self.s("incineroar", item=None)])
+        actor, target = b.teams[0][0], b.teams[1][0]
+        actor.withdraw()  # 위협으로 내려간 공격을 지우고 비교한다
+        fresh = b._damage(actor, target, "Triple Axel", False)[0]
+        actor.protean_type = "Grass"  # 처음 쓴 기술이 트릭플라워였다
+        self.assertLess(b._damage(actor, target, "Triple Axel", False)[0], fresh / 1.4)
+        actor.withdraw()  # 교체하면 다시 한 번 바뀔 수 있다
+        self.assertEqual(b._damage(actor, target, "Triple Axel", False)[0], fresh)
+
     def test_stomping_tantrum_protected_attack_is_neutral(self):
         b = self.battle([self.s("garchomp", moves=["Stomping Tantrum"], item=None)],
                         [self.s("kingambit", item=None)])

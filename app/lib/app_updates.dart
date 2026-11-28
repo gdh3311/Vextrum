@@ -19,7 +19,18 @@ const _seenKey = 'last_read_app_update';
 const _releases = [
   (
     version: appVersion,
-    date: '2026.11.27',
+    date: '2026.11.28',
+    entries: [
+      (
+        glyph: LabGlyph.team,
+        title: '팀 자동 구성 추가 점검',
+        detail: '트릭룸 시동만 여러 마리인 팀을 만들지 않고, 구애 도구에 드래곤테일 같은 느린 기술을 넣지 않습니다. 모의전에서 변환자재·리베로가 나올 때마다 한 번만 타입을 바꾸도록 고쳐 특정 포켓몬이 과대평가되던 문제를 줄였습니다. 포켓몬별 요약에 잘 잡는 상대를 이름과 함께 보여 줍니다.',
+      ),
+    ],
+  ),
+  (
+    version: '1.24.0',
+    date: '2026.11.28',
     entries: [
       (
         glyph: LabGlyph.team,

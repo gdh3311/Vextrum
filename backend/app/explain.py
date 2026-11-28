@@ -249,8 +249,12 @@ def explain(e, fmt, roster, meta, weights, report=None, pairs=(), tuning=None, f
         source = ("세트 최적화 · " + "; ".join(f"{row.get('kind', '')} {row.get('change', '')} (모의전 +{row.get('gain', 0):g}%p)".strip()
                                     for row in tuned)
                   if tuned else "실전 사용률 통계의 대표 세트" if usage.get("moves") else "공개 도감 기준 기본 세트")
-        summary = " · ".join(x["text"].split(" · ", 1)[-1] for x in reasons
-                             if x["kind"] in ("role", "cover"))[:90] or reasons[0]["text"]
+        bits = [" · ".join(roles)] if roles else []
+        if c.id in best:
+            bits.append("잘 잡는 상대 " + _join((_ko(f) for f in best[c.id]), 2))
+        elif patched:
+            bits.append(f"{_join(patched, 2)} 공격을 받아 냄")
+        summary = " · ".join(bits) or reasons[0]["text"]
         out.append({"summary": summary, "reasons": reasons, "set": parts, "source": source})
     from .guide import polish
 

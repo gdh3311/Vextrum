@@ -44,6 +44,17 @@ class CoherenceTest(unittest.TestCase):
         self.assertFalse(auto_team.incoherent((setter, scarf)))
         self.assertGreater(auto_team._clash(*auto_team._mix((setter, scarf)), ("trickroom",)), 0)
 
+    def test_too_many_trick_room_setters(self):
+        ids = [pid for pid in ("farigiraf", "sinistcha", "hatterene", "reuniclus", "mimikyu", "slowbro",
+                               "porygon2", "dusclops", "cresselia") if pid in self.e.P]
+        setters = [c for c in (self.mon(pid, moves=[*self.e.default_set(pid, "Doubles")["moves"][:3], "Trick Room"])
+                               for pid in ids) if "trickroom" in c.features]
+        self.assertGreaterEqual(len(setters), 4)
+        self.assertFalse(auto_team.incoherent(setters[:2]))
+        self.assertTrue(auto_team.incoherent(setters[:4]))
+        self.assertGreater(auto_team._clash(*auto_team._mix(setters[:3]), ()),
+                           auto_team._clash(*auto_team._mix(setters[:2]), ()))
+
     def test_weather_speed_ability_without_its_weather(self):
         swim = self.mon("basculegion", ability="Swift Swim")
         self.assertEqual(swim.needs, {"rain"})
